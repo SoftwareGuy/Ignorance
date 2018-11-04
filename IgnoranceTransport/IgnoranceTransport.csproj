@@ -52,17 +52,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Dependencies\ENet-C#\enet.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Dependencies\ENet-C#\enet.dylib">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="Dependencies\ENet-C#\libenet.so">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <Content Include="Dependencies\Mirror\Mirror.Runtime.dll" />
+    <Content Include="Dependencies\UnityEngine\UnityEngine.dll" />
+    <Content Include="Dependencies\UnityEngine\UnityEngine.dll.mdb" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
