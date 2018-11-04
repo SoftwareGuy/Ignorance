@@ -16,6 +16,7 @@ public override void InitializeTransport() {
 }
 ```
 ...to start using Ignorance as the transport mechanism. The default in Mirror is Telepathy which is TCP. The other out-of-the-box option is Unity's LLAPI but that's like dealing with cancer - **Avoid**.
+
 3. Continue programming your stuff as normal.
 
 ## Why Ignorance? Why not name it something something Reliable UDP Transport for Mirror something something?
