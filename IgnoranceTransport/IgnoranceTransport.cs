@@ -31,14 +31,11 @@ namespace Mirror
 
         // -- CLIENT WORLD VARIABLES -- //
         Host client;
-        // Testing
-        // Address clientAddress;
         Peer clientPeer;
 
         private bool superParanoidMode = true;
-        // private bool hackyServerActive = false;
-        // private int clientConnectionId = -1;
 
+        // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
             Library.Initialize();
@@ -74,7 +71,8 @@ namespace Mirror
 
         public bool ServerActive()
         {
-            return server.IsSet;
+            if (server != null) return server.IsSet;
+            else return false;
         }
 
         public bool ServerDisconnect(int connectionId)
@@ -91,10 +89,17 @@ namespace Mirror
 
         public bool ServerGetNextMessage(out int connectionId, out TransportEvent transportEvent, out byte[] data)
         {
+            // Setup some basic things            
+            byte[] newDataPacketContents;
+
+            // The incoming Enet Event.
             Event incomingEvent;
-            connectionId = -1;
+
+            // Mirror's transport event and data output.
             transportEvent = TransportEvent.Disconnected;
             data = null;
+
+            connectionId = -1;
 
             if (!server.IsSet)
             {
@@ -110,6 +115,7 @@ namespace Mirror
             switch (incomingEvent.Type)
             {
                 case EventType.Connect:
+                    // Connections (Normal peer connects)
                     Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something connected to the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
@@ -127,10 +133,15 @@ namespace Mirror
 
                     // Report back saying we got a connection event.
                     transportEvent = TransportEvent.Connected;
-
                     break;
+
+
                 case EventType.Disconnect:
-                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something disconnected from the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                case EventType.Timeout:
+                    // Disconnections (Normal peer disconnect and timeouts)
+
+                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    // Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something disconnected from the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
                     // Since our dictionary stores fake connection IDs, we need to go through and find the real Peer ID.
@@ -152,22 +163,6 @@ namespace Mirror
                     transportEvent = TransportEvent.Disconnected;
                     break;
 
-                case EventType.Timeout:
-                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says it encountered a timeout, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
-                    {
-                        if (entry.Value.ID == incomingEvent.Peer.ID)
-                        {
-                            connectionId = entry.Key;
-
-                            // No need to keep going through the list. Halt.
-                            break;
-                        }
-                    }
-
-                    transportEvent = TransportEvent.Disconnected;
-                    break;
-
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
                     Debug.LogWarningFormat("Ignorance rUDP Transport ServerGetNextMessage(): data! channel {0}, data length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
@@ -185,22 +180,17 @@ namespace Mirror
                     }
 
                     // Try to be safe, but at the moment this just causes an access violation.
-                    byte[] newDataPacketContents = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(newDataPacketContents);                     // <- This will crap the bed with an Access Violation.
-                    Debug.LogFormat("Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
+                    newDataPacketContents = new byte[incomingEvent.Packet.Length];
+                    incomingEvent.Packet.CopyTo(newDataPacketContents);
+                    incomingEvent.Packet.Dispose();
 
+                    Debug.LogFormat("Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
                     data = newDataPacketContents;
                     break;
-
                 case EventType.None:
                     // Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): Nothing yet");
                     return false;
             }
-
-            // Dispose of the packet.
-            incomingEvent.Packet.Dispose();
-
-            server.Flush();
 
             // We're done here. Bugger off.
             return true;
@@ -208,9 +198,6 @@ namespace Mirror
 
         public bool ServerSend(int connectionId, int channelId, byte[] data)
         {
-            // TODO: Is this needed?
-            server.Flush();
-
             // Another mailing pigeon
             Packet mailingPigeon = default(Packet);
 
@@ -261,14 +248,10 @@ namespace Mirror
             {
                 // TODO: WTF?
                 entry.Value.Disconnect(0);
-                server.Flush();
             }
 
-            // Don't forget to flush after you've finished in the bathroom.
-            server.Flush();
-            server.Dispose();
-
-            // hackyServerActive = false;
+            // Don't forget to dispose stuff.
+            if (server != null) server.Dispose();
         }
 
         // -- CLIENT WORLD FUNCTIONS -- //
@@ -323,7 +306,12 @@ namespace Mirror
         public bool ClientGetNextMessage(out TransportEvent transportEvent, out byte[] data)
         {
             // Setup some basic things            
+            byte[] newDataPacketContents;
+
+            // The incoming Enet Event.
             Event incomingEvent;
+
+            // Mirror's transport event and data output.
             transportEvent = TransportEvent.Disconnected;
             data = null;
 
@@ -340,44 +328,41 @@ namespace Mirror
             // Debugging only
             Debug.Log("ClientGetNextMessage event: " + incomingEvent.Type);
 
-            // What type is this?
-            // FIXME WARNING: Peer.ID is unsigned int, but converting to Int32 causes it to crap itself with a OverFlowException. Why does ENet-C# use unsigned ints?
             switch (incomingEvent.Type)
             {
                 case EventType.Connect:
+                    // Peer connects.
                     Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     // clientConnectionId = 0;
                     transportEvent = TransportEvent.Connected;
                     break;
+
                 case EventType.Disconnect:
-                    Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() disconnect; peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                case EventType.Timeout:
+                    // Peer disconnects/timeout.
+                    Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() {0}; peerID {1}, address {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     transportEvent = TransportEvent.Disconnected;
                     // clientConnectionId = -1;
-                    break;
-                case EventType.Timeout:
-                    Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() timeout; peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    transportEvent = TransportEvent.Disconnected;
                     break;
 
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
                     Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
-                    // Feed the data to the output...
-                    data = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(data);
+                    // Try to be safe, but at the moment this just causes an access violation.
+                    newDataPacketContents = new byte[incomingEvent.Packet.Length];
+                    incomingEvent.Packet.CopyTo(newDataPacketContents);
+                    incomingEvent.Packet.Dispose();
+
+                    Debug.LogFormat("Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
+                    data = newDataPacketContents;
                     break;
 
                 case EventType.None:
-                    // Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage(): Nothing yet");
                     return false;
             }
 
-            // Dispose of the packet.
-            incomingEvent.Packet.Dispose();
-
             // We're done here. Bugger off.
-            client.Flush();
             return true;
         }
 
@@ -396,7 +381,7 @@ namespace Mirror
             }
 
             // TODO: Is this flush really needed?
-            client.Flush();
+            // client.Flush();
 
             // Mailing Pigeons. Gotta love the birds.
             // Very useful in the wartime, as long as the enemy team didn't
@@ -448,9 +433,5 @@ namespace Mirror
         {
             superParanoidMode = enable;
         }
-
-        // -- Hacky workarounds -- //
     }
-
 }
-
