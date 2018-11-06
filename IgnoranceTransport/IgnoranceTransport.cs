@@ -35,6 +35,13 @@ namespace Mirror
 
         private bool superParanoidMode = true;
 
+        ENet.PacketFlags[] sendMethods =
+        {
+            ENet.PacketFlags.Reliable,  //Channels.DefaultReliable
+            ENet.PacketFlags.None       //Channels.DefaultUnreliable
+        };
+
+
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
@@ -195,11 +202,17 @@ namespace Mirror
 
         public bool ServerSend(int connectionId, int channelId, byte[] data)
         {
+            if (channelId >= sendMethods.Length)
+            {
+                Debug.LogError("Trying to use an unknown channel to send data");
+                return false;
+            }
+
             // Another mailing pigeon
             Packet mailingPigeon = default(Packet);
             // This should fix that bloody AccessViolation
             // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
-            mailingPigeon.Create(data, PacketFlags.Reliable);
+            mailingPigeon.Create(data, sendMethods[channelId]);
 
             // see https://github.com/nxrighthere/ENet-CSharp/issues/21
             if (knownPeersServerDictionary.ContainsKey(connectionId))
@@ -207,7 +220,7 @@ namespace Mirror
                 Peer target = knownPeersServerDictionary[connectionId];
                 if (superParanoidMode) Debug.LogFormat("ServerSend fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
 
-                bool wasSuccessful = target.Send((byte)channelId, ref mailingPigeon);
+                bool wasSuccessful = target.Send(0, ref mailingPigeon);
                 if (superParanoidMode) Debug.LogFormat("ServerSend was successful? {0}", wasSuccessful);
                 return wasSuccessful;
             }
@@ -370,6 +383,12 @@ namespace Mirror
         /// <returns></returns>
         public bool ClientSend(int channelId, byte[] data)
         {
+            if (channelId >= sendMethods.Length)
+            {
+                Debug.LogError("Trying to use an unknown channel to send data");
+                return false;
+            }
+
             if (!client.IsSet)
             {
                 Debug.LogWarning("Client is not ready yet.");
@@ -381,11 +400,11 @@ namespace Mirror
             // shoot them down. At least you got a free dinner. Who doesn't
             // want a delicious pigeon pie?
             Packet mailingPigeon = default(Packet);
-            mailingPigeon.Create(data, PacketFlags.Reliable);
+            mailingPigeon.Create(data, sendMethods[channelId]);
 
             if (superParanoidMode) Debug.LogFormat("ClientSend: channelId {0}, data {1}", channelId, BitConverter.ToString(data));
 
-            bool wasSuccessful = clientPeer.Send((byte)channelId, ref mailingPigeon);
+            bool wasSuccessful = clientPeer.Send(0, ref mailingPigeon);
             if (superParanoidMode) Debug.LogFormat("ClientSend was successful? {0}", wasSuccessful);
 
             return wasSuccessful;
