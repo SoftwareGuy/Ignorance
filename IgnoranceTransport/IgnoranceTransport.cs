@@ -103,7 +103,7 @@ namespace Mirror
 
             if (!server.IsSet)
             {
-                Debug.Log("Server is not ready yet.");
+                Debug.LogWarning("Server is not ready yet.");
                 return false;
             }
 
@@ -111,12 +111,11 @@ namespace Mirror
             server.Service(0, out incomingEvent);
 
             // What type is this?
-            // FIXME WARNING: Peer.ID is unsigned int, but converting to Int32 causes it to crap itself with a OverFlowException. Why does ENet-C# use unsigned ints?
             switch (incomingEvent.Type)
             {
                 case EventType.Connect:
                     // Connections (Normal peer connects)
-                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something connected to the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something connected to the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
                     // This sucks, but honestly if done right it should work as intended. Here's hoping my magic doesn't shaft me at my own game.
@@ -139,13 +138,11 @@ namespace Mirror
                 case EventType.Disconnect:
                 case EventType.Timeout:
                     // Disconnections (Normal peer disconnect and timeouts)
-
-                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     // Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something disconnected from the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
                     // Since our dictionary stores fake connection IDs, we need to go through and find the real Peer ID.
-                    // knownPeersServerDictionary.Remove(connectionId);
                     foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
                     {
                         if (entry.Value.ID == incomingEvent.Peer.ID)
@@ -165,7 +162,7 @@ namespace Mirror
 
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
-                    Debug.LogWarningFormat("Ignorance rUDP Transport ServerGetNextMessage(): data! channel {0}, data length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+                    if (superParanoidMode) Debug.LogWarningFormat("Ignorance rUDP Transport ServerGetNextMessage(): data! channel {0}, data length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
                     foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
                     {
@@ -179,16 +176,16 @@ namespace Mirror
                         }
                     }
 
-                    // Try to be safe, but at the moment this just causes an access violation.
+                    // Try to be safe. We could do better.
                     newDataPacketContents = new byte[incomingEvent.Packet.Length];
                     incomingEvent.Packet.CopyTo(newDataPacketContents);
                     incomingEvent.Packet.Dispose();
 
-                    Debug.LogFormat("Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(newDataPacketContents));
                     data = newDataPacketContents;
                     break;
                 case EventType.None:
-                    // Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): Nothing yet");
+                    // Nothing happened. Do nothing.
                     return false;
             }
 
@@ -200,25 +197,25 @@ namespace Mirror
         {
             // Another mailing pigeon
             Packet mailingPigeon = default(Packet);
+            // This should fix that bloody AccessViolation
+            // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
+            mailingPigeon.Create(data, PacketFlags.Reliable);
 
             // see https://github.com/nxrighthere/ENet-CSharp/issues/21
             if (knownPeersServerDictionary.ContainsKey(connectionId))
             {
                 Peer target = knownPeersServerDictionary[connectionId];
-                Debug.LogFormat("ServerSend fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
+                if (superParanoidMode) Debug.LogFormat("ServerSend fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
 
                 bool wasSuccessful = target.Send((byte)channelId, ref mailingPigeon);
-
-                Debug.LogFormat("ServerSend was successful? {0}", wasSuccessful);
+                if (superParanoidMode) Debug.LogFormat("ServerSend was successful? {0}", wasSuccessful);
                 return wasSuccessful;
             }
             else
             {
-                Debug.LogFormat("ServerSend failure fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
+                if (superParanoidMode) Debug.LogFormat("ServerSend failure fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
                 return false;
             }
-
-            //return serverPeer.Send((byte)channelId, ref mailingPigeon);
         }
 
         public void ServerStart(string address, int port, int maxConnections)
@@ -246,8 +243,7 @@ namespace Mirror
 
             foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
             {
-                // TODO: WTF?
-                entry.Value.Disconnect(0);
+                entry.Value.DisconnectNow(0);
             }
 
             // Don't forget to dispose stuff.
@@ -279,7 +275,7 @@ namespace Mirror
             clientPeer = client.Connect(clientAddress);
 
             // Debugging only
-            Debug.LogWarning("clientpeer isSet? " + clientPeer.IsSet);
+            if (superParanoidMode) Debug.LogWarning("Ignorance rUDP Transport: clientPeer isSet? " + clientPeer.IsSet);
         }
 
         /// <summary>
@@ -326,13 +322,13 @@ namespace Mirror
             client.Service(0, out incomingEvent);
 
             // Debugging only
-            Debug.Log("ClientGetNextMessage event: " + incomingEvent.Type);
+            if (superParanoidMode) Debug.Log("ClientGetNextMessage event: " + incomingEvent.Type);
 
             switch (incomingEvent.Type)
             {
                 case EventType.Connect:
                     // Peer connects.
-                    Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     // clientConnectionId = 0;
                     transportEvent = TransportEvent.Connected;
                     break;
@@ -340,21 +336,21 @@ namespace Mirror
                 case EventType.Disconnect:
                 case EventType.Timeout:
                     // Peer disconnects/timeout.
-                    Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() {0}; peerID {1}, address {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() {0}; peerID {1}, address {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     transportEvent = TransportEvent.Disconnected;
                     // clientConnectionId = -1;
                     break;
 
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
-                    Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
                     // Try to be safe, but at the moment this just causes an access violation.
                     newDataPacketContents = new byte[incomingEvent.Packet.Length];
                     incomingEvent.Packet.CopyTo(newDataPacketContents);
                     incomingEvent.Packet.Dispose();
 
-                    Debug.LogFormat("Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
                     data = newDataPacketContents;
                     break;
 
@@ -376,26 +372,21 @@ namespace Mirror
         {
             if (!client.IsSet)
             {
-                Debug.Log("ClientSend(): Client is not ready yet.");
+                Debug.LogWarning("Client is not ready yet.");
                 return false;
             }
-
-            // TODO: Is this flush really needed?
-            // client.Flush();
 
             // Mailing Pigeons. Gotta love the birds.
             // Very useful in the wartime, as long as the enemy team didn't
             // shoot them down. At least you got a free dinner. Who doesn't
             // want a delicious pigeon pie?
-            // 
-            // DEVELOPER DISCLAIMER: What the fuck am i even going on about?
             Packet mailingPigeon = default(Packet);
             mailingPigeon.Create(data, PacketFlags.Reliable);
 
-            Debug.LogFormat("ClientSend channelId {0} data {1}", channelId, BitConverter.ToString(data));
+            if (superParanoidMode) Debug.LogFormat("ClientSend: channelId {0}, data {1}", channelId, BitConverter.ToString(data));
 
             bool wasSuccessful = clientPeer.Send((byte)channelId, ref mailingPigeon);
-            Debug.LogFormat("ClientSend was successful? {0}", wasSuccessful);
+            if (superParanoidMode) Debug.LogFormat("ClientSend was successful? {0}", wasSuccessful);
 
             return wasSuccessful;
         }
@@ -410,25 +401,102 @@ namespace Mirror
             if (client != null && client.IsSet)
             {
                 if (superParanoidMode) Debug.Log("Sending the client process to the dumpster fire...");
+
                 client.Flush();
                 client.Dispose();
             }
 
             if (server != null && server.IsSet)
             {
-                // hackyServerActive = false;
-
                 if (superParanoidMode) Debug.Log("Sending the server process to the dumpster fire...");
+
                 server.Flush();
                 server.Dispose();
             }
 
             Library.Deinitialize();
 
-            if (superParanoidMode) Debug.Log("Ignorance rUDP Transport shutdown complete.");
+            Debug.Log("Ignorance rUDP Transport shutdown complete.");
         }
 
-        // -- PARANOID MODE FUNCTIONS //
+        // -- EXTRAS -- //
+        /// <summary>
+        /// Server-world Packets Sent Counter.
+        /// </summary>
+        /// <returns>The amount of packets sent.</returns>
+        public uint ServerGetPacketSentCount()
+        {
+            if (server != null && server.IsSet)
+            {
+                return server.PacketsSent;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Server-world Packets Receive Counter.
+        /// </summary>
+        /// <returns>The amount of packets received.</returns>
+        public uint ServerGetPacketReceivedCount()
+        {
+            if (server != null && server.IsSet)
+            {
+                return server.PacketsReceived;
+            }
+
+            return 0;
+        }
+
+        public uint ServerGetPacketLossCount()
+        {
+            if (server != null && server.IsSet)
+            {
+                return server.PacketsSent - server.PacketsReceived;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// Client-world Packets Sent Counter.
+        /// </summary>
+        /// <returns>The amount of packets sent.</returns>
+        public uint ClientGetPacketSentCount()
+        {
+            if (client != null && client.IsSet)
+            {
+                return client.PacketsSent;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Client-world Packets Receive Counter.
+        /// </summary>
+        /// <returns>The amount of packets received.</returns>
+        public uint ClientGetPacketReceivedCount()
+        {
+            if (client != null && client.IsSet)
+            {
+                return client.PacketsReceived;
+            }
+
+            return 0;
+        }
+
+        // TODO: This one is buggy (it underflows) sometimes.
+        public uint ClientGetPacketLossCount()
+        {
+            if (client != null && client.IsSet)
+            {
+                return client.PacketsReceived - client.PacketsSent;
+            }
+
+            return 0;
+        }
+
+        // -- PARANOID MODE FUNCTIONS -- //
         public void EnableParanoidLogging(bool enable)
         {
             superParanoidMode = enable;
