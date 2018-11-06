@@ -38,6 +38,9 @@ This makes since in some usage cases, but you should really consider TCP if you'
 
 ## Credits
 nxrighthere: Debugging my broken code and identifying my packet code fuckups
+
 Draknith (on Mirror Discord): Testing and mapping Reliable/Unreliable channels in Mirror to ENET Channels, testing.
+
 vis2k: The madman behind the scenes that made Mirror happen!
+
 The rest of the Mirror Discord: Encouragement, Memes, LOLs and just awesome folks.
