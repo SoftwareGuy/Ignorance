@@ -22,12 +22,15 @@ namespace Mirror
     /// </summary>
     public class IgnoranceTransport : TransportLayer
     {
+        // -- GENERAL VARIABLES
+        private const string TransportVersion = "v1.0.1";
+
         // -- SERVER WORLD VARIABLES -- //
-        Host server;
-        Address serverAddress;
+        private Host server;
+        private Address serverAddress;
 
         private Dictionary<int, Peer> knownPeersServerDictionary;
-        private int fakeConnectionCounter = 1;  // Start at 1 because 0 seems to be localClient ?
+        private int serverFakeConnectionCounter = 1;  // Used by our dictionary to map ENET Peers to connections.
 
         // -- CLIENT WORLD VARIABLES -- //
         Host client;
@@ -41,28 +44,16 @@ namespace Mirror
             ENet.PacketFlags.None       //Channels.DefaultUnreliable
         };
 
-
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
             Library.Initialize();
 
-            Debug.Log("This is the Ignorance rUDP Transport reporting in for duty.");
+            Debug.LogFormat("This is the Ignorance rUDP Transport {0} reporting in for duty.", TransportVersion);
             Debug.Log("Please note that this highly experimental and may cause your game to spontanously combust into a violent dumpster fire.");
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
-        /// <summary>
-        /// Is the client connected currently?
-        /// </summary>
-        /// <returns>True if connected, False if not.</returns>
-        public bool ClientConnected()
-        {
-            if (superParanoidMode) Debug.Log("Ignorance rUDP Transport: ClientConnected() called");
-            return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
-            // return clientPeer.IsSet;
-        }
-
         public bool GetConnectionInfo(int connectionId, out string address)
         {
             address = "(invalid)";
@@ -128,14 +119,14 @@ namespace Mirror
                     // This sucks, but honestly if done right it should work as intended. Here's hoping my magic doesn't shaft me at my own game.
 
                     // Give the new connection a fake connection ID, but also cache the Peer.
-                    connectionId = fakeConnectionCounter;
+                    connectionId = serverFakeConnectionCounter;
 
                     // The peer object will allow us to do stuff with it later.
                     knownPeersServerDictionary.Add(connectionId, incomingEvent.Peer);
-                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() setup fake ConnectionID. connID {0} belongs to peer ID {1}, IP {2}", fakeConnectionCounter, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() setup fake ConnectionID. connID {0} belongs to peer ID {1}, IP {2}", serverFakeConnectionCounter, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Increment the fake connection counter by one.
-                    fakeConnectionCounter += 1;
+                    serverFakeConnectionCounter += 1;
 
                     // Report back saying we got a connection event.
                     transportEvent = TransportEvent.Connected;
@@ -292,6 +283,16 @@ namespace Mirror
         }
 
         /// <summary>
+        /// Is the client connected currently?
+        /// </summary>
+        /// <returns>True if connected, False if not.</returns>
+        public bool ClientConnected()
+        {
+            if (superParanoidMode) Debug.Log("Ignorance rUDP Transport: ClientConnected() called");
+            return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
+        }
+
+        /// <summary>
         /// Disconnect the client.
         /// </summary>
         public void ClientDisconnect()
@@ -314,8 +315,9 @@ namespace Mirror
         /// <returns></returns>
         public bool ClientGetNextMessage(out TransportEvent transportEvent, out byte[] data)
         {
-            // Setup some basic things            
-            byte[] newDataPacketContents;
+            // Setup some basic things
+            // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment this.
+            // byte[] newDataPacketContents;
 
             // The incoming Enet Event.
             Event incomingEvent;
@@ -358,13 +360,16 @@ namespace Mirror
                     transportEvent = TransportEvent.Data;
                     if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
-                    // Try to be safe, but at the moment this just causes an access violation.
-                    newDataPacketContents = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(newDataPacketContents);
+                    // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next line and comment out the line below the newly uncommented line.
+                    // newDataPacketContents = new byte[incomingEvent.Packet.Length];
+                    data = new byte[incomingEvent.Packet.Length];
+                    incomingEvent.Packet.CopyTo(data);
                     incomingEvent.Packet.Dispose();
 
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
-                    data = newDataPacketContents;
+                    // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next lines and comment out the line under the newly uncommented lines.
+                    // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
+                    // data = newDataPacketContents;
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage: Incoming data: {0}", BitConverter.ToString(data));
                     break;
 
                 case EventType.None:
@@ -438,6 +443,59 @@ namespace Mirror
             Debug.Log("Ignorance rUDP Transport shutdown complete.");
         }
 
+        // -- VERSION 1.0.1 EXPOSED FUNCTIONS -- //
+        /// <summary>
+        /// Wall of text. Thanks NX for this detailed explaination.
+        /// Sets a timeout parameters for the client. The timeout parameters control how and when a peer will timeout from a failure to acknowledge reliable traffic.
+        /// 
+        /// Timeout values used in the semi-linear mechanism, where if a reliable packet is not acknowledged within an average round trip time plus a variance tolerance
+        /// until timeout reaches a set limit. If the timeout is thus at this limit and reliable packets have been sent but not acknowledged within a certain minimum time period,
+        /// the peer will be disconnected. Alternatively, if reliable packets have been sent but not acknowledged for a certain maximum time period, the peer will be disconnected
+        /// regardless of the current timeout limit value.
+        /// </summary>
+        /// <param name="timeoutLimit">The limit before a timeout happens, I guess?</param>
+        /// <param name="timeoutMinimum">Minimum time period allowed.</param>
+        /// <param name="timeoutMaximum">Maximum time period allowed.</param>
+        public void ConfigureClientPingTimeout(uint timeoutLimit, uint timeoutMinimum, uint timeoutMaximum)
+        {
+            if (clientPeer.IsSet)
+            {
+                clientPeer.Timeout(timeoutLimit, timeoutMinimum, timeoutMaximum);
+            }
+        }
+
+        /// <summary>
+        /// Allows you to enable server-side compression via built-in ENET LZ4 methods. Please note that 
+        /// you should only enable this before a server is started. NEVER TURN IT ON DURING
+        /// A SERVER IS ACTIVE OR COMMUNICATION MAY BREAK!
+        /// 
+        /// Once enabled, you will need to restart the server to disable it.
+        /// </summary>
+        public void EnableCompressionOnServer()
+        {
+            if (server != null && server.IsSet)
+            {
+                server.EnableCompression();
+            }
+        }
+
+        /// <summary>
+        /// Allows you to enable client-side compression via built-in ENET LZ4 methods. Please note that 
+        /// you should only enable this before a client is started. NEVER TURN IT ON DURING
+        /// A CLIENT IS ACTIVE OR COMMUNICATION MAY BREAK!
+        /// 
+        /// Once enabled, you will need to restart the client to disable it.
+        /// </summary>
+        public void EnableCompressionOnClient()
+        {
+            if(client != null && client.IsSet)
+            {
+                client.EnableCompression();
+            }
+        }
+
+
+
         // -- EXTRAS -- //
         /// <summary>
         /// Server-world Packets Sent Counter.
@@ -467,10 +525,16 @@ namespace Mirror
             return 0;
         }
 
+        /// <summary>
+        /// Server-world packets loss counter.
+        /// </summary>
+        /// <returns>The amount of packets lost.</returns>
         public uint ServerGetPacketLossCount()
         {
             if (server != null && server.IsSet)
             {
+                // Safe guard against underflows.
+                if ((server.PacketsSent - server.PacketsReceived) < 0) return 0;
                 return server.PacketsSent - server.PacketsReceived;
             }
             return 0;
@@ -504,12 +568,16 @@ namespace Mirror
             return 0;
         }
 
-        // TODO: This one is buggy (it underflows) sometimes.
+        /// <summary>
+        /// Get the client's packet loss count.
+        /// </summary>
+        /// <returns></returns>
         public uint ClientGetPacketLossCount()
         {
-            if (client != null && client.IsSet)
+            if (clientPeer.IsSet)
             {
-                return client.PacketsReceived - client.PacketsSent;
+                // Safe guard against underflows.
+                return clientPeer.PacketsLost;
             }
 
             return 0;
