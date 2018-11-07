@@ -87,8 +87,9 @@ namespace Mirror
 
         public bool ServerGetNextMessage(out int connectionId, out TransportEvent transportEvent, out byte[] data)
         {
-            // Setup some basic things            
-            byte[] newDataPacketContents;
+            // Setup some basic things
+            // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour
+            // byte[] newDataPacketContents;
 
             // The incoming Enet Event.
             Event incomingEvent;
@@ -175,12 +176,17 @@ namespace Mirror
                     }
 
                     // Try to be safe. We could do better.
-                    newDataPacketContents = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(newDataPacketContents);
+                    // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour, and comment out the one below it.
+                    // newDataPacketContents = new byte[incomingEvent.Packet.Length];
+                    data = new byte[incomingEvent.Packet.Length];
+                    incomingEvent.Packet.CopyTo(data);
                     incomingEvent.Packet.Dispose();
 
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(newDataPacketContents));
-                    data = newDataPacketContents;
+                    // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour, and comment out the one below it.
+                    // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(newDataPacketContents));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(data));
+                    // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour.
+                    // data = newDataPacketContents;
                     break;
                 case EventType.None:
                     // Nothing happened. Do nothing.
@@ -469,6 +475,8 @@ namespace Mirror
         /// you should only enable this before a server is started. NEVER TURN IT ON DURING
         /// A SERVER IS ACTIVE OR COMMUNICATION MAY BREAK!
         /// 
+        /// Note that you also need to ensure clients are using compression or funky things might happen.
+        /// 
         /// Once enabled, you will need to restart the server to disable it.
         /// </summary>
         public void EnableCompressionOnServer()
@@ -484,6 +492,8 @@ namespace Mirror
         /// you should only enable this before a client is started. NEVER TURN IT ON DURING
         /// A CLIENT IS ACTIVE OR COMMUNICATION MAY BREAK!
         /// 
+        /// Note that you also need to ensure the server is using compression or funky things might happen.
+        /// 
         /// Once enabled, you will need to restart the client to disable it.
         /// </summary>
         public void EnableCompressionOnClient()
@@ -494,11 +504,9 @@ namespace Mirror
             }
         }
 
-
-
         // -- EXTRAS -- //
         /// <summary>
-        /// Server-world Packets Sent Counter.
+        /// Server-world Packets Sent Counter, directly from ENET.
         /// </summary>
         /// <returns>The amount of packets sent.</returns>
         public uint ServerGetPacketSentCount()
@@ -512,7 +520,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Server-world Packets Receive Counter.
+        /// Server-world Packets Receive Counter, directly from ENET.
         /// </summary>
         /// <returns>The amount of packets received.</returns>
         public uint ServerGetPacketReceivedCount()
@@ -527,6 +535,7 @@ namespace Mirror
 
         /// <summary>
         /// Server-world packets loss counter.
+        /// This is buggy. Please use with caution.
         /// </summary>
         /// <returns>The amount of packets lost.</returns>
         public uint ServerGetPacketLossCount()
@@ -535,13 +544,13 @@ namespace Mirror
             {
                 // Safe guard against underflows.
                 if ((server.PacketsSent - server.PacketsReceived) < 0) return 0;
-                return server.PacketsSent - server.PacketsReceived;
+                else return server.PacketsSent - server.PacketsReceived;
             }
             return 0;
         }
 
         /// <summary>
-        /// Client-world Packets Sent Counter.
+        /// Client-world Packets Sent Counter, directly from ENET.
         /// </summary>
         /// <returns>The amount of packets sent.</returns>
         public uint ClientGetPacketSentCount()
@@ -555,7 +564,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Client-world Packets Receive Counter.
+        /// Client-world Packets Receive Counter, directly from ENET.
         /// </summary>
         /// <returns>The amount of packets received.</returns>
         public uint ClientGetPacketReceivedCount()
@@ -569,7 +578,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Get the client's packet loss count.
+        /// Get the client's packet loss count, directly from ENET.
         /// </summary>
         /// <returns></returns>
         public uint ClientGetPacketLossCount()

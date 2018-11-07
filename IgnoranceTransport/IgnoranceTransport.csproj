@@ -55,6 +55,20 @@
     <Content Include="Dependencies\Mirror\Mirror.Runtime.dll" />
     <Content Include="Dependencies\UnityEngine\UnityEngine.dll" />
     <Content Include="Dependencies\UnityEngine\UnityEngine.dll.mdb" />
+    <Content Include="Redist\enet.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Redist\readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Redist\enet.dylib">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Redist\libenet.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

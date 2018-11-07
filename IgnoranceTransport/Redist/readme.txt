@@ -1,0 +1,1 @@
+This folder (Redist) contains a compiled DLL for x86_64 Windows, MacOS and Linux distros.
