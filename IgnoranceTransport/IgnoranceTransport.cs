@@ -23,7 +23,7 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES
-        private const string TransportVersion = "v1.0.1";
+        private const string TransportVersion = "v1.0.2";
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
@@ -228,6 +228,12 @@ namespace Mirror
             }
         }
 
+        /// <summary>
+        /// Start the server with the specified parameters.
+        /// </summary>
+        /// <param name="address">The address to bind to.</param>
+        /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
+        /// <param name="maxConnections">How many connections can we have?</param>
         public void ServerStart(string address, int port, int maxConnections)
         {
             server = new Host();
@@ -235,18 +241,42 @@ namespace Mirror
             knownPeersServerDictionary = new Dictionary<int, Peer>();
 
             if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerStart(): {0}, {1}, {2}", address, port, maxConnections);
+            // Version 1.0.2: address null? Localhost binding then.
+            if (address == null)
+            {
+                Debug.LogWarning("WARNING: Mirror passed the Ignorance Transport a null address. To prevent the transport not starting, we will bind to localhost/loopback (127.0.0.1).");
+                Debug.LogWarning("This is the pull request in question: https://github.com/vis2k/Mirror/pull/107");
+                Debug.LogWarning("PLEASE BEWARE OF THIS ISSUE!");
+
+                serverAddress.SetHost("127.0.0.1");
+            } else {
+                serverAddress.SetHost(address);
+            }
+
             serverAddress.SetHost(address);
             serverAddress.Port = Convert.ToUInt16(port);
 
+            // Finally create the server.
             server.Create(serverAddress, maxConnections);
         }
 
+        /// <summary>
+        /// Start the websockets version of the server.
+        /// NOT IMPLEMENTED AND PROBABLY NEVER WILL BE.
+        /// DO NOT USE!
+        /// </summary>
+        /// <param name="address">The address to bind to.</param>
+        /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
+        /// <param name="maxConnections">How many connections can we have?</param>
         public void ServerStartWebsockets(string address, int port, int maxConnections)
         {
             // Websockets? Nani?
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Called when the server stops.
+        /// </summary>
         public void ServerStop()
         {
             if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerStop()");
@@ -424,6 +454,9 @@ namespace Mirror
         // -- END CLIENT FUNCTIONS -- //
 
         // -- SHUTDOWN FUNCTIONS -- //
+        /// <summary>
+        /// Shuts down the transport.
+        /// </summary>
         public void Shutdown()
         {
             Debug.Log("The Ignorance rUDP Transport is going down for shutdown NOW!");
