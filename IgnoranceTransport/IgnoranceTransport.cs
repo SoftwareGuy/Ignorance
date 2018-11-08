@@ -23,7 +23,7 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES
-        private const string TransportVersion = "v1.0.2";
+        private const string TransportVersion = "v1.0.3";
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
@@ -252,8 +252,6 @@ namespace Mirror
             } else {
                 serverAddress.SetHost(address);
             }
-
-            serverAddress.SetHost(address);
             serverAddress.Port = Convert.ToUInt16(port);
 
             // Finally create the server.
