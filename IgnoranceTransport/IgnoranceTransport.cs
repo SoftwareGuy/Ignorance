@@ -36,7 +36,8 @@ namespace Mirror
         Host client;
         Peer clientPeer;
 
-        private bool superParanoidMode = true;
+        // -- v1.0.5: Disabled to prevent spammage. -- //
+        private bool superParanoidMode = false;
 
         ENet.PacketFlags[] sendMethods =
         {
@@ -238,7 +239,7 @@ namespace Mirror
             serverAddress = new Address();
             knownPeersServerDictionary = new Dictionary<int, Peer>();
 
-            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerStart(): {0}, {1}, {2}", address, port, maxConnections);
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerStart(): {0}, {1}, {2}", address ?? "(null)", port, maxConnections);
             // Version 1.0.4: undo what 1.0.2/1.0.3 did regarding this.
             if (!string.IsNullOrEmpty(address))
             {
