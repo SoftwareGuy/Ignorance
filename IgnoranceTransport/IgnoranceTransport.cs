@@ -23,7 +23,7 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES
-        private const string TransportVersion = "v1.0.3";
+        private const string TransportVersion = "v1.0.4";
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
@@ -49,8 +49,9 @@ namespace Mirror
         {
             Library.Initialize();
 
-            Debug.LogFormat("This is the Ignorance rUDP Transport {0} reporting in for duty.", TransportVersion);
-            Debug.Log("Please note that this highly experimental and may cause your game to spontanously combust into a violent dumpster fire.");
+            Debug.LogFormat("This is the Ignorance Transport {0} reporting in for duty.", TransportVersion);
+            Debug.Log("Remember to keep up to date with the latest releases at: https://github.com/SoftwareGuy/Ignorance/releases and report bugs there too!");
+            Debug.Log("Please note that this uses a lot of magic and may cause your game to spontanously combust into a violent dumpster fire.");
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
@@ -112,9 +113,9 @@ namespace Mirror
             // What type is this?
             switch (incomingEvent.Type)
             {
+                // Connections (Normal peer connects)
                 case EventType.Connect:
-                    // Connections (Normal peer connects)
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something connected to the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): New connection with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
                     // This sucks, but honestly if done right it should work as intended. Here's hoping my magic doesn't shaft me at my own game.
@@ -124,7 +125,7 @@ namespace Mirror
 
                     // The peer object will allow us to do stuff with it later.
                     knownPeersServerDictionary.Add(connectionId, incomingEvent.Peer);
-                    Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() setup fake ConnectionID. connID {0} belongs to peer ID {1}, IP {2}", serverFakeConnectionCounter, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): setup fake ConnectionID. Mapped new fake connID {0} to peer ID {1} from IP {2}", serverFakeConnectionCounter, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Increment the fake connection counter by one.
                     serverFakeConnectionCounter += 1;
@@ -133,15 +134,13 @@ namespace Mirror
                     transportEvent = TransportEvent.Connected;
                     break;
 
-
+                // Disconnections (Normal peer disconnect and timeouts)
                 case EventType.Disconnect:
                 case EventType.Timeout:
-                    // Disconnections (Normal peer disconnect and timeouts)
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    // Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage() says something disconnected from the server, with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);                    
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
-                    // Since our dictionary stores fake connection IDs, we need to go through and find the real Peer ID.
+                    // Since our dictionary stores fake connection IDs, we need to go through and find the real Peer ID. This could be improved.
                     foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
                     {
                         if (entry.Value.ID == incomingEvent.Peer.ID)
@@ -161,7 +160,7 @@ namespace Mirror
 
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
-                    if (superParanoidMode) Debug.LogWarningFormat("Ignorance rUDP Transport ServerGetNextMessage(): data! channel {0}, data length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+                    if (superParanoidMode) Debug.LogWarningFormat("Ignorance Transport: ServerGetNextMessage(): Data! channel {0}, data length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
                     foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
                     {
@@ -184,7 +183,7 @@ namespace Mirror
 
                     // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour, and comment out the one below it.
                     // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(newDataPacketContents));
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(data));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): Incoming data: {0}", BitConverter.ToString(data));
                     // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour.
                     // data = newDataPacketContents;
                     break;
@@ -210,20 +209,19 @@ namespace Mirror
             // This should fix that bloody AccessViolation
             // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
             mailingPigeon.Create(data, sendMethods[channelId]);
-
             // see https://github.com/nxrighthere/ENet-CSharp/issues/21
             if (knownPeersServerDictionary.ContainsKey(connectionId))
             {
                 Peer target = knownPeersServerDictionary[connectionId];
-                if (superParanoidMode) Debug.LogFormat("ServerSend fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
+                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend(): fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
 
                 bool wasSuccessful = target.Send(0, ref mailingPigeon);
-                if (superParanoidMode) Debug.LogFormat("ServerSend was successful? {0}", wasSuccessful);
+                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend was successful? {0}", wasSuccessful);
                 return wasSuccessful;
             }
             else
             {
-                if (superParanoidMode) Debug.LogFormat("ServerSend failure fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
+                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend failure fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
                 return false;
             }
         }
@@ -240,28 +238,26 @@ namespace Mirror
             serverAddress = new Address();
             knownPeersServerDictionary = new Dictionary<int, Peer>();
 
-            if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerStart(): {0}, {1}, {2}", address, port, maxConnections);
-            // Version 1.0.2: address null? Localhost binding then.
-            if (address == null)
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerStart(): {0}, {1}, {2}", address, port, maxConnections);
+            // Version 1.0.4: undo what 1.0.2/1.0.3 did regarding this.
+            if (!string.IsNullOrEmpty(address))
             {
-                Debug.LogWarning("WARNING: Mirror passed the Ignorance Transport a null address. To prevent the transport not starting, we will bind to localhost/loopback (127.0.0.1).");
-                Debug.LogWarning("This is the pull request in question: https://github.com/vis2k/Mirror/pull/107");
-                Debug.LogWarning("PLEASE BEWARE OF THIS ISSUE!");
-
-                serverAddress.SetHost("127.0.0.1");
-            } else {
+                Debug.LogFormat("Ignorance Transport: Will bind to address {0}", address);
                 serverAddress.SetHost(address);
             }
+
+            // Setup the port.
             serverAddress.Port = Convert.ToUInt16(port);
 
             // Finally create the server.
             server.Create(serverAddress, maxConnections);
+            Debug.LogFormat("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", maxConnections, Convert.ToUInt16(port));
+            Debug.LogFormat("Ignorance Transport: If you see this message the server most likely was successfully created and started! (This is good.)");
         }
 
         /// <summary>
         /// Start the websockets version of the server.
-        /// NOT IMPLEMENTED AND PROBABLY NEVER WILL BE.
-        /// DO NOT USE!
+        /// NOT IMPLEMENTED AND PROBABLY NEVER WILL BE. DO NOT USE!
         /// </summary>
         /// <param name="address">The address to bind to.</param>
         /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
@@ -277,7 +273,7 @@ namespace Mirror
         /// </summary>
         public void ServerStop()
         {
-            if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerStop()");
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerStop()");
 
             foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
             {
@@ -298,7 +294,7 @@ namespace Mirror
         {
             client = new Host();
 
-            if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport: ClientConnect({0}, {1})", address, port);
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientConnect({0}, {1})", address, port);
 
             Address clientAddress = new Address();
 
@@ -313,7 +309,7 @@ namespace Mirror
             clientPeer = client.Connect(clientAddress);
 
             // Debugging only
-            if (superParanoidMode) Debug.LogWarning("Ignorance rUDP Transport: clientPeer isSet? " + clientPeer.IsSet);
+            if (superParanoidMode) Debug.LogWarning("Ignorance Transport: clientPeer isSet? " + clientPeer.IsSet);
         }
 
         /// <summary>
@@ -322,7 +318,7 @@ namespace Mirror
         /// <returns>True if connected, False if not.</returns>
         public bool ClientConnected()
         {
-            if (superParanoidMode) Debug.Log("Ignorance rUDP Transport: ClientConnected() called");
+            if (superParanoidMode) Debug.Log("Ignorance Transport: ClientConnected() called");
             return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
         }
 
@@ -331,7 +327,7 @@ namespace Mirror
         /// </summary>
         public void ClientDisconnect()
         {
-            if (superParanoidMode) Debug.Log("Ignorance rUDP Transport: ClientDisconnect()");
+            if (superParanoidMode) Debug.Log("Ignorance Transport: ClientDisconnect()");
 
             // TODO: I dunno what to put here! nx has something about Reasons for the disconnection??
             if (clientPeer.IsSet)
@@ -375,24 +371,22 @@ namespace Mirror
 
             switch (incomingEvent.Type)
             {
+                // Peer connects.
                 case EventType.Connect:
-                    // Peer connects.
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    // clientConnectionId = 0;
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     transportEvent = TransportEvent.Connected;
                     break;
 
+                // Peer disconnects/timeout.
                 case EventType.Disconnect:
                 case EventType.Timeout:
-                    // Peer disconnects/timeout.
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() {0}; peerID {1}, address {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() {0}; peerID {1}, address {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
                     transportEvent = TransportEvent.Disconnected;
-                    // clientConnectionId = -1;
                     break;
-
+                // Peer sends data to us.
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
                     // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next line and comment out the line below the newly uncommented line.
                     // newDataPacketContents = new byte[incomingEvent.Packet.Length];
@@ -403,7 +397,7 @@ namespace Mirror
                     // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next lines and comment out the line under the newly uncommented lines.
                     // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
                     // data = newDataPacketContents;
-                    if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage: Incoming data: {0}", BitConverter.ToString(data));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage: Incoming data contents: {0}", BitConverter.ToString(data));
                     break;
 
                 case EventType.None:
@@ -441,10 +435,10 @@ namespace Mirror
             Packet mailingPigeon = default(Packet);
             mailingPigeon.Create(data, sendMethods[channelId]);
 
-            if (superParanoidMode) Debug.LogFormat("ClientSend: channelId {0}, data {1}", channelId, BitConverter.ToString(data));
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientSend(): channelId {0}, data {1}", channelId, BitConverter.ToString(data));
 
             bool wasSuccessful = clientPeer.Send(0, ref mailingPigeon);
-            if (superParanoidMode) Debug.LogFormat("ClientSend was successful? {0}", wasSuccessful);
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientSend successful? {0}", wasSuccessful);
 
             return wasSuccessful;
         }
@@ -457,7 +451,7 @@ namespace Mirror
         /// </summary>
         public void Shutdown()
         {
-            Debug.Log("The Ignorance rUDP Transport is going down for shutdown NOW!");
+            Debug.Log("The Ignorance Transport is going down for shutdown NOW!");
 
             if (client != null && client.IsSet)
             {
@@ -477,7 +471,7 @@ namespace Mirror
 
             Library.Deinitialize();
 
-            Debug.Log("Ignorance rUDP Transport shutdown complete.");
+            Debug.Log("Ignorance Transport shutdown complete.");
         }
 
         // -- VERSION 1.0.1 EXPOSED FUNCTIONS -- //
