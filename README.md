@@ -1,17 +1,19 @@
-# Ignorance
-Ignorance: A reliable UDP based transport for vis2k's Mirror High-level API which is a much improved version of UNET.
-Ignorance uses ENET as the network backend via nxrighthere's ENet-CSharp wrapper.
+# Ignorance: A reliable UDP Transport for Mirror Networking.
+Ignorance: A reliable UDP based transport for vis2k's Mirror High-level API which is a much improved version of UNET. 
+This transport uses ENET as the network backend via nxrighthere's ENet-CSharp wrapper.
+
+This transport is currently developed and actively used by Oiran Studio.
 
 [If you use this, I'd appreciate a coffee to keep me caffeinated.](https://ko-fi.com/coburn)
 
 ## Installation
-1. Grab a release from the releases page or compile it from source.
+1. Grab a release from the [releases page](https://github.com/SoftwareGuy/Ignorance/releases) or compile it from source.
 2. Make sure you have Mirror installed in your project. **Ignorance WILL NOT function without it!**
 3. Extract the release archive into your project, maybe under Assets/Packages/IgnoranceTransport.
 4. Open your project with Unity and let it detect the new transport.
 5. Follow "How to use" below.
 
-NOTE: If you compile from the transport source code, you will need to grab the following files: `enet.dll`, `enet.dylib` and `libenet.so` from the latest release and copy them to your project folder as well as plopping the newly compiled DLL into your Unity Project. **Failure to follow this instruction will cause random things to happen, and/or Unity Editor crashes!**
+NOTE: If you compile from the transport source code, you will need to grab the following files: `enet.dll`, `enet.bundle/dylib` and `libenet.so` from the latest release and copy them to your project folder as well as plopping the newly compiled DLL into your Unity Project. **Failure to follow this important instruction will cause random things to happen, and/or Unity Editor crashes!**
 
 ## Compatibility
 **x64 Runtime Platforms only! This is due to the dependencies only being compiled for x64.**
@@ -58,4 +60,4 @@ Draknith (on Mirror Discord): Testing and mapping Reliable/Unreliable channels i
 
 vis2k: The madman behind the scenes that made Mirror happen!
 
-The rest of the Mirror Discord: Encouragement, Memes, LOLs and just awesome folks.
+Mirror Discord: Encouragement, Memes, LOLs and just awesome folks.
