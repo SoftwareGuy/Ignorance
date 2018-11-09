@@ -23,7 +23,7 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES
-        private const string TransportVersion = "v1.0.4";
+        private const string TransportVersion = "v1.0.5";
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
