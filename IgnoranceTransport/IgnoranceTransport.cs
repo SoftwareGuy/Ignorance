@@ -23,7 +23,7 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES
-        private const string TransportVersion = "v1.0.5";
+        private const string TransportVersion = "v1.0.6";
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
@@ -56,6 +56,13 @@ namespace Mirror
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
+        /// <summary>
+        /// Gets info about a connection via the connectionId.
+        /// Apparently it only gets the IP Address. What's up with that?
+        /// </summary>
+        /// <param name="connectionId">The connection ID to lookup.</param>
+        /// <param name="address">The IP Address. This is what will be returned, don't fill this in!</param>
+        /// <returns>The IP Address of the connection. Returns (invalid) if it cannot find it in the dictionary.</returns>
         public bool GetConnectionInfo(int connectionId, out string address)
         {
             address = "(invalid)";
@@ -69,24 +76,41 @@ namespace Mirror
             return false;
         }
 
+        /// <summary>
+        /// Is the server active?
+        /// </summary>
+        /// <returns>True if the server is active, false otherwise.</returns>
         public bool ServerActive()
         {
             if (server != null) return server.IsSet;
             else return false;
         }
 
+        /// <summary>
+        /// Disconnects a server connection
+        /// </summary>
+        /// <param name="connectionId">The connection ID to evict.</param>
+        /// <returns>True if the connection exists, false otherwise.</returns>
         public bool ServerDisconnect(int connectionId)
         {
-            // TODO: Probably revise this?
             if (knownPeersServerDictionary.ContainsKey(connectionId))
             {
+                //
                 knownPeersServerDictionary[connectionId].Disconnect(0);
+
                 return true;
             }
 
             return false;
         }
 
+        /// <summary>
+        /// The meat and vegies of the transport on the server side. This is the packet pump.
+        /// </summary>
+        /// <param name="connectionId">The incoming connection ID.</param>
+        /// <param name="transportEvent">What event is this? Connection? Data? Disconnection?</param>
+        /// <param name="data">Byte array of the data payload being received.</param>
+        /// <returns>True if successful, False if unsuccessful.</returns>
         public bool ServerGetNextMessage(out int connectionId, out TransportEvent transportEvent, out byte[] data)
         {
             // Setup some basic things
@@ -99,7 +123,6 @@ namespace Mirror
             // Mirror's transport event and data output.
             transportEvent = TransportEvent.Disconnected;
             data = null;
-
             connectionId = -1;
 
             if (!server.IsSet)
@@ -119,9 +142,7 @@ namespace Mirror
                     if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): New connection with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
-                    // This sucks, but honestly if done right it should work as intended. Here's hoping my magic doesn't shaft me at my own game.
-
-                    // Give the new connection a fake connection ID, but also cache the Peer.
+                    // This sucks, but it has to be done for now. Give the new connection a fake connection ID, but also cache the Peer.
                     connectionId = serverFakeConnectionCounter;
 
                     // The peer object will allow us to do stuff with it later.
@@ -161,7 +182,7 @@ namespace Mirror
 
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
-                    if (superParanoidMode) Debug.LogWarningFormat("Ignorance Transport: ServerGetNextMessage(): Data! channel {0}, data length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+                    if (superParanoidMode) Debug.LogWarningFormat("Ignorance Transport: ServerGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
                     foreach (KeyValuePair<int, Peer> entry in knownPeersServerDictionary)
                     {
@@ -184,7 +205,7 @@ namespace Mirror
 
                     // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour, and comment out the one below it.
                     // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(newDataPacketContents));
-                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): Incoming data: {0}", BitConverter.ToString(data));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage() Payload:\n {0}", BitConverter.ToString(data));
                     // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour.
                     // data = newDataPacketContents;
                     break;
@@ -197,32 +218,42 @@ namespace Mirror
             return true;
         }
 
+        /// <summary>
+        /// Send data on the server side.
+        /// </summary>
+        /// <param name="connectionId">The connection ID to send data to.</param>
+        /// <param name="channelId">The channel ID to send data on. Must not be lower or greater than the values in the sendMethods array.</param>
+        /// <param name="data">The payload to transmit.</param>
+        /// <returns></returns>
         public bool ServerSend(int connectionId, int channelId, byte[] data)
         {
+            // Another mailing pigeon
+            Packet mailingPigeon = default(Packet);
+            bool wasTransmissionSuccessful;
+
             if (channelId >= sendMethods.Length)
             {
                 Debug.LogError("Trying to use an unknown channel to send data");
                 return false;
             }
 
-            // Another mailing pigeon
-            Packet mailingPigeon = default(Packet);
             // This should fix that bloody AccessViolation
             // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
             mailingPigeon.Create(data, sendMethods[channelId]);
-            // see https://github.com/nxrighthere/ENet-CSharp/issues/21
+
+            // More haxx. see https://github.com/nxrighthere/ENet-CSharp/issues/21 for some background info-ish.
             if (knownPeersServerDictionary.ContainsKey(connectionId))
             {
                 Peer target = knownPeersServerDictionary[connectionId];
-                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend(): fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
+                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend() to fakeConnID {0} on channel {1}\nPayload: {2}", connectionId, channelId, BitConverter.ToString(data));
 
-                bool wasSuccessful = target.Send(0, ref mailingPigeon);
-                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend was successful? {0}", wasSuccessful);
-                return wasSuccessful;
+                wasTransmissionSuccessful = target.Send(0, ref mailingPigeon);
+                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend() successful? {0}", wasTransmissionSuccessful);
+                return wasTransmissionSuccessful;
             }
             else
             {
-                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend failure fakeConnID {0} channelId {1} data {2}", connectionId, channelId, BitConverter.ToString(data));
+                if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerSend() to fakeConnID {0} on channel {1} failure", connectionId, channelId);
                 return false;
             }
         }
@@ -252,6 +283,8 @@ namespace Mirror
 
             // Finally create the server.
             server.Create(serverAddress, maxConnections);
+            
+            // Log our best effort attempts
             Debug.LogFormat("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", maxConnections, Convert.ToUInt16(port));
             Debug.LogFormat("Ignorance Transport: If you see this message the server most likely was successfully created and started! (This is good.)");
         }
@@ -283,6 +316,7 @@ namespace Mirror
 
             // Don't forget to dispose stuff.
             if (server != null) server.Dispose();
+            server = null;
         }
 
         // -- CLIENT WORLD FUNCTIONS -- //
@@ -335,7 +369,9 @@ namespace Mirror
             {
                 clientPeer.DisconnectNow(0);
             }
+
             client.Dispose();
+            client = null;
         }
 
         /// <summary>
@@ -387,7 +423,8 @@ namespace Mirror
                 // Peer sends data to us.
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
-                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() data; channel {0}, length: {1}", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
                     // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next line and comment out the line below the newly uncommented line.
                     // newDataPacketContents = new byte[incomingEvent.Packet.Length];
@@ -398,7 +435,7 @@ namespace Mirror
                     // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next lines and comment out the line under the newly uncommented lines.
                     // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
                     // data = newDataPacketContents;
-                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage: Incoming data contents: {0}", BitConverter.ToString(data));
+                    if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() Payload data:\n{0}", BitConverter.ToString(data));
                     break;
 
                 case EventType.None:
@@ -454,14 +491,18 @@ namespace Mirror
         {
             Debug.Log("The Ignorance Transport is going down for shutdown NOW!");
 
+            // Shutdown the client first.
             if (client != null && client.IsSet)
             {
                 if (superParanoidMode) Debug.Log("Sending the client process to the dumpster fire...");
+
+                if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
 
                 client.Flush();
                 client.Dispose();
             }
 
+            // Shutdown the 
             if (server != null && server.IsSet)
             {
                 if (superParanoidMode) Debug.Log("Sending the server process to the dumpster fire...");
@@ -472,7 +513,7 @@ namespace Mirror
 
             Library.Deinitialize();
 
-            Debug.Log("Ignorance Transport shutdown complete.");
+            Debug.Log("Ignorance Transport shutdown complete. Have a good one.");
         }
 
         // -- VERSION 1.0.1 EXPOSED FUNCTIONS -- //
