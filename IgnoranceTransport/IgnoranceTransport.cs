@@ -22,8 +22,13 @@ namespace Mirror
     /// </summary>
     public class IgnoranceTransport : TransportLayer
     {
-        // -- GENERAL VARIABLES
-        private const string TransportVersion = "v1.0.6";
+        // -- GENERAL VARIABLES -- //
+        private const string TransportVersion = "v1.0.7";
+
+        // -- TIMEOUTS -- //
+        private bool useCustomPeerTimeout = true;
+        private uint peerBaseTimeout = 5000;        // 5000 ticks (5 seconds)
+        private uint peerBaseTimeoutMultiplier = 3;
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
@@ -52,7 +57,19 @@ namespace Mirror
 
             Debug.LogFormat("This is the Ignorance Transport {0} reporting in for duty.", TransportVersion);
             Debug.Log("Remember to keep up to date with the latest releases at: https://github.com/SoftwareGuy/Ignorance/releases and report bugs there too!");
-            Debug.Log("Please note that this uses a lot of magic and may cause your game to spontanously combust into a violent dumpster fire.");
+            Debug.Log("Shoutouts to vis2k and the Mirror Discord crew. You guys rock!");
+        }
+
+
+        // -- v1.0.7 Functions -- //
+        /// <summary>
+        /// Get the maximum packet size allowed. Introduced from Mirror upstream git commit: 1289dee8.
+        /// Please see https://github.com/nxrighthere/ENet-CSharp/issues/33 for more information.
+        /// </summary>
+        /// <returns>A integer with the maximum packet size.</returns>
+        public int GetMaxPacketSize()
+        {
+            return (int)Library.maxPacketSize;  // 33,554,432 bytes.
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
@@ -127,7 +144,7 @@ namespace Mirror
 
             if (!server.IsSet)
             {
-                Debug.LogWarning("Server is not ready yet.");
+                Debug.LogWarning("Ignorance Transport: Hold on, the server is not ready yet.");
                 return false;
             }
 
@@ -151,6 +168,9 @@ namespace Mirror
 
                     // Increment the fake connection counter by one.
                     serverFakeConnectionCounter += 1;
+
+                    // If we're using custom timeouts, then set the timeouts too.
+                    if(useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
 
                     // Report back saying we got a connection event.
                     transportEvent = TransportEvent.Connected;
@@ -396,7 +416,7 @@ namespace Mirror
             // Safety check: if the client isn't created, then we shouldn't do anything. ENet might be warming up.
             if (!client.IsSet)
             {
-                Debug.LogWarning("Client is not ready yet.");
+                Debug.LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
                 return false;
             }
 
@@ -411,6 +431,8 @@ namespace Mirror
                 // Peer connects.
                 case EventType.Connect:
                     if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    // If we're using custom timeouts, then set the timeouts too.
+                    if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
                     transportEvent = TransportEvent.Connected;
                     break;
 
@@ -462,7 +484,7 @@ namespace Mirror
 
             if (!client.IsSet)
             {
-                Debug.LogWarning("Client is not ready yet.");
+                Debug.LogWarning("Hold on, the client is not ready yet.");
                 return false;
             }
 
@@ -660,9 +682,30 @@ namespace Mirror
         }
 
         // -- PARANOID MODE FUNCTIONS -- //
+        /// <summary>
+        /// Enables or disables Super Paranoid Logging Mode.
+        /// WARNING: Unity Editor Logs will be very laggy when lots of activity is going on!
+        /// </summary>
+        /// <param name="enable">Self-explainatory.</param>
         public void EnableParanoidLogging(bool enable)
         {
             superParanoidMode = enable;
+        }
+
+        // -- TIMEOUT SETTINGS -- //
+        /// <summary>
+        /// Enables or disables Custom Peer Timeout Settings.
+        /// Also configures the minimum and maximum ticks to wait for connections to respond before timing out.
+        /// Use ConfigureCustomPeerTimeoutSettings(min, max) to configure after enabling this.
+        /// </summary>
+        /// <param name="enable">Self-explainatory.</param>
+        /// <param name="minTicks">The minimum almost of time you want to wait before saying it's timed out.</param>
+        /// <param name="multiplier">The multiplier to use to calculate the maximum time to wait.</param>
+        private void UseCustomPeerTimeoutSettings(bool enable, uint minTicks, uint multiplier)
+        {
+            useCustomPeerTimeout = enable;
+            peerBaseTimeout = minTicks;
+            peerBaseTimeoutMultiplier = multiplier;
         }
     }
 }
