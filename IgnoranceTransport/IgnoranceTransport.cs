@@ -5,13 +5,20 @@
 // ENet-C# by nxrighthere, 2018
 // ENet by the ENet developers, whenever - whenever.
 // ----------------------------------------
-// THIS IS EXPERIMENTAL PROGRAM CODE
+// IGNORANCE TRANSPORT COMES WITH NO WARRANTY WHATSOEVER.
+// BY USING THIS TRANSPORT FOR MIRROR YOU AGREE THAT YOU
+// CANNOT AND WILL NOT HOLD THE DEVELOPER LIABLE FOR ANY
+// LOSS OF GAME DEVELOPMENT PROGRESS, DATA LOSS OR OTHER
+// PROBLEMS CAUSED DIRECTLY OR INDIRECTLY BY THIS CODE.
+// ----------------------------------------
+// It would be greatly appreciated if you reported bugs
+// and donate coffee at https://github.com/SoftwareGuy/Ignorance.
 // ----------------------------------------
 
+using ENet;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using ENet;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
 
@@ -23,19 +30,19 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "v1.0.7";
+        private const string TransportVersion = "v1.0.8";
 
         // -- TIMEOUTS -- //
-        private bool useCustomPeerTimeout = true;
+        private bool useCustomPeerTimeout = true;   // Use custom peer timeouts?
         private uint peerBaseTimeout = 5000;        // 5000 ticks (5 seconds)
-        private uint peerBaseTimeoutMultiplier = 3;
+        private uint peerBaseTimeoutMultiplier = 3; // peerBaseTimemout * this value = maximum time waiting
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
         private Address serverAddress;
 
-        private Dictionary<int, Peer> knownPeersServerDictionary;
-        private int serverFakeConnectionCounter = 1;  // Used by our dictionary to map ENET Peers to connections.
+        private Dictionary<int, Peer> knownPeersServerDictionary;   // Known connections dictonary since ENET is a little weird.
+        private int serverFakeConnectionCounter = 1;                // Used by our dictionary to map ENET Peers to connections.
 
         // -- CLIENT WORLD VARIABLES -- //
         Host client;
@@ -44,10 +51,10 @@ namespace Mirror
         // -- v1.0.5: Disabled to prevent spammage. -- //
         private bool superParanoidMode = false;
 
-        ENet.PacketFlags[] sendMethods =
+        PacketFlags[] sendMethods =
         {
-            ENet.PacketFlags.Reliable,  //Channels.DefaultReliable
-            ENet.PacketFlags.None       //Channels.DefaultUnreliable
+            PacketFlags.Reliable,  // Channels.DefaultReliable
+            PacketFlags.None       // Channels.DefaultUnreliable
         };
 
         // -- INITIALIZATION -- // 
@@ -55,9 +62,8 @@ namespace Mirror
         {
             Library.Initialize();
 
-            Debug.LogFormat("This is the Ignorance Transport {0} reporting in for duty.", TransportVersion);
-            Debug.Log("Remember to keep up to date with the latest releases at: https://github.com/SoftwareGuy/Ignorance/releases and report bugs there too!");
-            Debug.Log("Shoutouts to vis2k and the Mirror Discord crew. You guys rock!");
+            Debug.LogFormat("Ignorance Transport {0} initialized!", TransportVersion);
+            Debug.Log("Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance");
         }
 
 
@@ -164,7 +170,7 @@ namespace Mirror
 
                     // The peer object will allow us to do stuff with it later.
                     knownPeersServerDictionary.Add(connectionId, incomingEvent.Peer);
-                    Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): setup fake ConnectionID. Mapped new fake connID {0} to peer ID {1} from IP {2}", serverFakeConnectionCounter, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
+                    Debug.LogFormat("Ignorance Transport: Mapped peer ID {1} (from IP {2}) => fake connID {0}", serverFakeConnectionCounter, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
 
                     // Increment the fake connection counter by one.
                     serverFakeConnectionCounter += 1;
@@ -189,7 +195,7 @@ namespace Mirror
                         {
                             connectionId = entry.Key;
 
-                            Debug.LogFormat("Evicting peer ID {0} (fake connID {1})", incomingEvent.Peer.ID, entry.Key);
+                            Debug.LogFormat("Ignorance Transport: Evicting peer ID {0} (fake connID {1})", incomingEvent.Peer.ID, entry.Key);
                             knownPeersServerDictionary.Remove(entry.Key);
                             // No need to keep going through the list. Halt.
                             break;
@@ -294,7 +300,7 @@ namespace Mirror
             // Version 1.0.4: undo what 1.0.2/1.0.3 did regarding this.
             if (!string.IsNullOrEmpty(address))
             {
-                Debug.LogFormat("Ignorance Transport: Will bind to address {0}", address);
+                Debug.LogFormat("Ignorance Transport: Binding to address {0}", address);
                 serverAddress.SetHost(address);
             }
 
@@ -306,7 +312,7 @@ namespace Mirror
             
             // Log our best effort attempts
             Debug.LogFormat("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", maxConnections, Convert.ToUInt16(port));
-            Debug.LogFormat("Ignorance Transport: If you see this message the server most likely was successfully created and started! (This is good.)");
+            Debug.LogFormat("Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
         }
 
         /// <summary>
@@ -319,7 +325,7 @@ namespace Mirror
         public void ServerStartWebsockets(string address, int port, int maxConnections)
         {
             // Websockets? Nani?
-            throw new NotImplementedException();
+            throw new NotImplementedException("WebSockets with ENET are not possible and probably will never be implemented. Sorry to disappoint");
         }
 
         /// <summary>
@@ -484,7 +490,7 @@ namespace Mirror
 
             if (!client.IsSet)
             {
-                Debug.LogWarning("Hold on, the client is not ready yet.");
+                Debug.LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
                 return false;
             }
 
@@ -524,7 +530,7 @@ namespace Mirror
                 client.Dispose();
             }
 
-            // Shutdown the 
+            // Shutdown the server.
             if (server != null && server.IsSet)
             {
                 if (superParanoidMode) Debug.Log("Sending the server process to the dumpster fire...");

@@ -47,7 +47,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Dependencies\ENet-C#\ENet.cs" />
+    <Compile Include="Dependencies\ENet.cs" />
     <Compile Include="IgnoranceTransport.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -55,7 +55,7 @@
     <Content Include="Dependencies\Mirror\Mirror.Runtime.dll" />
     <Content Include="Dependencies\UnityEngine\UnityEngine.dll" />
     <Content Include="Dependencies\UnityEngine\UnityEngine.dll.mdb" />
-    <Content Include="Redist\enet.dll">
+    <Content Include="Redist\Windows\enet.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Redist\readme.txt">
@@ -63,10 +63,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Redist\enet.dylib">
+    <None Include="Redist\macOS\enet.bundle">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Redist\libenet.so">
+    <None Include="Redist\Linux\libenet.so">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
