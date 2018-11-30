@@ -530,10 +530,10 @@ namespace Mirror
         // -- VERSION 1.0.1 EXPOSED FUNCTIONS -- //
         /// <summary>
         /// Wall of text. Thanks NX for this detailed explaination.
-        /// Sets a timeout parameters for the client. The timeout parameters control how and when a peer will timeout from a failure to acknowledge reliable traffic.
+        /// Sets a timeout parameters for the client. The timeout parameters control how and when a peer will timeout from a failure to acknowledge reliable traffic.<para />
         /// 
         /// Timeout values used in the semi-linear mechanism, where if a reliable packet is not acknowledged within an average round trip time plus a variance tolerance
-        /// until timeout reaches a set limit. If the timeout is thus at this limit and reliable packets have been sent but not acknowledged within a certain minimum time period,
+        /// until timeout reaches a set limit.<para />If the timeout is thus at this limit and reliable packets have been sent but not acknowledged within a certain minimum time period,
         /// the peer will be disconnected. Alternatively, if reliable packets have been sent but not acknowledged for a certain maximum time period, the peer will be disconnected
         /// regardless of the current timeout limit value.
         /// </summary>
@@ -551,7 +551,7 @@ namespace Mirror
         /// <summary>
         /// Allows you to enable server-side compression via built-in ENET LZ4 methods. Please note that 
         /// you should only enable this before a server is started. NEVER TURN IT ON DURING
-        /// A SERVER IS ACTIVE OR COMMUNICATION MAY BREAK!
+        /// A SERVER IS ACTIVE OR COMMUNICATION MAY BREAK!<para />
         /// 
         /// Note that you also need to ensure clients are using compression or funky things might happen.
         /// 
@@ -568,7 +568,7 @@ namespace Mirror
         /// <summary>
         /// Allows you to enable client-side compression via built-in ENET LZ4 methods. Please note that 
         /// you should only enable this before a client is started. NEVER TURN IT ON DURING
-        /// A CLIENT IS ACTIVE OR COMMUNICATION MAY BREAK!
+        /// A CLIENT IS ACTIVE OR COMMUNICATION MAY BREAK!<para />
         /// 
         /// Note that you also need to ensure the server is using compression or funky things might happen.
         /// 
