@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Oiran Studio")]
 [assembly: AssemblyProduct("Mirror.IgnoranceTransport")]
-[assembly: AssemblyCopyright("vis2k is a bloody legend")]
+[assembly: AssemblyCopyright("Oiran Studio")]
 [assembly: AssemblyTrademark("TACTICAL UDP TRANSPORT ACTION")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.8.0")]
-[assembly: AssemblyFileVersion("1.0.8.0")]
+[assembly: AssemblyVersion("1.0.9.0")]
+[assembly: AssemblyFileVersion("1.0.9.0")]

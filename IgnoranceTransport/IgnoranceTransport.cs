@@ -30,19 +30,19 @@ namespace Mirror
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "v1.0.8";
+        private const string TransportVersion = "v1.0.9";
 
         // -- TIMEOUTS -- //
         private bool useCustomPeerTimeout = true;   // Use custom peer timeouts?
         private uint peerBaseTimeout = 5000;        // 5000 ticks (5 seconds)
-        private uint peerBaseTimeoutMultiplier = 3; // peerBaseTimemout * this value = maximum time waiting
+        private uint peerBaseTimeoutMultiplier = 3; // peerBaseTimemout * this value = maximum time waiting until client is removed
 
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
         private Address serverAddress;
 
         private Dictionary<int, Peer> knownPeersServerDictionary;   // Known connections dictonary since ENET is a little weird.
-        private int serverFakeConnectionCounter = 1;                // Used by our dictionary to map ENET Peers to connections.
+        private int serverFakeConnectionCounter = 1;                // Used by our dictionary to map ENET Peers to connections. Start at 1 just to be safe.
 
         // -- CLIENT WORLD VARIABLES -- //
         Host client;
@@ -69,18 +69,18 @@ namespace Mirror
 
         // -- v1.0.7 Functions -- //
         /// <summary>
-        /// Get the maximum packet size allowed. Introduced from Mirror upstream git commit: 1289dee8.
+        /// Get the maximum packet size allowed. Introduced from Mirror upstream git commit: 1289dee8. <para />
         /// Please see https://github.com/nxrighthere/ENet-CSharp/issues/33 for more information.
         /// </summary>
         /// <returns>A integer with the maximum packet size.</returns>
         public int GetMaxPacketSize(int channelId)
         {
-            return (int)Library.maxPacketSize;  // 33,554,432 bytes.
+            return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire. NX's orders.
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
         /// <summary>
-        /// Gets info about a connection via the connectionId.
+        /// Gets info about a connection via the connectionId. <para />
         /// Apparently it only gets the IP Address. What's up with that?
         /// </summary>
         /// <param name="connectionId">The connection ID to lookup.</param>
@@ -110,7 +110,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Disconnects a server connection
+        /// Disconnects a server connection.
         /// </summary>
         /// <param name="connectionId">The connection ID to evict.</param>
         /// <returns>True if the connection exists, false otherwise.</returns>
@@ -136,10 +136,6 @@ namespace Mirror
         /// <returns>True if successful, False if unsuccessful.</returns>
         public bool ServerGetNextMessage(out int connectionId, out TransportEvent transportEvent, out byte[] data)
         {
-            // Setup some basic things
-            // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour
-            // byte[] newDataPacketContents;
-
             // The incoming Enet Event.
             Event incomingEvent;
 
@@ -222,18 +218,12 @@ namespace Mirror
                         }
                     }
 
-                    // Try to be safe. We could do better.
-                    // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour, and comment out the one below it.
-                    // newDataPacketContents = new byte[incomingEvent.Packet.Length];
+                    // Copy our data into our buffers.
                     data = new byte[incomingEvent.Packet.Length];
                     incomingEvent.Packet.CopyTo(data);
                     incomingEvent.Packet.Dispose();
-
-                    // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour, and comment out the one below it.
-                    // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ServerGetNextMessage(): data: {0}", BitConverter.ToString(newDataPacketContents));
                     if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage() Payload:\n {0}", BitConverter.ToString(data));
-                    // version 1.0.1 optimization: uncomment this for v1.0.0 behaviour.
-                    // data = newDataPacketContents;
+
                     break;
                 case EventType.None:
                     // Nothing happened. Do nothing.
@@ -408,10 +398,6 @@ namespace Mirror
         /// <returns></returns>
         public bool ClientGetNextMessage(out TransportEvent transportEvent, out byte[] data)
         {
-            // Setup some basic things
-            // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment this.
-            // byte[] newDataPacketContents;
-
             // The incoming Enet Event.
             Event incomingEvent;
 
@@ -454,16 +440,11 @@ namespace Mirror
 
                     if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length);
 
-                    // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next line and comment out the line below the newly uncommented line.
-                    // newDataPacketContents = new byte[incomingEvent.Packet.Length];
                     data = new byte[incomingEvent.Packet.Length];
                     incomingEvent.Packet.CopyTo(data);
                     incomingEvent.Packet.Dispose();
-
-                    // v1.0.1: Some minor optimization. For v1.0.0 behaviour, uncomment the next lines and comment out the line under the newly uncommented lines.
-                    // if (superParanoidMode) Debug.LogFormat("Ignorance rUDP Transport ClientGetNextMessage() Incoming data: {0}", BitConverter.ToString(newDataPacketContents));
-                    // data = newDataPacketContents;
                     if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() Payload data:\n{0}", BitConverter.ToString(data));
+
                     break;
 
                 case EventType.None:
@@ -482,6 +463,9 @@ namespace Mirror
         /// <returns></returns>
         public bool ClientSend(int channelId, byte[] data)
         {
+            Packet mailingPigeon = default(Packet);
+            bool sendingPacketWasSuccessful;
+
             if (channelId >= sendMethods.Length)
             {
                 Debug.LogError("Trying to use an unknown channel to send data");
@@ -497,16 +481,15 @@ namespace Mirror
             // Mailing Pigeons. Gotta love the birds.
             // Very useful in the wartime, as long as the enemy team didn't
             // shoot them down. At least you got a free dinner. Who doesn't
-            // want a delicious pigeon pie?
-            Packet mailingPigeon = default(Packet);
+            // want a delicious pigeon pie? (I play too much Battlefield 1)
             mailingPigeon.Create(data, sendMethods[channelId]);
 
             if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientSend(): channelId {0}, data {1}", channelId, BitConverter.ToString(data));
 
-            bool wasSuccessful = clientPeer.Send(0, ref mailingPigeon);
-            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientSend successful? {0}", wasSuccessful);
+            sendingPacketWasSuccessful = clientPeer.Send(0, ref mailingPigeon);
+            if (superParanoidMode) Debug.LogFormat("Ignorance Transport: ClientSend successful? {0}", sendingPacketWasSuccessful);
 
-            return wasSuccessful;
+            return sendingPacketWasSuccessful;
         }
 
         // -- END CLIENT FUNCTIONS -- //
