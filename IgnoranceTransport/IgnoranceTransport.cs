@@ -73,7 +73,7 @@ namespace Mirror
         /// Please see https://github.com/nxrighthere/ENet-CSharp/issues/33 for more information.
         /// </summary>
         /// <returns>A integer with the maximum packet size.</returns>
-        public int GetMaxPacketSize()
+        public int GetMaxPacketSize(int channelId)
         {
             return (int)Library.maxPacketSize;  // 33,554,432 bytes.
         }
