@@ -21,6 +21,7 @@ using ENet;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityAsync;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
 
@@ -54,7 +55,7 @@ namespace Mirror
         private int serverConnectionCount = 1;                // Used by our dictionary to map ENET Peers to connections. Start at 1 just to be safe.
 
         // This section defines what classic UNET channels refer to.
-        private PacketFlags[] packetSendMethods =
+        private readonly PacketFlags[] packetSendMethods =
         {
             PacketFlags.Reliable,  // Channels.DefaultReliable
             PacketFlags.None       // Channels.DefaultUnreliable
@@ -65,6 +66,7 @@ namespace Mirror
         public event Action<byte[]> OnClientData;
         public event Action<Exception> OnClientError;
         public event Action OnClientDisconnect;
+
         public event Action<int> OnServerConnect;
         public event Action<int, byte[]> OnServerData;
         public event Action<int, Exception> OnServerError;
@@ -101,24 +103,77 @@ namespace Mirror
 
             // Connect the client to the server.
             clientPeer = client.Connect(clientAddress);
+
+            // Start the client's receive loop.
+            ClientReceiveLoop(client);
+        }
+
+        private async void ClientReceiveLoop(Host clientHost) {
+            try
+            {
+                while (true)
+                {
+                    // Get the next message from the client peer object.
+                    clientHost.Service(0, out Event incomingEvent);
+                    switch (incomingEvent.Type)
+                    {
+                        case EventType.Connect:
+                            // TODO: Emit a message when this happens.
+
+                            OnClientConnect?.Invoke();
+                            break;
+                        case EventType.Disconnect:
+                            return;
+                        case EventType.Timeout:
+                            throw new TimeoutException("Ignorance Transport: Our peer connection timed out.");
+                        case EventType.None:
+                            // Nothing is happening, so we need to wait until the next frame.
+                            await Await.NextUpdate();
+                            break;
+                        case EventType.Receive:
+                            // Got data.
+                            byte[] data = new byte[incomingEvent.Packet.Length];
+                            incomingEvent.Packet.CopyTo(data);
+                            incomingEvent.Packet.Dispose();
+                            OnClientData?.Invoke(data);
+                            break;
+                    }
+                }
+            } catch (Exception exception) {
+                // Something went wrong - just like Windows 10.
+                OnClientError?.Invoke(exception);
+            } finally {
+                // We disconnected, got fed an error message or we got a Disconnect.
+                OnClientDisconnect?.Invoke();
+            }
         }
 
         public virtual void ClientSend(int channelId, byte[] data) {
-            // STUBBED FOR NOW
-            // Need to talk to Mirror devs for assistance.
-        }
+            Packet mailingPigeon = default(Packet);
+            bool sendingPacketWasSuccessful;    // really needed?
 
-        
+            if (!client.IsSet)
+            {
+                Debug.LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
+                return;
+            }
+
+            if (channelId >= packetSendMethods.Length)
+            {
+                Debug.LogError("Ignorance Transport ERROR: Trying to use an unknown channel to send data");
+                return;
+            }
+
+            mailingPigeon.Create(data, packetSendMethods[channelId]);
+            // probably should get the bool result from this again
+            sendingPacketWasSuccessful = clientPeer.Send(0, ref mailingPigeon);
+            
+            return;
+        }
 
         public virtual void ClientDisconnect() {
             if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
-
-            if (client != null)
-            {
-                // client.Flush();
-                client.Dispose();
-            }
-
+            if (client != null) client.Dispose();
             client = null;
         }
 
@@ -157,17 +212,108 @@ namespace Mirror
             // Finally create the server.
             server.Create(serverAddress, maxConnections);
 
-            Debug.Log("Ignorance Transport: Server successfully started if you see this message.");
+            Debug.Log("Ignorance Transport: Entering server receive loop...");
+
+            ServerReceiveLoop(server);
+        }
+
+        private async void ServerReceiveLoop(Host server)
+        {
+            try
+            {
+               while(true) {
+                    server.Service(0, out Event incomingEvent);
+
+                    switch (incomingEvent.Type)
+                    {
+                        case EventType.Connect:
+                            // TODO: Emit a message when this happens.
+
+                            // New client connected, let's set them up.
+                            int newClientConnectionId = serverConnectionCount;
+                            // Increment our next server connection counter.
+                            serverConnectionCount++;
+                            // Map them in our dictionary.
+                            knownPeerConnections.Add(newClientConnectionId, incomingEvent.Peer);
+                            // Invoke the async callback.
+                            OnServerConnect?.Invoke(newClientConnectionId);
+                            break;
+                        case EventType.Receive:
+                            // Got data.
+                            byte[] data = new byte[incomingEvent.Packet.Length];
+
+                            // Come up with a better way of doing this, Coburn...
+                            foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
+                            {
+                                if (entry.Value.ID == incomingEvent.Peer.ID)
+                                {
+                                    incomingEvent.Packet.CopyTo(data);
+                                    incomingEvent.Packet.Dispose();
+                                    OnServerData?.Invoke(entry.Key, data);
+
+                                    // No need to keep going through the list. Halt.
+                                    break;
+                                }
+                            }
+                            break;
+                        case EventType.Disconnect:
+                        case EventType.Timeout:
+                            // TODO: Emit a message when this happens.
+                            // Look them up. Not the easiest way of doing this, though.
+
+                            foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
+                            {
+                                if (entry.Value.ID == incomingEvent.Peer.ID)
+                                {
+                                    int disconnectedConnectionId = entry.Key;
+                                    OnServerDisconnect?.Invoke(disconnectedConnectionId);
+                                    knownPeerConnections.Remove(entry.Key);
+                                    break;
+                                }
+                            }
+                            break;
+                        case EventType.None:
+                            // Nothing is happening, so we need to wait until the next frame.
+                            await Await.NextUpdate();
+                            break;
+                    }
+               }
+            }
+            catch (Exception exception)
+            {
+                // What would go here??
+                Debug.LogFormat("Server exception caught: {0}", exception.ToString());
+            }
+            finally
+            {
+                // What would go here??
+                Debug.Log("FIXME: I dunno what to do here");
+            }
         }
 
         public virtual void ServerStartWebsockets(string address, int port, int maxConnections)
         {
             Debug.LogError("Ignorance Transport does not support Websockets. Aborting...");
+            return;
         }
 
         public virtual void ServerSend(int connectionId, int channelId, byte[] data) {
-            // STUBBED FOR NOW
-            // Need to talk to Mirror devs for assistance.
+            Packet mailingPigeon = default(Packet);
+            bool wasTransmissionSuccessful;
+
+            if (channelId >= packetSendMethods.Length)
+            {
+                Debug.LogError("Ignorance Transport ERROR: Trying to use an unknown channel to send data");
+                return;
+            }
+
+            if (knownPeerConnections.ContainsKey(connectionId)) {                
+                Peer target = knownPeerConnections[connectionId];
+                mailingPigeon.Create(data, packetSendMethods[channelId]);
+
+                wasTransmissionSuccessful = target.Send(0, ref mailingPigeon);
+                return;
+            }
         }
 
         public virtual bool ServerDisconnect(int connectionId)
@@ -199,23 +345,17 @@ namespace Mirror
             }
 
             // Don't forget to dispose stuff.
-            if (server != null)
-            {
-                server.Flush(); // testing
-                server.Dispose();
-            }
+            if (server != null) server.Dispose();
             server = null;
         }
 
         public virtual void Shutdown()
         {
-            Debug.Log("Ignorance Transport: Going down for shutdown NOW!");
+            Debug.Log("Ignorance Transport: Acknowledged shutdown request...");
 
             // Shutdown the client first.
             if (client != null && client.IsSet)
             {
-                if (verboseLoggingEnabled) Debug.Log("Sending the client process to the dumpster fire...");
-
                 if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
 
                 client.Flush();
@@ -233,278 +373,16 @@ namespace Mirror
 
             Library.Deinitialize();
             libraryInitialized = false;
-            Debug.Log("Ignorance Transport shutdown complete. Have a good one.");
+
+            Debug.Log("Ignorance Transport: Shutdown complete.");
         }
-        /// <summary>
-        /// Gets the maximum packet size allowed. Introduced from Mirror upstream git commit: 1289dee8. <para />
-        /// Please see https://github.com/nxrighthere/ENet-CSharp/issues/33 for more information.
-        /// </summary>
-        /// <returns>A integer with the maximum packet size.</returns>
+
         public int GetMaxPacketSize(int channelId)
         {
-            return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire. NX's orders.
+            return (int)Library.maxPacketSize;  // 33,554,432 bytes.
         }
 
-        /// <summary>
-        /// The meat and vegies of the transport on the server side. This is the packet pump.
-        /// </summary>
-        /// <param name="connectionId">The incoming connection ID.</param>
-        /// <param name="transportEvent">What event is this? Connection? Data? Disconnection?</param>
-        /// <param name="data">Byte array of the data payload being received.</param>
-        /// <returns>True if successful, False if unsuccessful.</returns>
-        /*
-        public bool ServerGetNextMessage(out int connectionId, out TransportEvent transportEvent, out byte[] data)
-        {
-            // The incoming Enet Event.
-            Event incomingEvent;
-
-            // Mirror's transport event and data output.
-            transportEvent = TransportEvent.Disconnected;
-            data = null;
-            connectionId = -1;
-
-            if (!server.IsSet)
-            {
-                Debug.LogWarning("Ignorance Transport: Hold on, the server is not ready yet.");
-                return false;
-            }
-
-            // Get the next message...
-            server.Service(0, out incomingEvent);
-
-            // What type is this?
-            switch (incomingEvent.Type)
-            {
-                // Connections (Normal peer connects)
-                case EventType.Connect:
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: New connection with peer ID {0}, IP {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-
-                    // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
-                    // This sucks, but it has to be done for now. Give the new connection a fake connection ID, but also cache the Peer.
-                    connectionId = serverConnectionCount;
-
-                    // The peer object will allow us to do stuff with it later.
-                    knownPeerConnections.Add(connectionId, incomingEvent.Peer);
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: Mapped peer ID {1} (from IP {2}) => fake connID {0}", serverConnectionCount, incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    else Debug.LogFormat("Ignorance Transport: New connection from IP {0}. Peer ID {1} mapped to internal connection ID {2}", incomingEvent.Peer.IP, incomingEvent.Peer.ID, serverConnectionCount);
-                    
-                    // Increment the fake connection counter by one.
-                    serverConnectionCount += 1;
-
-                    // If we're using custom timeouts, then set the timeouts too.
-                    if(useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
-
-                    // Report back saying we got a connection event.
-                    transportEvent = TransportEvent.Connected;
-                    break;
-
-                // Disconnections (Normal peer disconnect and timeouts)
-                case EventType.Disconnect:
-                case EventType.Timeout:
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);                    
-
-                    // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
-                    // Since our dictionary stores fake connection IDs, we need to go through and find the real Peer ID. This could be improved.
-                    foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
-                    {
-                        if (entry.Value.ID == incomingEvent.Peer.ID)
-                        {
-                            connectionId = entry.Key;
- 
-                            if(verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: Evicting peer ID {0} (fake connID {1})", incomingEvent.Peer.ID, entry.Key);
-                            else Debug.LogFormat("Ignorance Transport: Connection ID {0} {1}", entry.Key, (incomingEvent.Type == EventType.Disconnect ? "disconnected" : "timed out"));
-                            knownPeerConnections.Remove(entry.Key);
-                            // No need to keep going through the list. Halt.
-                            break;
-                        }
-                    }
-
-                    // Report back.
-                    transportEvent = TransportEvent.Disconnected;
-                    break;
-
-                case EventType.Receive:
-                    transportEvent = TransportEvent.Data;
-                    if (verboseLoggingEnabled) Debug.LogWarningFormat("Ignorance Transport: ServerGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length);
-
-                    foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
-                    {
-                        if (entry.Value.ID == incomingEvent.Peer.ID)
-                        {
-                            // Debug.LogFormat("PeerID {0} maps to connection ID {1}", incomingEvent.Peer.ID, entry.Key);
-                            connectionId = entry.Key;
-
-                            // No need to keep going through the list. Halt.
-                            break;
-                        }
-                    }
-
-                    // Copy our data into our buffers.
-                    data = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(data);
-                    incomingEvent.Packet.Dispose();
-
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ServerGetNextMessage() Payload:\n {0}", BitConverter.ToString(data));
-
-                    break;
-                case EventType.None:
-                    // Nothing happened. Do nothing.
-                    return false;
-            }
-
-            // We're done here. Bugger off.
-            return true;
-        }
-        */
-        /// <summary>
-        /// Send data on the server side.
-        /// </summary>
-        /// <param name="connectionId">The connection ID to send data to.</param>
-        /// <param name="channelId">The channel ID to send data on. Must not be lower or greater than the values in the sendMethods array.</param>
-        /// <param name="data">The payload to transmit.</param>
-        /// <returns></returns>
-        /*
-        public bool ServerSend(int connectionId, int channelId, byte[] data)
-        {
-            // Another mailing pigeon
-            Packet mailingPigeon = default(Packet);
-            bool wasTransmissionSuccessful;
-
-            if (channelId >= packetSendMethods.Length)
-            {
-                Debug.LogError("Trying to use an unknown channel to send data");
-                return false;
-            }
-
-            // This should fix that bloody AccessViolation
-            // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
-            mailingPigeon.Create(data, packetSendMethods[channelId]);
-
-            // More haxx. see https://github.com/nxrighthere/ENet-CSharp/issues/21 for some background info-ish.
-            if (knownPeerConnections.ContainsKey(connectionId))
-            {
-                Peer target = knownPeerConnections[connectionId];
-                if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ServerSend() to fakeConnID {0} on channel {1}\nPayload: {2}", connectionId, channelId, BitConverter.ToString(data));
-
-                wasTransmissionSuccessful = target.Send(0, ref mailingPigeon);
-                if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ServerSend() successful? {0}", wasTransmissionSuccessful);
-                return wasTransmissionSuccessful;
-            }
-            else
-            {
-                if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ServerSend() to fakeConnID {0} on channel {1} failure", connectionId, channelId);
-                return false;
-            }
-        } */
-
-        /// <summary>
-        /// Get the next client data packet.
-        /// </summary>
-        /// <param name="transportEvent">The transport event to report back to Mirror.</param>
-        /// <param name="data">The byte array of the data.</param>
-        /// <returns></returns>
-        public bool ClientGetNextMessage(out TransportEvent transportEvent, out byte[] data)
-        {
-            // The incoming Enet Event.
-            Event incomingEvent;
-
-            // Mirror's transport event and data output.
-            transportEvent = TransportEvent.Disconnected;
-            data = null;
-
-            // Safety check: if the client isn't created, then we shouldn't do anything. ENet might be warming up.
-            if (!client.IsSet)
-            {
-                Debug.LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
-                return false;
-            }
-
-            // Get the next message...
-            client.Service(0, out incomingEvent);
-
-            // Debugging only
-            if (verboseLoggingEnabled) Debug.Log("ClientGetNextMessage event: " + incomingEvent.Type);
-
-            switch (incomingEvent.Type)
-            {
-                // Peer connects.
-                case EventType.Connect:
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() connect; real ENET peerID {0}, address {1}", incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    else Debug.LogFormat("Ignorance Transport: Connection established with {0}", incomingEvent.Peer.IP);
-
-                    // If we're using custom timeouts, then set the timeouts too.
-                    if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
-                    transportEvent = TransportEvent.Connected;
-                    break;
-
-                // Peer disconnects/timeout.
-                case EventType.Disconnect:
-                case EventType.Timeout:
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() {0}; peerID {1}, address {2}", (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP);
-                    else Debug.LogFormat("Ignorance Transport: Client encountered {0}", (incomingEvent.Type == EventType.Disconnect ? "disconnection" : "timeout"));
-                    transportEvent = TransportEvent.Disconnected;
-                    break;
-                // Peer sends data to us.
-                case EventType.Receive:
-                    transportEvent = TransportEvent.Data;
-
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length);
-
-                    data = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(data);
-                    incomingEvent.Packet.Dispose();
-                    if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ClientGetNextMessage() Payload data:\n{0}", BitConverter.ToString(data));
-
-                    break;
-
-                case EventType.None:
-                    return false;
-            }
-
-            // We're done here. Bugger off.
-            return true;
-        }
-
-        /// <summary>
-        /// Send client data to the server.
-        /// </summary>
-        /// <param name="channelId">The channel ID.</param>
-        /// <param name="data">The data array.</param>
-        /// <returns></returns>
-        /*
-        public bool ClientSend(int channelId, byte[] data)
-        {
-            Packet mailingPigeon = default(Packet);
-            bool sendingPacketWasSuccessful;
-
-            if (channelId >= packetSendMethods.Length)
-            {
-                Debug.LogError("Ignorance Transport ERROR: Trying to use an unknown channel to send data");
-                return false;
-            }
-
-            if (!client.IsSet)
-            {
-                Debug.LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
-                return false;
-            }
-
-            // Mailing Pigeons. Gotta love the birds.
-            // Very useful in the wartime, as long as the enemy team didn't
-            // shoot them down. At least you got a free dinner. Who doesn't
-            // want a delicious pigeon pie? (I play too much Battlefield 1)
-            mailingPigeon.Create(data, packetSendMethods[channelId]);
-
-            if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ClientSend(): channelId {0}, data {1}", channelId, BitConverter.ToString(data));
-
-            sendingPacketWasSuccessful = clientPeer.Send(0, ref mailingPigeon);
-            if (verboseLoggingEnabled) Debug.LogFormat("Ignorance Transport: ClientSend successful? {0}", sendingPacketWasSuccessful);
-
-            return sendingPacketWasSuccessful;
-        }
-        */
-        // -- END CLIENT FUNCTIONS -- //
-
+        // --- END IGNORANCE ASYNC 2018 BRANCH CORE FUNCTIONS --- //
 
         // -- TIMEOUT SETTINGS -- //
         /// <summary>
@@ -527,8 +405,6 @@ namespace Mirror
             }
         }
 
-
-        // -- TIMEOUT SETTINGS -- //
         /// <summary>
         /// Enables or disables Custom Peer Timeout Settings.
         /// Also configures the minimum and maximum ticks to wait for connections to respond before timing out.

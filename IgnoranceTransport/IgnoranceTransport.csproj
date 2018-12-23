@@ -47,7 +47,59 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Dependencies\ENet.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\ClientScene.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\CustomAttributes.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\DotNetCompatibility.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\ExponentialMovingAverage.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\LocalClient.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\LocalConnections.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\LogFilter.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Messages.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkAnimator.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkBehaviour.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkClient.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkConnection.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkIdentity.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkManager.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkManagerHUD.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkProximityChecker.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkReader.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkServer.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkStartPosition.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTime.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTransform.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTransformChild.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkWriter.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\SyncList.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\SyncObject.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\LLAPITransport.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\TelepathyTransport.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\TelepathyWebsocketsMultiplexTransport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Transport.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\UNetwork.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Telepathy\Client.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Telepathy\Common.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Telepathy\Logger.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Telepathy\NetworkStreamExtensions.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Telepathy\Server.cs" />
+    <Compile Include="Dependencies\UnityAsync\Awaiters\AsyncOperationAwaiter.cs" />
+    <Compile Include="Dependencies\UnityAsync\Awaiters\IEnumeratorAwaiter.cs" />
+    <Compile Include="Dependencies\UnityAsync\Awaiters\ResourceRequestAwaiter.cs" />
+    <Compile Include="Dependencies\UnityAsync\Awaiters\SynchronizationContextAwaiter.cs" />
+    <Compile Include="Dependencies\UnityAsync\Awaiters\YieldInstructionAwaiter.cs" />
+    <Compile Include="Dependencies\UnityAsync\AwaitInstructions\WaitForFrames.cs" />
+    <Compile Include="Dependencies\UnityAsync\AwaitInstructions\WaitForSeconds.cs" />
+    <Compile Include="Dependencies\UnityAsync\AwaitInstructions\WaitForSecondsRealtime.cs" />
+    <Compile Include="Dependencies\UnityAsync\AwaitInstructions\WaitUntil.cs" />
+    <Compile Include="Dependencies\UnityAsync\AwaitInstructions\WaitWhile.cs" />
+    <Compile Include="Dependencies\UnityAsync\Await\Await.cs" />
+    <Compile Include="Dependencies\UnityAsync\Continuation.cs" />
+    <Compile Include="Dependencies\UnityAsync\Extensions.cs" />
+    <Compile Include="Dependencies\UnityAsync\IAwaitInstruction.cs" />
+    <Compile Include="Dependencies\UnityAsync\Manager\AsyncManager.ContinuationProcessorGroup.ContinuationProcessor.cs" />
+    <Compile Include="Dependencies\UnityAsync\Manager\AsyncManager.ContinuationProcessorGroup.cs" />
+    <Compile Include="Dependencies\UnityAsync\Manager\AsyncManager.cs" />
+    <Compile Include="Dependencies\UnityAsync\TaskYieldInstruction.cs" />
     <Compile Include="IgnoranceTransport.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -62,6 +114,29 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Dependencies\Mirror-2018\Telepathy\Telepathy.asmdef" />
+    <None Include="Dependencies\UnityAsync\Await.meta" />
+    <None Include="Dependencies\UnityAsync\Awaiters.meta" />
+    <None Include="Dependencies\UnityAsync\Awaiters\AsyncOperationAwaiter.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Awaiters\IEnumeratorAwaiter.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Awaiters\ResourceRequestAwaiter.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Awaiters\SynchronizationContextAwaiter.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Awaiters\YieldInstructionAwaiter.cs.meta" />
+    <None Include="Dependencies\UnityAsync\AwaitInstructions.meta" />
+    <None Include="Dependencies\UnityAsync\AwaitInstructions\WaitForFrames.cs.meta" />
+    <None Include="Dependencies\UnityAsync\AwaitInstructions\WaitForSeconds.cs.meta" />
+    <None Include="Dependencies\UnityAsync\AwaitInstructions\WaitForSecondsRealtime.cs.meta" />
+    <None Include="Dependencies\UnityAsync\AwaitInstructions\WaitUntil.cs.meta" />
+    <None Include="Dependencies\UnityAsync\AwaitInstructions\WaitWhile.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Await\Await.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Continuation.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Extensions.cs.meta" />
+    <None Include="Dependencies\UnityAsync\IAwaitInstruction.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Manager.meta" />
+    <None Include="Dependencies\UnityAsync\Manager\AsyncManager.ContinuationProcessorGroup.ContinuationProcessor.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Manager\AsyncManager.ContinuationProcessorGroup.cs.meta" />
+    <None Include="Dependencies\UnityAsync\Manager\AsyncManager.cs.meta" />
+    <None Include="Dependencies\UnityAsync\TaskYieldInstruction.cs.meta" />
     <None Include="Redist\macOS\enet.bundle">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
