@@ -365,8 +365,6 @@ namespace Mirror
             // Shutdown the server.
             if (server != null && server.IsSet)
             {
-                if (verboseLoggingEnabled) Debug.Log("Sending the server process to the dumpster fire...");
-
                 server.Flush();
                 server.Dispose();
             }
@@ -551,16 +549,6 @@ namespace Mirror
         public void EnableParanoidLogging(bool enable)
         {
             verboseLoggingEnabled = enable;
-        }
-
-        void TransportLayer.ClientSend(int channelId, byte[] data)
-        {
-            throw new NotImplementedException();
-        }
-
-        void TransportLayer.ServerSend(int connectionId, int channelId, byte[] data)
-        {
-            throw new NotImplementedException();
         }
     }
 }
