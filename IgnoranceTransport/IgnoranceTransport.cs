@@ -51,8 +51,10 @@ namespace Mirror
         private Address serverAddress;
         private Peer clientPeer;
 
-        private Dictionary<int, Peer> knownPeerConnections;   // Known connections dictonary since ENET is a little weird.
-        private int serverConnectionCount = 1;                // Used by our dictionary to map ENET Peers to connections. Start at 1 just to be safe.
+        private Dictionary<int, Peer> knownConnIDToPeers;   // Known connections dictonary since ENET is a little weird.
+        private Dictionary<Peer, int> knownPeersToConnIDs;  // Vice versa.
+
+        private int serverConnectionCount = 1;              // Used by our dictionary to map ENET Peers to connections. Start at 1 just to be safe, connection 0 will be localClient.
 
         // This section defines what classic UNET channels refer to.
         private readonly PacketFlags[] packetSendMethods =
@@ -75,15 +77,17 @@ namespace Mirror
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
-            Debug.LogFormat("EXPERIMENTAL Ignorance build {0} for Mirror 2018 ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
+            Debug.LogFormat("EXPERIMENTAL Ignorance Transport v{0} for Mirror 2018 ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
         }
 
         // -- CLIENT WORLD -- //
-        public virtual bool ClientConnected() {
+        public virtual bool ClientConnected()
+        {
             return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
         }
 
-        public virtual void ClientConnect(string address, int port) {
+        public virtual void ClientConnect(string address, int port)
+        {
             // Fire up ENET-C#'s backend.
             if (!libraryInitialized)
             {
@@ -108,21 +112,25 @@ namespace Mirror
             ClientReceiveLoop(client);
         }
 
-        private async void ClientReceiveLoop(Host clientHost) {
+        private async void ClientReceiveLoop(Host clientHost)
+        {
             try
             {
                 while (true)
                 {
+                    if (!clientHost.IsSet) break;
+
+                    Event incomingEvent;
                     // Get the next message from the client peer object.
-                    clientHost.Service(0, out Event incomingEvent);
+                    clientHost.Service(0, out incomingEvent);
                     switch (incomingEvent.Type)
                     {
                         case EventType.Connect:
-                            // TODO: Emit a message when this happens.
-
+                            Debug.LogFormat("Ignorance Transport: Successfully connected to peer located at {0}", incomingEvent.Peer.IP);
                             OnClientConnect?.Invoke();
                             break;
                         case EventType.Disconnect:
+                            // Nothing to do here, break the loop.
                             return;
                         case EventType.Timeout:
                             throw new TimeoutException("Ignorance Transport: Our peer connection timed out.");
@@ -131,7 +139,7 @@ namespace Mirror
                             await Await.NextUpdate();
                             break;
                         case EventType.Receive:
-                            // Got data.
+                            // Data coming in.
                             byte[] data = new byte[incomingEvent.Packet.Length];
                             incomingEvent.Packet.CopyTo(data);
                             incomingEvent.Packet.Dispose();
@@ -139,16 +147,21 @@ namespace Mirror
                             break;
                     }
                 }
-            } catch (Exception exception) {
+            }
+            catch (Exception exception)
+            {
                 // Something went wrong - just like Windows 10.
                 OnClientError?.Invoke(exception);
-            } finally {
+            }
+            finally
+            {
                 // We disconnected, got fed an error message or we got a Disconnect.
                 OnClientDisconnect?.Invoke();
             }
         }
 
-        public virtual void ClientSend(int channelId, byte[] data) {
+        public virtual void ClientSend(int channelId, byte[] data)
+        {
             Packet mailingPigeon = default(Packet);
             bool sendingPacketWasSuccessful;    // really needed?
 
@@ -167,18 +180,21 @@ namespace Mirror
             mailingPigeon.Create(data, packetSendMethods[channelId]);
             // probably should get the bool result from this again
             sendingPacketWasSuccessful = clientPeer.Send(0, ref mailingPigeon);
-            
+            if (!sendingPacketWasSuccessful) Debug.LogWarning("Ignorance Transport: Packet sending apparently wasn't successful.");
+
             return;
         }
 
-        public virtual void ClientDisconnect() {
+        public virtual void ClientDisconnect()
+        {
             if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
             if (client != null) client.Dispose();
             client = null;
         }
 
         // -- SERVER WORLD -- //
-        public virtual bool ServerActive() {
+        public virtual bool ServerActive()
+        {
             if (!libraryInitialized) return false;
 
             if (server != null) return server.IsSet;
@@ -198,7 +214,9 @@ namespace Mirror
             // Initialize our references.
             server = new Host();
             serverAddress = new Address();
-            knownPeerConnections = new Dictionary<int, Peer>();
+
+            knownConnIDToPeers = new Dictionary<int, Peer>();
+            knownPeersToConnIDs = new Dictionary<Peer, int>();
 
             // Bind if we have an address specified.
             if (!string.IsNullOrEmpty(address))
@@ -221,74 +239,77 @@ namespace Mirror
         {
             try
             {
-               while(true) {
-                    server.Service(0, out Event incomingEvent);
+                while (true)
+                {
+                    if (!server.IsSet) break;
+
+                    Event incomingEvent;
+                    server.Service(0, out incomingEvent);
 
                     switch (incomingEvent.Type)
                     {
                         case EventType.Connect:
-                            // TODO: Emit a message when this happens.
+                            Debug.LogFormat("Ignorance Transport: New connection from {0}", incomingEvent.Peer.IP);
 
                             // New client connected, let's set them up.
                             int newClientConnectionId = serverConnectionCount;
                             // Increment our next server connection counter.
                             serverConnectionCount++;
-                            // Map them in our dictionary.
-                            knownPeerConnections.Add(newClientConnectionId, incomingEvent.Peer);
+                            // Map them in our dictionaries
+                            knownPeersToConnIDs.Add(incomingEvent.Peer, newClientConnectionId);
+                            knownConnIDToPeers.Add(newClientConnectionId, incomingEvent.Peer);
                             // Invoke the async callback.
                             OnServerConnect?.Invoke(newClientConnectionId);
                             break;
                         case EventType.Receive:
                             // Got data.
-                            byte[] data = new byte[incomingEvent.Packet.Length];
-
-                            // Come up with a better way of doing this, Coburn...
-                            foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
+                            // Only process that data if the peer is known.
+                            if (knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
                             {
-                                if (entry.Value.ID == incomingEvent.Peer.ID)
-                                {
-                                    incomingEvent.Packet.CopyTo(data);
-                                    incomingEvent.Packet.Dispose();
-                                    OnServerData?.Invoke(entry.Key, data);
+                                byte[] data = new byte[incomingEvent.Packet.Length];
 
-                                    // No need to keep going through the list. Halt.
-                                    break;
-                                }
+                                incomingEvent.Packet.CopyTo(data);
+                                incomingEvent.Packet.Dispose();
+                                OnServerData?.Invoke(knownPeersToConnIDs[incomingEvent.Peer], data);
                             }
+
                             break;
                         case EventType.Disconnect:
-                        case EventType.Timeout:
-                            // TODO: Emit a message when this happens.
-                            // Look them up. Not the easiest way of doing this, though.
-
-                            foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
+                            Debug.LogFormat("Ignorance Transport: Acknowledging disconnection on connection ID {0} ", knownPeersToConnIDs[incomingEvent.Peer]);
+                            if (knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
                             {
-                                if (entry.Value.ID == incomingEvent.Peer.ID)
-                                {
-                                    int disconnectedConnectionId = entry.Key;
-                                    OnServerDisconnect?.Invoke(disconnectedConnectionId);
-                                    knownPeerConnections.Remove(entry.Key);
-                                    break;
-                                }
+                                OnServerDisconnect?.Invoke(knownPeersToConnIDs[incomingEvent.Peer]);
+                                PeerDisconnectedInternal(incomingEvent.Peer);
                             }
+                            break;
+                        case EventType.Timeout:
+                            OnServerError?.Invoke(knownPeersToConnIDs[incomingEvent.Peer], new TimeoutException("Ignorance Transport: Timeout occurred on connection " + knownPeersToConnIDs[incomingEvent.Peer]));
+                            OnServerDisconnect?.Invoke(knownPeersToConnIDs[incomingEvent.Peer]);
+                            PeerDisconnectedInternal(incomingEvent.Peer);
                             break;
                         case EventType.None:
                             // Nothing is happening, so we need to wait until the next frame.
                             await Await.NextUpdate();
                             break;
                     }
-               }
+                }
             }
             catch (Exception exception)
             {
-                // What would go here??
                 Debug.LogFormat("Server exception caught: {0}", exception.ToString());
+                OnServerError?.Invoke(-1, exception);
             }
             finally
             {
-                // What would go here??
-                Debug.Log("FIXME: I dunno what to do here");
+                Debug.Log("Ignorance Transport: Server receive loop finished.");
             }
+        }
+
+        private void PeerDisconnectedInternal(Peer peer)
+        {
+            // Clean up dictionaries.
+            if (knownConnIDToPeers.ContainsKey(knownPeersToConnIDs[peer])) knownConnIDToPeers.Remove(knownPeersToConnIDs[peer]);
+            if (knownPeersToConnIDs.ContainsKey(peer)) knownPeersToConnIDs.Remove(peer);
         }
 
         public virtual void ServerStartWebsockets(string address, int port, int maxConnections)
@@ -297,7 +318,8 @@ namespace Mirror
             return;
         }
 
-        public virtual void ServerSend(int connectionId, int channelId, byte[] data) {
+        public virtual void ServerSend(int connectionId, int channelId, byte[] data)
+        {
             Packet mailingPigeon = default(Packet);
             bool wasTransmissionSuccessful;
 
@@ -307,44 +329,49 @@ namespace Mirror
                 return;
             }
 
-            if (knownPeerConnections.ContainsKey(connectionId)) {                
-                Peer target = knownPeerConnections[connectionId];
+            if (knownConnIDToPeers.ContainsKey(connectionId))
+            {
+                Peer target = knownConnIDToPeers[connectionId];
                 mailingPigeon.Create(data, packetSendMethods[channelId]);
 
                 wasTransmissionSuccessful = target.Send(0, ref mailingPigeon);
+                if (!wasTransmissionSuccessful) Debug.LogWarning("Ignorance Transport: Server-side packet sending apparently wasn't successful.");
                 return;
             }
         }
 
         public virtual bool ServerDisconnect(int connectionId)
         {
-            if (knownPeerConnections.ContainsKey(connectionId)) {
-                knownPeerConnections[connectionId].Disconnect(0);
+            if (knownConnIDToPeers.ContainsKey(connectionId))
+            {
+                knownConnIDToPeers[connectionId].Disconnect(0);
                 return true;
             }
 
             return false;
         }
 
-        public virtual bool GetConnectionInfo(int connectionId, out string address) {
+        public virtual bool GetConnectionInfo(int connectionId, out string address)
+        {
             address = "(invalid)";
 
-            if (knownPeerConnections.ContainsKey(connectionId))
+            if (knownConnIDToPeers.ContainsKey(connectionId))
             {
-                address = knownPeerConnections[connectionId].IP;
+                address = knownConnIDToPeers[connectionId].IP;
                 return true;
             }
 
             return false;
         }
 
-        public virtual void ServerStop() {
-            foreach (KeyValuePair<int, Peer> entry in knownPeerConnections)
-            {
-                entry.Value.DisconnectNow(0);
-            }
+        public virtual void ServerStop()
+        {
+            foreach (KeyValuePair<int, Peer> entry in knownConnIDToPeers) entry.Value.DisconnectNow(0);
 
             // Don't forget to dispose stuff.
+            knownConnIDToPeers = new Dictionary<int, Peer>();
+            knownPeersToConnIDs = new Dictionary<Peer, int>();
+
             if (server != null) server.Dispose();
             server = null;
         }
@@ -446,7 +473,7 @@ namespace Mirror
         /// </summary>
         public void EnableCompressionOnClient()
         {
-            if(client != null && client.IsSet)
+            if (client != null && client.IsSet)
             {
                 client.EnableCompression();
             }
