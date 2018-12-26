@@ -9,7 +9,8 @@ This transport is currently developed and actively used by Oiran Studio.
 [If you use this, I'd appreciate a coffee to keep me caffeinated.](https://ko-fi.com/coburn)
 
 ## Installation
-**Note: these instructions have been updated for the 2018 branch and are different than the master branch**
+**Note: these instructions have been updated for the Ignorance 2018 branch and are different than the master branch**
+1. Ensure Mirror 2018 is up to date and has the latest release from the [official git](https://github.com/vis2k/Mirror). Make sure you use the *2018* branch!
 1. Grab a release from the [releases page](https://github.com/SoftwareGuy/Ignorance/releases) that is for **Mirror 2018**. Mirror 2018 uses no more DLLs so you can debug problems a lot easier.
 2. Extract the archive somewhere. I recommend a folder called `Ignorance` under `Assets`. Don't modify any file structure.
 3. If you are already using UnityAsync in your project, delete the UnityAsync folder under the extracted archives' Dependencies folder. Otherwise skip this step.
@@ -28,23 +29,22 @@ Tested and confirmed working on Unity 2018.2.20 with Mirror for Unity 2018 branc
 
 ## How to use
 1. Follow instructions above. If errors occur, open a Issue ticket.
-2. In your Mirror NetworkManager child class, you would do:
+2. In your Mirror NetworkManager child class, you would do the following to start using Ignorance as the transport mechanism:
 ```csharp
 public override void InitializeTransport() {
-  Transport.layer = new IgnoranceTransport();
+  NetworkManager.transport = new IgnoranceTransport();
 }
 ```
-...to start using Ignorance as the transport mechanism. You should get a "Ignorance Transport initialized" message.
-
-3. Continue programming your stuff as normal.
+3. You should get a "Ignorance Transport initialized" message if all is correctly initializing.
+4. Continue programming your stuff as normal.
 
 ## Advanced users only: Accessing exposed functions
-There are some exposed functions that network people might find nice to fiddle with. Since version 1.0.1, I have exposed the compression and configurable client timeout options. However, you cannot access these functions directly, but if you do the following inside your NetworkManager class, for example OnStartServer or OnStartClient overrides:
+There are some exposed functions that network people might find nice to fiddle with.
+However, you cannot access these functions directly, but if you do the following inside your NetworkManager class, for example OnStartServer or OnStartClient, then you can call the exposed functions that you desire.
 
 ```csharp
-(Transport.layer as IgnoranceTransport).SomeExposedFunction();
+(NetworkManager.transport as IgnoranceTransport).SomeExposedFunction();
 ```
-Then you can call the exposed functions that you desire.
 
 **Do not try to cast the Transport.layer as a IgnoranceTransport class if you're using another transport.** It will not work.
 
