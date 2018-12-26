@@ -25,7 +25,7 @@ using UnityAsync;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
 
-namespace Mirror
+namespace Mirror.Transport
 {
     /// <summary>
     /// Ignorance rUDP Transport is built upon the ENet-C# wrapper by nxrighthere.
