@@ -64,15 +64,18 @@ namespace Mirror.Transport
         };
 
         // -- IGNORANCE 2018 ASYNC ACTIONS -- //
+
+        // client
         public event Action OnClientConnect;
         public event Action<byte[]> OnClientData;
         public event Action<Exception> OnClientError;
         public event Action OnClientDisconnect;
-
+        // server
         public event Action<int> OnServerConnect;
         public event Action<int, byte[]> OnServerData;
         public event Action<int, Exception> OnServerError;
         public event Action<int> OnServerDisconnect;
+
 
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()

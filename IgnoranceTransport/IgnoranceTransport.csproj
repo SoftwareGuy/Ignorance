@@ -73,7 +73,11 @@
     <Compile Include="Dependencies\Mirror-2018\Runtime\SyncList.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\SyncObject.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\LLAPITransport.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\TelepathyTransport.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\Client.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\Common.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\NetworkStreamExtensions.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\Server.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\TcpTransport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\TelepathyWebsocketsMultiplexTransport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Transport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\UNetwork.cs" />
