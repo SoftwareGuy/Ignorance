@@ -19,8 +19,10 @@ This transport is currently developed and actively used by Oiran Studio.
 **There is NO NEED to compile Ignorance 2018.** To get the latest version, clone the repo. Install the latest 2018 release into your project, then copy the `IgnoranceTransport.cs` file over the top of the release `IgnoranceTransport.cs` file. That's all you have to do.
 
 ## Compatibility
-**x64 Runtime Platforms only! This is due to the dependencies only being compiled for x64.**
-Tested and confirmed working on Unity 2018.2.20 with Mirror for Unity 2018 branch.
+- Tested and confirmed working on Unity 2018.2.20 with Mirror for Unity 2018 branch.
+- Windows, Linux and Mac x64 (64Bit) supported. x86 (32Bit) is not.
+- Android ARMv7 and ARM64 (aarch64) supported.
+- iOS not currently supported.
 
 ## Dependencies
 - We rely on [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp) to do most of the heavy-lifting. Ignorance hooks into the wrapper and perform magic tricks to make it all work.
@@ -55,6 +57,7 @@ This makes since in some usage cases, but you should really consider TCP if you'
 
 ## Credits
 - Coffee donators: Thank you so much.
+- uwee: Offered resources to crank out a build box for compiling ENET for Android.
 - nxrighthere: Debugging my broken code and identifying my packet code fuckups
 - Draknith (on Mirror Discord): Testing and mapping Reliable/Unreliable channels in Mirror to ENET Channels, testing.
 - Paul (on Mirror Discord): A champion beyond words.
