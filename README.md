@@ -6,6 +6,15 @@ This transport is currently developed and actively used by Oiran Studio.
 
 [If you use this, I'd appreciate a coffee to keep me caffeinated.](https://ko-fi.com/coburn)
 
+## WARNING!
+This version of Ignorance is for 2017 only. Select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018)) to go to the right branch.
+
+## How do I tell if I'm using Mirror 2017 or 2018?
+- If you have Mirror related DLLs, such as `Mirror.Runtime.dll` or `Mirror.Editor.dll` then you are using Mirror 2017. **This branch is the one you want.**
+- If you have loose C# files, like `NetworkTransform.cs`, then you're using Mirror 2018 as Mirror no longer uses compiled DLLs. **The 2018 branch is the one you want**.
+
+Ignorance 2017 is ***not compatible*** with Mirror 2018 and ***will cause*** initialization failures.
+
 ## Installation
 1. Grab a release from the [releases page](https://github.com/SoftwareGuy/Ignorance/releases) or compile it from source.
 2. Make sure you have [Mirror](https://github.com/vis2k/Mirror) installed in your project. **Ignorance WILL NOT function without it!**
