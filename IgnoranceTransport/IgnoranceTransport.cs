@@ -33,7 +33,7 @@ namespace Mirror.Transport
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "2018-1.1.0";
+        private const string TransportVersion = "2018-1.1.2";
         private bool libraryInitialized = false;
 
         // -- EXPOSED PUBLIC VARIABLES -- //

@@ -91,13 +91,22 @@ namespace ENet {
 
 	internal static class ArrayPool {
 		[ThreadStatic]
-		private static byte[] buffer;
+		private static byte[] byteBuffer;
+		[ThreadStatic]
+		private static IntPtr[] pointerBuffer;
 
-		public static byte[] GetBuffer() {
-			if (buffer == null)
-				buffer = new byte[64];
+		public static byte[] GetByteBuffer() {
+			if (byteBuffer == null)
+				byteBuffer = new byte[64];
 
-			return buffer;
+			return byteBuffer;
+		}
+
+		public static IntPtr[] GetPointerBuffer() {
+			if (pointerBuffer == null)
+				pointerBuffer = new IntPtr[Library.maxPeers];
+
+			return pointerBuffer;
 		}
 	}
 
@@ -401,6 +410,10 @@ namespace ENet {
 			Create(address, peerLimit, channelLimit, 0, 0);
 		}
 
+		public void Create(int peerLimit, int channelLimit) {
+			Create(null, peerLimit, channelLimit, 0, 0);
+		}
+
 		public void Create(int peerLimit, int channelLimit, uint incomingBandwidth, uint outgoingBandwidth) {
 			Create(null, peerLimit, channelLimit, incomingBandwidth, outgoingBandwidth);
 		}
@@ -443,6 +456,28 @@ namespace ENet {
 
 			packet.CheckCreated();
 			Native.enet_host_broadcast(nativeHost, channelID, packet.NativeData);
+			packet.NativeData = IntPtr.Zero;
+		}
+
+		public void Broadcast(byte channelID, ref Packet packet, ref Peer[] peers) {
+			CheckCreated();
+
+			packet.CheckCreated();
+
+			if (peers.Length > 0) {
+				IntPtr[] nativePeers = ArrayPool.GetPointerBuffer();
+				int nativeCount = 0;
+
+				for (int i = 0; i < peers.Length; i++) {
+					if (peers[i].NativeData != IntPtr.Zero) {
+						nativePeers[nativeCount] = peers[i].NativeData;
+						nativeCount++;
+					}
+				}
+
+				Native.enet_host_broadcast_selective(nativeHost, channelID, packet.NativeData, nativePeers, (IntPtr)nativeCount);
+			}
+
 			packet.NativeData = IntPtr.Zero;
 		}
 
@@ -561,7 +596,7 @@ namespace ENet {
 			get {
 				CheckCreated();
 
-				byte[] ip = ArrayPool.GetBuffer();
+				byte[] ip = ArrayPool.GetByteBuffer();
 
 				if (Native.enet_peer_get_ip(nativePeer, ip, (IntPtr)ip.Length) == 0) {
 					if (Encoding.ASCII.GetString(ip).Remove(7) != "::ffff:")
@@ -752,7 +787,7 @@ namespace ENet {
 		public const uint timeoutLimit = 32;
 		public const uint timeoutMinimum = 5000;
 		public const uint timeoutMaximum = 30000;
-		public const uint version = (2 << 16) | (1 << 8) | (3);
+		public const uint version = (2 << 16) | (1 << 8) | (4);
 
 		public static bool Initialize() {
 			return Native.enet_initialize() == 0;
@@ -827,6 +862,9 @@ namespace ENet {
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_host_broadcast(IntPtr host, byte channelID, IntPtr packet);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern void enet_host_broadcast_selective(IntPtr host, byte channelID, IntPtr packet, IntPtr[] peers, IntPtr peersLength);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern int enet_host_service(IntPtr host, out ENetEvent @event, uint timeout);
