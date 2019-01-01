@@ -29,6 +29,17 @@ namespace Mirror
     /// </summary>
     public class IgnoranceTransport : TransportLayer
     {
+        // -- DON'T FIDDLE WITH THIS -- //
+        private PacketFlags[] packetSendMethods =
+        {
+            PacketFlags.Reliable,  // Channels.DefaultReliable
+            PacketFlags.None       // Channels.DefaultUnreliable
+        };
+
+        // -- GENERAL VARIABLES -- //
+        private const string TransportVersion = "v1.0.9.2";
+        private bool libraryInitialized = false;
+
         // -- EXPOSED PUBLIC VARIABLES -- //
         public bool verboseLoggingEnabled = false;
 
@@ -37,9 +48,6 @@ namespace Mirror
         public uint peerBaseTimeout = 5000;        // 5000 ticks (5 seconds)
         public uint peerBaseTimeoutMultiplier = 3; // peerBaseTimemout * this value = maximum time waiting until client is removed
 
-        // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "v1.0.9.1";
-        private bool libraryInitialized = false;
         // -- SERVER WORLD VARIABLES -- //
         private Host server;
         private Address serverAddress;
@@ -51,17 +59,10 @@ namespace Mirror
         private Host client;
         private Peer clientPeer;
 
-        // This section defines what classic UNET channels refer to.
-        private PacketFlags[] packetSendMethods =
-        {
-            PacketFlags.Reliable,  // Channels.DefaultReliable
-            PacketFlags.None       // Channels.DefaultUnreliable
-        };
-
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
-            Debug.LogFormat("Ignorance Transport {0} ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
+            Debug.LogFormat("Ignorance Transport v{0} ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
         }
 
         /// <summary>

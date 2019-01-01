@@ -63,6 +63,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Redist\Failsafe.zip" />
     <None Include="Redist\macOS\enet.bundle">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
