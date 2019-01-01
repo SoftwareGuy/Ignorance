@@ -166,7 +166,6 @@ namespace Mirror.Transport
         public virtual void ClientSend(int channelId, byte[] data)
         {
             Packet mailingPigeon = default(Packet);
-            bool sendingPacketWasSuccessful;    // really needed?
 
             if (!client.IsSet)
             {
@@ -182,26 +181,20 @@ namespace Mirror.Transport
 
             mailingPigeon.Create(data, packetSendMethods[channelId]);
             // probably should get the bool result from this again
-            sendingPacketWasSuccessful = clientPeer.Send(0, ref mailingPigeon);
-            if (!sendingPacketWasSuccessful) Debug.LogWarning("Ignorance Transport: Packet sending apparently wasn't successful.");
-
-            return;
+            if (!clientPeer.Send(0, ref mailingPigeon)) Debug.LogWarning("Ignorance Transport: Packet sending apparently wasn't successful.");
         }
 
         public virtual void ClientDisconnect()
         {
             if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
-            if (client != null) client.Dispose();
+            client?.Dispose();
             client = null;
         }
 
         // -- SERVER WORLD -- //
         public virtual bool ServerActive()
         {
-            if (!libraryInitialized) return false;
-
-            if (server != null) return server.IsSet;
-            else return false;
+            return libraryInitialized && server != null && server.IsSet;
         }
 
         public virtual void ServerStart(string address, int port, int maxConnections)
@@ -238,16 +231,16 @@ namespace Mirror.Transport
             ServerReceiveLoop(server);
         }
 
-        private async void ServerReceiveLoop(Host server)
+        private async void ServerReceiveLoop(Host serverobject) //"server" hides field server in this class
         {
             try
             {
                 while (true)
                 {
-                    if (!server.IsSet) break;
+                    if (!serverobject.IsSet) break;
 
                     Event incomingEvent;
-                    server.Service(0, out incomingEvent);
+                    serverobject.Service(0, out incomingEvent);
 
                     switch (incomingEvent.Type)
                     {
@@ -318,13 +311,11 @@ namespace Mirror.Transport
         public virtual void ServerStartWebsockets(string address, int port, int maxConnections)
         {
             Debug.LogError("Ignorance Transport does not support Websockets. Aborting...");
-            return;
         }
 
         public virtual void ServerSend(int connectionId, int channelId, byte[] data)
         {
             Packet mailingPigeon = default(Packet);
-            bool wasTransmissionSuccessful;
 
             if (channelId >= packetSendMethods.Length)
             {
@@ -336,10 +327,8 @@ namespace Mirror.Transport
             {
                 Peer target = knownConnIDToPeers[connectionId];
                 mailingPigeon.Create(data, packetSendMethods[channelId]);
-
-                wasTransmissionSuccessful = target.Send(0, ref mailingPigeon);
-                if (!wasTransmissionSuccessful) Debug.LogWarning("Ignorance Transport: Server-side packet sending apparently wasn't successful.");
-                return;
+                
+                if (!target.Send(0, ref mailingPigeon)) Debug.LogWarning("Ignorance Transport: Server-side packet sending apparently wasn't successful.");
             }
         }
 
@@ -375,7 +364,7 @@ namespace Mirror.Transport
             knownConnIDToPeers = new Dictionary<int, Peer>();
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
-            if (server != null) server.Dispose();
+            server?.Dispose();
             server = null;
         }
 
@@ -489,12 +478,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets sent.</returns>
         public uint ServerGetPacketSentCount()
         {
-            if (server != null && server.IsSet)
-            {
-                return server.PacketsSent;
-            }
-
-            return 0;
+            return server != null && server.IsSet ? server.PacketsSent : 0;
         }
 
         /// <summary>
@@ -503,12 +487,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets received.</returns>
         public uint ServerGetPacketReceivedCount()
         {
-            if (server != null && server.IsSet)
-            {
-                return server.PacketsReceived;
-            }
-
-            return 0;
+            return server != null && server.IsSet ? server.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -518,13 +497,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets lost.</returns>
         public uint ServerGetPacketLossCount()
         {
-            if (server != null && server.IsSet)
-            {
-                // Safe guard against underflows.
-                if ((server.PacketsSent - server.PacketsReceived) < 0) return 0;
-                else return server.PacketsSent - server.PacketsReceived;
-            }
-            return 0;
+            return server != null && server.IsSet ? (server.PacketsSent < server.PacketsReceived ? 0 : server.PacketsSent - server.PacketsReceived) : 0;
         }
 
         /// <summary>
@@ -533,12 +506,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets sent.</returns>
         public uint ClientGetPacketSentCount()
         {
-            if (client != null && client.IsSet)
-            {
-                return client.PacketsSent;
-            }
-
-            return 0;
+            return client != null && client.IsSet ? client.PacketsSent : 0;
         }
 
         /// <summary>
@@ -547,12 +515,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets received.</returns>
         public uint ClientGetPacketReceivedCount()
         {
-            if (client != null && client.IsSet)
-            {
-                return client.PacketsReceived;
-            }
-
-            return 0;
+            return client != null && client.IsSet ? client.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -561,13 +524,7 @@ namespace Mirror.Transport
         /// <returns></returns>
         public uint ClientGetPacketLossCount()
         {
-            if (clientPeer.IsSet)
-            {
-                // Safe guard against underflows.
-                return clientPeer.PacketsLost;
-            }
-
-            return 0;
+            return clientPeer.IsSet ? clientPeer.PacketsLost : 0;
         }
 
         // -- PARANOID MODE FUNCTIONS -- //
