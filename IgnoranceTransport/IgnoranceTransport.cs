@@ -497,7 +497,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets lost.</returns>
         public uint ServerGetPacketLossCount()
         {
-            return server != null && server.IsSet ? (server.PacketsSent < server.PacketsReceived ? 0 : server.PacketsSent - server.PacketsReceived) : 0;
+            return server != null && server.IsSet && server.PacketsSent >= server.PacketsReceived ? server.PacketsSent - server.PacketsReceived : 0;
         }
 
         /// <summary>
