@@ -1,7 +1,7 @@
 ﻿// SoftwareGuy's Ignorance Reliable UDP Transport
 // Uses ENET as the transport backend.
 // ----------------------------------------
-// Ignorance Transport by Coburn, 2018
+// Ignorance Transport by Coburn (aka SoftwareGuy), 2018
 // ENet-C# by nxrighthere, 2018
 // ENet by the ENet developers, whenever - whenever.
 // ----------------------------------------
@@ -33,7 +33,7 @@ namespace Mirror.Transport
     public class IgnoranceTransport : TransportLayer
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "2018-1.1.2";
+        private const string TransportVersion = "2018-1.1.3";
         private bool libraryInitialized = false;
 
         // -- EXPOSED PUBLIC VARIABLES -- //
@@ -80,7 +80,8 @@ namespace Mirror.Transport
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
-            Debug.LogFormat("EXPERIMENTAL Ignorance Transport v{0} for Mirror 2018 ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
+            Debug.LogFormat("Thank you for using Ignorance Transport v{0} for Mirror 2018! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance." +
+                "\nENET Library Version: {1}", TransportVersion, Library.version);
         }
 
         // -- CLIENT WORLD -- //
@@ -109,9 +110,11 @@ namespace Mirror.Transport
             client.Create();
 
             // Connect the client to the server.
+            Debug.LogFormat("Ignorance Transport: Client will attempt connection to server {0}:{1}", address, port);
             clientPeer = client.Connect(clientAddress);
 
             // Start the client's receive loop.
+            Debug.Log("Ignorance Transport: Starting client receive loop...");
             ClientReceiveLoop(client);
         }
 
@@ -160,6 +163,7 @@ namespace Mirror.Transport
             {
                 // We disconnected, got fed an error message or we got a Disconnect.
                 OnClientDisconnect?.Invoke();
+                Debug.Log("Ignorance Transport: Client receive loop finished.");
             }
         }
 
@@ -199,6 +203,16 @@ namespace Mirror.Transport
 
         public virtual void ServerStart(string address, int port, int maxConnections)
         {
+            // Do not attempt to start more than one server.
+            // Check if the server is active before attempting to create. If it returns true,
+            // then we should not continue, and we'll emit a refusal error message.
+            // This should be classified as a dirty hack and if it doesn't work.
+            if(ServerActive())
+            {
+                Debug.LogError("Ignorance Transport: Refusing to start another server instance! There's already one running.");
+                return;
+            }
+
             Debug.LogFormat("Ignorance Transport: Starting up server. {0} port {1} with {2} connection capacity.", address ?? "(null)", port, maxConnections);
             // Fire up ENET-C#'s backend.
             if (!libraryInitialized)
