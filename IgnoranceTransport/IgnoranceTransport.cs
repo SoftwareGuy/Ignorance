@@ -80,12 +80,12 @@ namespace Mirror.Transport
         // -- INITIALIZATION -- // 
         private readonly string address;
         private readonly ushort port;
-        private readonly uint maxConnections;
-        public IgnoranceTransport(string address, ushort port, uint maxConnections)
+        private readonly ushort maxConnections;
+        public IgnoranceTransport(string address, ushort port, ushort maxConnections)
         {
             this.address = address;
             this.port = port;
-            this.maxConnections = maxConnections > int.MaxValue ? int.MaxValue : maxConnections;
+			this.maxConnections = maxConnections;
             Debug.LogFormat("EXPERIMENTAL Ignorance Transport v{0} for Mirror 2018 ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
         }
 
@@ -230,7 +230,7 @@ namespace Mirror.Transport
             serverAddress.Port = port;
 
             // Finally create the server.
-            server.Create(serverAddress, (int)maxConnections);
+            server.Create(serverAddress, maxConnections);
 
             Debug.Log("Ignorance Transport: Entering server receive loop...");
 
