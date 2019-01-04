@@ -53,6 +53,7 @@
     <Compile Include="Dependencies\Mirror-2018\Runtime\CustomAttributes.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\DotNetCompatibility.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\ExponentialMovingAverage.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Extensions.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\LocalClient.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\LocalConnections.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\LogFilter.cs" />
@@ -70,18 +71,51 @@
     <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkStartPosition.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTime.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTransform.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTransformBase.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkTransformChild.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\NetworkWriter.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\SyncList.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\SyncObject.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\LLAPITransport.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\MultiplexTransport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\Client.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\Common.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\NetworkStreamExtensions.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\Server.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Tcp\TcpTransport.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\TelepathyWebsocketsMultiplexTransport.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Transport.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\TransportLayer.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Client.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\ClientJs.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\BufferPool.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\EntityTooLargeException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\InvalidHttpResponseCodeException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\SecWebSocketKeyMissingException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\ServerListenerSocketException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\WebSocketBufferOverflowException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\WebSocketHandshakeFailedException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Exceptions\WebSocketVersionNotSupportedException.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\HttpHelper.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\IBufferPool.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\BinaryReaderWriter.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\Events.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\WebSocketFrame.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\WebSocketFrameCommon.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\WebSocketFrameReader.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\WebSocketFrameWriter.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\WebSocketImplementation.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Internal\WebSocketOpCode.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\IPingPongManager.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\IWebSocketClientFactory.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\IWebSocketServerFactory.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\PingPongManager.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\PongEventArgs.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\WebSocketClientFactory.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\WebSocketClientOptions.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\WebSocketHttpContext.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\WebSocketServerFactory.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\WebSocketServerOptions.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Server.cs" />
+    <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\WebsocketTransport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\UNetwork.cs" />
     <Compile Include="Dependencies\Mirror-2018\Telepathy\Client.cs" />
     <Compile Include="Dependencies\Mirror-2018\Telepathy\Common.cs" />
@@ -152,6 +186,10 @@
     <None Include="Redist\Linux\libenet.so">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Ninja.WebSockets\Properties\PublishProfiles\" />
+    <Folder Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Plugins\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

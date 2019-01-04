@@ -7,6 +7,7 @@ using UnityEngine.Serialization;
 using TcpTransport = Mirror.Transport.Tcp.TcpTransport;
 using Exception = System.Exception;
 using Mirror.Transport;
+using Mirror.Transport.Websocket;
 
 namespace Mirror
 {
@@ -20,9 +21,8 @@ namespace Mirror
     public class NetworkManager : MonoBehaviour
     {
         // configuration
-        [FormerlySerializedAs("m_NetworkPort")] public ushort networkPort = 7777;
-        [FormerlySerializedAs("m_ServerBindToIP")] public bool serverBindToIP;
-        [FormerlySerializedAs("m_ServerBindAddress")] public string serverBindAddress = "";
+        public bool useTcp = true;
+        [FormerlySerializedAs("m_NetworkPort")] public ushort tcpPort = 7777;
         [FormerlySerializedAs("m_NetworkAddress")] public string networkAddress = "localhost";
         [FormerlySerializedAs("m_DontDestroyOnLoad")] public bool dontDestroyOnLoad = true;
         [FormerlySerializedAs("m_RunInBackground")] public bool runInBackground = true;
@@ -33,7 +33,9 @@ namespace Mirror
         [FormerlySerializedAs("m_OfflineScene")] public string offlineScene = "";
         [FormerlySerializedAs("m_OnlineScene")] public string onlineScene = "";
         [FormerlySerializedAs("m_MaxConnections")] public int maxConnections = 4;
-        [FormerlySerializedAs("m_UseWebSockets")] public bool useWebSockets;
+
+        [FormerlySerializedAs("m_UseWebSockets")] public bool useWebSockets = true;
+        public ushort websocketPort = 7778;
         [FormerlySerializedAs("m_SpawnPrefabs")] public List<GameObject> spawnPrefabs = new List<GameObject>();
 
         public static List<Transform> startPositions = new List<Transform>();
@@ -43,6 +45,24 @@ namespace Mirror
         // only really valid on the server
         public int numPlayers { get { return NetworkServer.connections.Count(kv => kv.Value.playerController != null); } }
 
+        public ushort port {
+            get
+            {
+                if (Application.platform != RuntimePlatform.WebGLPlayer && useTcp)
+                {
+                    // tcp is not availabe on webgl
+                    return tcpPort;
+                }
+
+                if (useWebSockets)
+                {
+                    return websocketPort;
+                }
+
+                Debug.LogError("No protocol specified");
+                return 0;
+            }
+        }
         // selected transport layer
         // the transport is normally initialized in NetworkManager InitializeTransport
         // initialize it yourself if you are not using NetworkManager
@@ -66,6 +86,15 @@ namespace Mirror
         public virtual void Awake()
         {
             Debug.Log("Thank you for using Mirror! https://forum.unity.com/threads/mirror-networking-for-unity-aka-hlapi-community-edition.425437/");
+
+            if (Application.unityVersion.CompareTo("2018.3") >= 0)
+            {
+                Debug.LogError(
+                    "This version of mirror is not compatible with Unity 2018.3 and up. " +
+                    "Please use unity 2017.4, 2018.1, 2018.2 or use the 2018 mirror branch " +
+                    "https://github.com/vis2k/Mirror/tree/2018");
+            }
+
             InitializeSingleton();
         }
 
@@ -113,7 +142,48 @@ namespace Mirror
         // override method if you want to use a different transport
         public virtual void InitializeTransport()
         {
-            NetworkManager.transport = NetworkManager.transport ?? new TcpTransport();
+            // user might have already initialized the transport somewhere else
+            if (transport != null)
+                return;
+
+            // if the user ticked use tcp and we are not in webgl
+            TcpTransport tcpTransport = null;
+
+            if (this.useTcp && Application.platform != RuntimePlatform.WebGLPlayer)
+            {
+                tcpTransport = new TcpTransport
+                {
+                    port = this.tcpPort,
+                    MaxConnections = maxConnections
+                };
+            }
+
+            WebsocketTransport websocketTransport = null;
+            if (this.useWebSockets)
+            {
+                websocketTransport = new WebsocketTransport()
+                {
+                    port = this.websocketPort
+                };
+            }
+
+            if (tcpTransport != null && websocketTransport != null)
+            {
+                // use both transports,  tcp by default
+                transport = new MultiplexTransport(tcpTransport, websocketTransport);
+            }
+            else if (tcpTransport != null)
+            {
+                transport = tcpTransport;
+            }
+            else if (websocketTransport != null)
+            {
+                transport = websocketTransport;
+            }
+            else
+            {
+                Debug.LogError("You have not configured a valid transport,  enable tcp, websocket or both");
+            }
         }
 
         // NetworkIdentity.UNetStaticUpdate is called from UnityEngine while LLAPI network is active.
@@ -170,23 +240,11 @@ namespace Mirror
             if (runInBackground)
                 Application.runInBackground = true;
 
-            NetworkServer.useWebSockets = useWebSockets;
-
-            if (serverBindToIP && !string.IsNullOrEmpty(serverBindAddress))
+            // start the transport listening
+            if (!NetworkServer.Listen())
             {
-                if (!NetworkServer.Listen(serverBindAddress, networkPort, maxConnections))
-                {
-                    Debug.LogError("StartServer listen on " + serverBindAddress + " failed.");
-                    return false;
-                }
-            }
-            else
-            {
-                if (!NetworkServer.Listen(networkPort, maxConnections))
-                {
-                    Debug.LogError("StartServer listen failed.");
-                    return false;
-                }
+                Debug.LogError("StartServer listen on failed.");
+                return false;
             }
 
             // call OnStartServer AFTER Listen, so that NetworkServer.active is
@@ -202,7 +260,7 @@ namespace Mirror
             // this must be after Listen(), since that registers the default message handlers
             RegisterServerMessages();
 
-            if (LogFilter.Debug) { Debug.Log("NetworkManager StartServer port:" + networkPort); }
+            if (LogFilter.Debug) { Debug.Log("NetworkManager StartServer port:" + tcpPort); }
             isNetworkActive = true;
 
             // Only change scene if the requested online scene is not blank, and is not already loaded
@@ -232,7 +290,7 @@ namespace Mirror
             }
             for (int i = 0; i < spawnPrefabs.Count; i++)
             {
-                var prefab = spawnPrefabs[i];
+                GameObject prefab = spawnPrefabs[i];
                 if (prefab != null)
                 {
                     ClientScene.RegisterPrefab(prefab);
@@ -259,9 +317,9 @@ namespace Mirror
                 Debug.LogError("Must set the Network Address field in the manager");
                 return null;
             }
-            if (LogFilter.Debug) { Debug.Log("NetworkManager StartClient address:" + networkAddress + " port:" + networkPort); }
+            if (LogFilter.Debug) { Debug.Log("NetworkManager StartClient address:" + networkAddress + " port:" + port); }
 
-            client.Connect(networkAddress, networkPort);
+            client.Connect(networkAddress, port);
 
             OnStartClient(client);
             s_Address = networkAddress;
@@ -273,7 +331,7 @@ namespace Mirror
             OnStartHost();
             if (StartServer())
             {
-                var localClient = ConnectLocalClient();
+                NetworkClient localClient = ConnectLocalClient();
                 OnStartClient(localClient);
                 return localClient;
             }
@@ -282,7 +340,7 @@ namespace Mirror
 
         NetworkClient ConnectLocalClient()
         {
-            if (LogFilter.Debug) { Debug.Log("NetworkManager StartHost port:" + networkPort); }
+            if (LogFilter.Debug) { Debug.Log("NetworkManager StartHost port:" + tcpPort); }
             networkAddress = "localhost";
             client = ClientScene.ConnectLocalServer();
             RegisterClientMessages(client);
@@ -434,19 +492,13 @@ namespace Mirror
 
         internal static void UpdateScene()
         {
-            if (singleton == null)
-                return;
-
-            if (s_LoadingSceneAsync == null)
-                return;
-
-            if (!s_LoadingSceneAsync.isDone)
-                return;
-
-            if (LogFilter.Debug) { Debug.Log("ClientChangeScene done readyCon:" + s_ClientReadyConnection); }
-            singleton.FinishLoadScene();
-            s_LoadingSceneAsync.allowSceneActivation = true;
-            s_LoadingSceneAsync = null;
+            if (singleton != null && s_LoadingSceneAsync != null && s_LoadingSceneAsync.isDone)
+            {
+                if (LogFilter.Debug) { Debug.Log("ClientChangeScene done readyCon:" + s_ClientReadyConnection); }
+                singleton.FinishLoadScene();
+                s_LoadingSceneAsync.allowSceneActivation = true;
+                s_LoadingSceneAsync = null;
+            }
         }
 
         // virtual so that inheriting classes' OnDestroy() can call base.OnDestroy() too
@@ -662,16 +714,10 @@ namespace Mirror
                 return;
             }
 
-            GameObject player;
             Transform startPos = GetStartPosition();
-            if (startPos != null)
-            {
-                player = Instantiate(playerPrefab, startPos.position, startPos.rotation);
-            }
-            else
-            {
-                player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-            }
+            GameObject player = startPos != null
+                ? Instantiate(playerPrefab, startPos.position, startPos.rotation)
+                : Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
 
             NetworkServer.AddPlayerForConnection(conn, player);
         }
@@ -771,28 +817,11 @@ namespace Mirror
         // their functionality, users would need override all the versions. Instead these callbacks are invoked
         // from all versions, so users only need to implement this one case.
 
-        public virtual void OnStartHost()
-        {
-        }
-
-        public virtual void OnStartServer()
-        {
-        }
-
-        public virtual void OnStartClient(NetworkClient client)
-        {
-        }
-
-        public virtual void OnStopServer()
-        {
-        }
-
-        public virtual void OnStopClient()
-        {
-        }
-
-        public virtual void OnStopHost()
-        {
-        }
+        public virtual void OnStartHost() {}
+        public virtual void OnStartServer() {}
+        public virtual void OnStartClient(NetworkClient client) {}
+        public virtual void OnStopServer() {}
+        public virtual void OnStopClient() {}
+        public virtual void OnStopHost() {}
     }
 }

@@ -78,8 +78,14 @@ namespace Mirror.Transport
 
 
         // -- INITIALIZATION -- // 
-        public IgnoranceTransport()
+        private readonly string address;
+        private readonly ushort port;
+        private readonly uint maxConnections;
+        public IgnoranceTransport(string address, ushort port, uint maxConnections)
         {
+            this.address = address;
+            this.port = port;
+            this.maxConnections = maxConnections > int.MaxValue ? int.MaxValue : maxConnections;
             Debug.LogFormat("EXPERIMENTAL Ignorance Transport v{0} for Mirror 2018 ready! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance.", TransportVersion);
         }
 
@@ -197,7 +203,7 @@ namespace Mirror.Transport
             return libraryInitialized && server != null && server.IsSet;
         }
 
-        public virtual void ServerStart(string address, int port, int maxConnections)
+        public virtual void ServerStart()
         {
             Debug.LogFormat("Ignorance Transport: Starting up server. {0} port {1} with {2} connection capacity.", address ?? "(null)", port, maxConnections);
             // Fire up ENET-C#'s backend.
@@ -221,10 +227,10 @@ namespace Mirror.Transport
                 serverAddress.SetHost(address);
             }
 
-            serverAddress.Port = (ushort)port;
+            serverAddress.Port = port;
 
             // Finally create the server.
-            server.Create(serverAddress, maxConnections);
+            server.Create(serverAddress, (int)maxConnections);
 
             Debug.Log("Ignorance Transport: Entering server receive loop...");
 
