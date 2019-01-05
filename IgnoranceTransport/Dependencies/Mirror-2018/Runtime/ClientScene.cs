@@ -361,7 +361,7 @@ namespace Mirror
             foreach (uint netId in NetworkIdentity.spawned.Keys)
             {
                 NetworkIdentity identity = NetworkIdentity.spawned[netId];
-                if (identity.gameObject != null)
+                if (identity != null && identity.gameObject != null)
                 {
                     if (!InvokeUnSpawnHandler(identity.assetId, identity.gameObject))
                     {
@@ -637,11 +637,6 @@ namespace Mirror
             if (NetworkIdentity.spawned.TryGetValue(msg.netId, out identity))
             {
                 identity.HandleRPC(msg.componentIndex, msg.rpcHash, new NetworkReader(msg.payload));
-            }
-            else
-            {
-                string errorRpcName = NetworkBehaviour.GetCmdHashHandlerName(msg.rpcHash);
-                Debug.LogWarningFormat("Could not find target object with netId:{0} for RPC call {1}", msg.netId, errorRpcName);
             }
         }
 

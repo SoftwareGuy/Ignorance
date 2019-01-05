@@ -1,4 +1,4 @@
-﻿// SoftwareGuy's Ignorance Reliable UDP Transport
+// SoftwareGuy's Ignorance Reliable UDP Transport
 // Uses ENET as the transport backend.
 // ----------------------------------------
 // Ignorance Transport by Coburn (aka SoftwareGuy), 2018
@@ -78,8 +78,14 @@ namespace Mirror.Transport
 
 
         // -- INITIALIZATION -- // 
-        public IgnoranceTransport()
+        private readonly string address;
+        private readonly ushort port;
+        private readonly ushort maxConnections;
+        public IgnoranceTransport(string address, ushort port, ushort maxConnections)
         {
+            this.address = address;
+            this.port = port;
+            this.maxConnections = maxConnections;
             Debug.LogFormat("Thank you for using Ignorance Transport v{0} for Mirror 2018! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance." +
                 "\nENET Library Version: {1}", TransportVersion, Library.version);
         }
@@ -207,7 +213,7 @@ namespace Mirror.Transport
             return libraryInitialized && server != null && server.IsSet;
         }
 
-        public virtual void ServerStart(string address, int port, int maxConnections)
+        public virtual void ServerStart()
         {
             // Do not attempt to start more than one server.
             // Check if the server is active before attempting to create. If it returns true,
@@ -241,7 +247,7 @@ namespace Mirror.Transport
                 serverAddress.SetHost(address);
             }
 
-            serverAddress.Port = (ushort)port;
+            serverAddress.Port = port;
 
             // Finally create the server.
             server.Create(serverAddress, maxConnections);
