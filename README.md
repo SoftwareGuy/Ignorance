@@ -8,6 +8,17 @@ This transport is currently developed and actively used by Oiran Studio.
 
 [If you use this, I'd appreciate a coffee to keep me caffeinated.](https://ko-fi.com/coburn)
 
+## Known Issues
+As with anything, no code is perfect. Please understand while this can be used in production, unfortunately there are a few bugs that may cause some undesirable outcomes, which are as follows:
+
+- **Random refusals to connect**: This one is the most annoying one to fix - it seems that the RNG demon is at play here. Sometimes you can get your first NetworkClient session to refuse to connect to a active server instance, even if it's running on localhost. Subsequent NetworkClient connections are hit and miss - majority of the time you connect fine though.
+
+In my testing, I've been able to get a row of 10 to 15 connections that work, then about 2 or 3 duds, then more successful ones. Maybe there's some operating system things at play here. Simply keep trying to connect, it'll get there.
+
+- **Random pre-connection hangs**: This is a very weird issue where sometimes when the transport is connecting to a server, your application (or the Unity Editor) will hang for about 5 seconds, then resume normal activity and connect to the server. I don't have a clue why this happens, no errors are emitted or anything during the hang.
+
+***If you are a debugger and have a swiss army knife of tools that may eliminate any (or all) of the above, please raise a issue ticket and let me know.*** I appreciate the help.
+
 ## Installation
 **Note: these instructions have been updated for the Ignorance 2018 branch and are different than the master branch**
 1. Ensure Mirror 2018 is up to date and has the latest release from the [official git](https://github.com/vis2k/Mirror). Make sure you use the *2018* branch!
