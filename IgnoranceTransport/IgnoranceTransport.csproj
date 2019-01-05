@@ -48,8 +48,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IgnoranceNetworkManager.cs" />
-    <Compile Include="Dependencies\ENet.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\ClientScene.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\CustomAttributes.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\DotNetCompatibility.cs" />
@@ -118,11 +116,8 @@
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\Server.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\Transport\Websocket\WebsocketTransport.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\UNetwork.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Telepathy\Client.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Telepathy\Common.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Telepathy\Logger.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Telepathy\NetworkStreamExtensions.cs" />
-    <Compile Include="Dependencies\Mirror-2018\Telepathy\Server.cs" />
+    <Compile Include="IgnoranceNetworkManager.cs" />
+    <Compile Include="Dependencies\ENet.cs" />
     <Compile Include="Dependencies\UnityAsync\Awaiters\AsyncOperationAwaiter.cs" />
     <Compile Include="Dependencies\UnityAsync\Awaiters\IEnumeratorAwaiter.cs" />
     <Compile Include="Dependencies\UnityAsync\Awaiters\ResourceRequestAwaiter.cs" />
@@ -155,7 +150,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Dependencies\Mirror-2018\Telepathy\Telepathy.asmdef" />
     <None Include="Dependencies\UnityAsync\Await.meta" />
     <None Include="Dependencies\UnityAsync\Awaiters.meta" />
     <None Include="Dependencies\UnityAsync\Awaiters\AsyncOperationAwaiter.cs.meta" />
