@@ -259,6 +259,14 @@ namespace ENet {
 			}
 		}
 
+		public bool HasReferences {
+			get {
+				CheckCreated();
+
+				return Native.enet_packet_check_references(nativePacket) != 0;
+			}
+		}
+
 		internal void CheckCreated() {
 			if (nativePacket == IntPtr.Zero)
 				throw new InvalidOperationException("Packet not created");
@@ -787,7 +795,7 @@ namespace ENet {
 		public const uint timeoutLimit = 32;
 		public const uint timeoutMinimum = 5000;
 		public const uint timeoutMaximum = 30000;
-		public const uint version = (2 << 16) | (1 << 8) | (4);
+		public const uint version = (2 << 16) | (1 << 8) | (5);
 
 		public static bool Initialize() {
 			return Native.enet_initialize() == 0;
@@ -838,6 +846,9 @@ namespace ENet {
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern IntPtr enet_packet_create(IntPtr data, IntPtr dataLength, PacketFlags flags);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern int enet_packet_check_references(IntPtr packet);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern IntPtr enet_packet_get_data(IntPtr packet);
