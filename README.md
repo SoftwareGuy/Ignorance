@@ -7,11 +7,13 @@ This transport is currently developed and actively used by Oiran Studio.
 [If you use this, I'd appreciate a coffee to keep me caffeinated.](https://ko-fi.com/coburn)
 
 ## WARNING!
-This version of Ignorance is for 2017 only. Select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018)) to go to the right branch.
+As Unity 2018 starts getting closer to LTS status, Ignorance for Unity 2017 will slowly be phased out in favor of Ignorance 2018. **This does not mean that it become obsolete, it just means that any improvements and/or major features will be only for the newer version of Unity.**
+
+This version of Ignorance is for Mirror 2017 only. **Do not use this branch with Unity 2018.** Select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018) to go to the right branch.
 
 ## How do I tell if I'm using Mirror 2017 or 2018?
 - If you have Mirror related DLLs, such as `Mirror.Runtime.dll` or `Mirror.Editor.dll` then you are using Mirror 2017. **This branch is the one you want.**
-- If you have loose C# files, like `NetworkTransform.cs`, then you're using Mirror 2018 as Mirror no longer uses compiled DLLs. **The 2018 branch is the one you want**.
+- If you have loose C# files, like `NetworkTransform.cs`, then you're using Mirror 2018 as Mirror no longer uses compiled DLLs. **The mirror2018 branch is the one you want, not this one!**.
 
 Ignorance 2017 is ***not compatible*** with Mirror 2018 and ***will cause*** initialization failures.
 
@@ -27,9 +29,9 @@ As of version 1.0.9.1 I now custom bake the ENET Windows, Linux and Mac OS nativ
 You only need `IgnoranceTransport.dll` plus the Redist folder if you're building from source. The PDB/MDB files are debugging symbols and are optional. You DO NOT need `UnityEngine.dll` or `Mirror.Runtime.dll` from the output directory.
 
 ## Compatibility
-**x64 Runtime Platforms only! This is due to the dependencies only being compiled for x64.**
-Tested and confirmed working on Unity LTS 2017.4, the recommended version of Unity to use with Mirror.
-May work with newer versions of Unity as long as Mirror supports them.
+- Android ARMv7 and ARM64, Windows x64, Mac OS x64, Linux x64. x86 (32Bit) Build Targets not supported.
+- Tested and confirmed working on Unity LTS 2017.4, the recommended version of Unity to use with Mirror 2017.
+- Newer versions of Unity such as 2018 require the Mirror 2018 branch of this transport.
 
 ## Dependencies
 Ignorance relies on [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp) to do most of the heavy-lifting. I simply hook into the wrapper and perform magic tricks to make it all work.
