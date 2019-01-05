@@ -92,6 +92,12 @@ namespace Mirror.Transport
 
         public virtual void ClientConnect(string address, int port)
         {
+            if(client.IsSet)
+            {
+                Debug.LogError("Ignorance Transport: Cannot connect, a client instance is already running?");
+                return;
+            }
+
             // Fire up ENET-C#'s backend.
             if (!libraryInitialized)
             {
@@ -101,13 +107,13 @@ namespace Mirror.Transport
 
             // Setup our references.
             client = new Host();
+            // Create the client.
+            client.Create();
+
             Address clientAddress = new Address();
 
             clientAddress.SetHost(address);
             clientAddress.Port = (ushort)port;
-
-            // Create the client.
-            client.Create();
 
             // Connect the client to the server.
             Debug.LogFormat("Ignorance Transport: Client will attempt connection to server {0}:{1}", address, port);
@@ -190,9 +196,9 @@ namespace Mirror.Transport
 
         public virtual void ClientDisconnect()
         {
-            if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
+            if (clientPeer.IsSet) clientPeer.Disconnect(0);
             client?.Dispose();
-            client = null;
+            // client = null;
         }
 
         // -- SERVER WORLD -- //
