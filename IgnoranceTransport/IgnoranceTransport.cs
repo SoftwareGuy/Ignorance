@@ -35,7 +35,6 @@ namespace Mirror.Transport
     {
         // -- GENERAL VARIABLES -- //
         private const string TransportVersion = "2018-1.1.3";
-        private bool libraryInitialized = false;
 
         // -- EXPOSED PUBLIC VARIABLES -- //
         public bool verboseLoggingEnabled = false;
@@ -337,7 +336,7 @@ namespace Mirror.Transport
         // -- SERVER WORLD -- //
         public virtual bool ServerActive()
         {
-            return libraryInitialized && server != null && server.IsSet;
+            return server != null && server.IsSet;
         }
 
         public virtual void ServerStart()
@@ -353,12 +352,6 @@ namespace Mirror.Transport
             }
 
             Log($"Ignorance Transport: Starting up server on port {port} with capacity of {maxConnections} connections.");
-            // Fire up ENET-C#'s backend.
-            if (!libraryInitialized)
-            {
-                Library.Initialize();
-                libraryInitialized = true;
-            }
 
             // Initialize our references.
             server = new Host();
