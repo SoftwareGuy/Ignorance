@@ -48,6 +48,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IgnoranceNetworkManager.cs" />
     <Compile Include="Dependencies\ENet.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\ClientScene.cs" />
     <Compile Include="Dependencies\Mirror-2018\Runtime\CustomAttributes.cs" />
