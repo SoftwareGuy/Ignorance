@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -90,21 +91,8 @@ namespace Mirror.Transport.Tcp
                     // wait for a tcp client;
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
 
-                    // are more connections allowed?
-                    if (clients.Count < maxConnections)
-                    {
-                        // non blocking receive loop
-                        ReceiveLoop(tcpClient);
-                    }
-                    else
-                    {
-                        // connection limit reached. disconnect the client and show
-                        // a small log message so we know why it happened.
-                        // note: no extra Sleep because Accept is blocking anyway
-
-                        tcpClient.Close();
-                        Debug.Log("Server too full, disconnected a client");
-                    }
+                    // non blocking receive loop
+                    ReceiveLoop(tcpClient);
                 }
             }
             catch(ObjectDisposedException)
@@ -131,7 +119,7 @@ namespace Mirror.Transport.Tcp
                 // someone connected,  raise event
                 Connected?.Invoke(connectionId);
 
-                using (NetworkStream networkStream = tcpClient.GetStream())
+                using (Stream networkStream = tcpClient.GetStream())
                 {
                     while (true)
                     {
@@ -248,6 +236,15 @@ namespace Mirror.Transport.Tcp
                 return true;
             }
             return false;
+        }
+
+        public override string ToString()
+        {
+            if (Active)
+            {
+                return $"TCP server {listener.LocalEndpoint}";
+            }
+            return "";
         }
     }
 }

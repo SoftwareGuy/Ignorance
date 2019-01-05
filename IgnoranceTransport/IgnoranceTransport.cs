@@ -45,11 +45,13 @@ namespace Mirror.Transport
         public uint peerBaseTimeoutMultiplier = 3; // peerBaseTimemout * this value = maximum time waiting until client is removed
 
         // -- SERVER WORLD VARIABLES -- //
-        private Host server;
-        private Host client;
+        // Explicitly give these new references on startup, just to make sure that we get no null reference exceptions.
+        private Host server = new Host();
+        private Host client = new Host();
 
-        private Address serverAddress;
-        private Peer clientPeer;
+        private Address serverAddress = new Address();
+        private Address clientAddress = new Address();
+        private Peer clientPeer = new Peer();
 
         private Dictionary<int, Peer> knownConnIDToPeers;   // Known connections dictonary since ENET is a little weird.
         private Dictionary<Peer, int> knownPeersToConnIDs;  // Vice versa.
@@ -81,13 +83,37 @@ namespace Mirror.Transport
         private readonly string address;
         private readonly ushort port;
         private readonly ushort maxConnections;
+
         public IgnoranceTransport(string address, ushort port, ushort maxConnections)
         {
             this.address = address;
             this.port = port;
             this.maxConnections = maxConnections;
+
             Debug.LogFormat("Thank you for using Ignorance Transport v{0} for Mirror 2018! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance." +
                 "\nENET Library Version: {1}", TransportVersion, Library.version);
+
+            Library.Initialize();
+        }
+
+        public override string ToString()
+        {
+            if (ServerActive())
+            {
+                return $"Ignorance Server {address}:{port}";
+            }
+
+            if (ClientConnected())
+            {
+                return $"Ignorance Client {address}:{port}";
+            }
+
+            if (clientPeer.IsSet && clientPeer.State == PeerState.Connecting)
+            {
+                return $"Ignorance connecting to {address}:{port}";
+            }
+
+            return "Ignorance Transport idle";
         }
 
         // -- CLIENT WORLD -- //
@@ -98,45 +124,34 @@ namespace Mirror.Transport
 
         public virtual void ClientConnect(string address, int port)
         {
-            if(client.IsSet)
-            {
-                Debug.LogError("Ignorance Transport: Cannot connect, a client instance is already running?");
-                return;
-            }
-
-            // Fire up ENET-C#'s backend.
-            if (!libraryInitialized)
-            {
-                Library.Initialize();
-                libraryInitialized = true;
-            }
+            Debug.Log(clientPeer.State);
 
             // Setup our references.
-            client = new Host();
-            // Create the client.
-            client.Create();
+            if (client == null) client = new Host();
+            if (!client.IsSet) client.Create();
 
-            Address clientAddress = new Address();
-
+            clientAddress = new Address();
             clientAddress.SetHost(address);
             clientAddress.Port = (ushort)port;
 
-            // Connect the client to the server.
+            // Connect the client to the server by setting the address and start the client's data pump loop.
             Debug.LogFormat("Ignorance Transport: Client will attempt connection to server {0}:{1}", address, port);
-            clientPeer = client.Connect(clientAddress);
-
-            // Start the client's receive loop.
             Debug.Log("Ignorance Transport: Starting client receive loop...");
+            clientPeer = client.Connect(clientAddress);
             ClientReceiveLoop(client);
         }
 
+        // Could something in here be messing up and causing a hang?
+        // Hang as in 3 - 5 second freeze then connection actually happens.
+        // Or is it a unity bug?
         private async void ClientReceiveLoop(Host clientHost)
         {
             try
             {
                 while (true)
                 {
-                    if (!clientHost.IsSet) break;
+                    if (clientHost == null || !clientHost.IsSet) break;
+                    if (!clientPeer.IsSet) break;
 
                     Event incomingEvent;
                     // Get the next message from the client peer object.
@@ -175,7 +190,8 @@ namespace Mirror.Transport
             {
                 // We disconnected, got fed an error message or we got a Disconnect.
                 OnClientDisconnect?.Invoke();
-                Debug.Log("Ignorance Transport: Client receive loop finished.");
+                clientPeer = new Peer();
+                Debug.Log("Ignorance Transport: Client receive loop finished at " + Time.time);
             }
         }
 
@@ -202,9 +218,9 @@ namespace Mirror.Transport
 
         public virtual void ClientDisconnect()
         {
-            if (clientPeer.IsSet) clientPeer.Disconnect(0);
+            if (clientPeer.IsSet && clientPeer.State != PeerState.Disconnected) clientPeer.DisconnectNow(0);
             client?.Dispose();
-            // client = null;
+            client = null;
         }
 
         // -- SERVER WORLD -- //
@@ -219,13 +235,13 @@ namespace Mirror.Transport
             // Check if the server is active before attempting to create. If it returns true,
             // then we should not continue, and we'll emit a refusal error message.
             // This should be classified as a dirty hack and if it doesn't work.
-            if(ServerActive())
+            if (ServerActive())
             {
                 Debug.LogError("Ignorance Transport: Refusing to start another server instance! There's already one running.");
                 return;
             }
 
-            Debug.LogFormat("Ignorance Transport: Starting up server. {0} port {1} with {2} connection capacity.", address ?? "(null)", port, maxConnections);
+            Debug.LogFormat("Ignorance Transport: Starting up server on port {0} with capacity of {1} connections.", port, maxConnections);
             // Fire up ENET-C#'s backend.
             if (!libraryInitialized)
             {
@@ -243,7 +259,7 @@ namespace Mirror.Transport
             // Bind if we have an address specified.
             if (!string.IsNullOrEmpty(address))
             {
-                Debug.LogFormat("Ignorance Transport: Binding to {0}", address);
+                Debug.LogFormat("Ignorance Transport: Binding server instance to {0}", address ?? "(null)");
                 serverAddress.SetHost(address);
             }
 
@@ -253,11 +269,10 @@ namespace Mirror.Transport
             server.Create(serverAddress, maxConnections);
 
             Debug.Log("Ignorance Transport: Entering server receive loop...");
-
             ServerReceiveLoop(server);
         }
 
-        private async void ServerReceiveLoop(Host serverobject) //"server" hides field server in this class
+        private async void ServerReceiveLoop(Host serverobject)
         {
             try
             {
@@ -297,7 +312,7 @@ namespace Mirror.Transport
 
                             break;
                         case EventType.Disconnect:
-                            Debug.LogFormat("Ignorance Transport: Acknowledging disconnection on connection ID {0} ", knownPeersToConnIDs[incomingEvent.Peer]);
+                            Debug.LogFormat("Ignorance Transport: Acknowledging disconnection on connection ID {0}", knownPeersToConnIDs[incomingEvent.Peer]);
                             if (knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
                             {
                                 OnServerDisconnect?.Invoke(knownPeersToConnIDs[incomingEvent.Peer]);
@@ -334,11 +349,6 @@ namespace Mirror.Transport
             if (knownPeersToConnIDs.ContainsKey(peer)) knownPeersToConnIDs.Remove(peer);
         }
 
-        public virtual void ServerStartWebsockets(string address, int port, int maxConnections)
-        {
-            Debug.LogError("Ignorance Transport does not support Websockets. Aborting...");
-        }
-
         public virtual void ServerSend(int connectionId, int channelId, byte[] data)
         {
             Packet mailingPigeon = default(Packet);
@@ -353,7 +363,7 @@ namespace Mirror.Transport
             {
                 Peer target = knownConnIDToPeers[connectionId];
                 mailingPigeon.Create(data, packetSendMethods[channelId]);
-                
+
                 if (!target.Send(0, ref mailingPigeon)) Debug.LogWarning("Ignorance Transport: Server-side packet sending apparently wasn't successful.");
             }
         }
@@ -415,7 +425,6 @@ namespace Mirror.Transport
             }
 
             Library.Deinitialize();
-            libraryInitialized = false;
 
             Debug.Log("Ignorance Transport: Shutdown complete.");
         }

@@ -22,7 +22,6 @@ namespace Mirror.Transport.Tcp
         protected Server server = new Server();
 
         public int port = 7777;
-        public int MaxConnections = int.MaxValue;
 
         public TcpTransport()
         {
@@ -50,13 +49,16 @@ namespace Mirror.Transport.Tcp
         public virtual bool ClientConnected() { return client.IsConnected; }
         public virtual void ClientConnect(string address, int port) { client.Connect(address, port); }
         public virtual void ClientSend(int channelId, byte[] data) { client.Send(data); }
-        public virtual void ClientDisconnect() { client.Disconnect(); }
+        public virtual void ClientDisconnect() 
+        {
+            client.Disconnect(); 
+        }
 
         // server
         public virtual bool ServerActive() { return server.Active; }
         public virtual void ServerStart()
         {
-            server.Listen(port, MaxConnections);
+            server.Listen(port);
         }
 
         public virtual void ServerSend(int connectionId, int channelId, byte[] data) { server.Send(connectionId, data); }
@@ -80,6 +82,20 @@ namespace Mirror.Transport.Tcp
         {
             // Telepathy's limit is Array.Length, which is int
             return int.MaxValue;
+        }
+
+
+        public override string ToString()
+        {
+            if (client.Connecting || client.IsConnected)
+            {
+                return client.ToString();
+            }
+            if (server.Active)
+            {
+                return server.ToString();
+            }
+            return "";
         }
     }
 }
