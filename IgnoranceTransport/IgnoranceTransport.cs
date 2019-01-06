@@ -155,6 +155,7 @@ namespace Mirror.Transport
         private readonly string address;
         private readonly ushort port;
         private readonly ushort maxConnections;
+        private readonly bool enableCompression;
 
         /// <summary>
         /// Initializes transport
@@ -162,11 +163,13 @@ namespace Mirror.Transport
         /// <param name="address">Server bind address</param>
         /// <param name="port">Server port</param>
         /// <param name="maxConnections">Connection limit (can't be higher than 4095)</param>
-        public IgnoranceTransport(string address, ushort port, ushort maxConnections)
+        /// <param name="enableCompression">Should packets be comressed with LZ4 compression. Default false.</param>
+        public IgnoranceTransport(string address, ushort port, ushort maxConnections, bool enableCompression = false)
         {
             this.address = address;
             this.port = port;
             this.maxConnections = maxConnections;
+            this.enableCompression = enableCompression;
 
             Log($"Thank you for using Ignorance Transport v{TransportVersion} for Mirror 2018! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance. \nENET Library Version: {Library.version}");
 
@@ -180,18 +183,21 @@ namespace Mirror.Transport
         /// <param name="port">Server port</param>
         /// <param name="maxConnections">Connection limit (can't be higher than 4095)</param>
         /// <param name="channelTypes">Channel list (specifies channel types). Element 0 is used in all Mirror code</param>
-        public IgnoranceTransport(string address, ushort port, ushort maxConnections, IEnumerable<PacketFlags> channelTypes)
+        /// <param name="enableCompression">Should packets be comressed with LZ4 compression. Default false.</param>
+        public IgnoranceTransport(string address, ushort port, ushort maxConnections, IEnumerable<PacketFlags> channelTypes, bool enableCompression = false)
         {
             this.address = address;
             this.port = port;
             this.maxConnections = maxConnections;
             packetSendMethods = channelTypes.ToArray();
+            this.enableCompression = enableCompression;
 
             Log($"Thank you for using Ignorance Transport v{TransportVersion} for Mirror 2018! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance. \nENET Library Version: {Library.version}");
 
             Library.Initialize();
         }
 
+        //Static helpers
         private static void Log(object text)
         {
             if (enableLogging) Debug.Log(text);
@@ -207,6 +213,12 @@ namespace Mirror.Transport
             Debug.LogWarning(text);
         }
 
+        private static bool IsValid(Host host)
+        {
+            return host != null && host.IsSet;
+        }
+
+        //Mirror info
         public override string ToString()
         {
             if (ServerActive())
@@ -241,6 +253,8 @@ namespace Mirror.Transport
             if (client == null) client = new Host();
             if (!client.IsSet) client.Create(null, 1, packetSendMethods.Length, 0, 0);
 
+            if (enableCompression) EnableCompressionOnClient();
+
             clientAddress = new Address();
             clientAddress.SetHost(address);
             clientAddress.Port = (ushort)port;
@@ -259,7 +273,7 @@ namespace Mirror.Transport
         {
             try
             {
-                while (clientHost != null && clientHost.IsSet && clientPeer.IsSet)
+                while (IsValid(clientHost) && clientPeer.IsSet)
                 {
                     Event incomingEvent;
                     // Get the next message from the client peer object.
@@ -298,7 +312,6 @@ namespace Mirror.Transport
             finally
             {
                 // We disconnected, got fed an error message or we got a Disconnect.
-                clientHost?.Flush();
                 OnClientDisconnect?.Invoke();
                 clientPeer = new Peer();
                 Log("Ignorance Transport: Client receive loop finished at " + Time.time);
@@ -336,7 +349,7 @@ namespace Mirror.Transport
         // -- SERVER WORLD -- //
         public virtual bool ServerActive()
         {
-            return server != null && server.IsSet;
+            return IsValid(server);
         }
 
         public virtual void ServerStart()
@@ -359,6 +372,8 @@ namespace Mirror.Transport
 
             knownConnIDToPeers = new Dictionary<int, Peer>();
             knownPeersToConnIDs = new Dictionary<Peer, int>();
+
+            if (enableCompression) EnableCompressionOnServer();
 
             // Bind if we have an address specified.
             if (!string.IsNullOrEmpty(address))
@@ -440,7 +455,6 @@ namespace Mirror.Transport
             }
             finally
             {
-                serverobject.Flush();
                 Log("Ignorance Transport: Server receive loop finished.");
             }
         }
@@ -512,7 +526,7 @@ namespace Mirror.Transport
             Log("Ignorance Transport: Acknowledged shutdown request...");
 
             // Shutdown the client first.
-            if (client != null && client.IsSet)
+            if (IsValid(client))
             {
                 if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
 
@@ -521,7 +535,7 @@ namespace Mirror.Transport
             }
 
             // Shutdown the server.
-            if (server != null && server.IsSet)
+            if (IsValid(server))
             {
                 server.Flush();
                 server.Dispose();
@@ -584,9 +598,9 @@ namespace Mirror.Transport
         /// 
         /// Once enabled, you will need to restart the server to disable it.
         /// </summary>
-        public void EnableCompressionOnServer()
+        private void EnableCompressionOnServer()
         {
-            if (server != null && server.IsSet)
+            if (IsValid(server))
             {
                 server.EnableCompression();
             }
@@ -601,9 +615,9 @@ namespace Mirror.Transport
         /// 
         /// Once enabled, you will need to restart the client to disable it.
         /// </summary>
-        public void EnableCompressionOnClient()
+        private void EnableCompressionOnClient()
         {
-            if (client != null && client.IsSet)
+            if (IsValid(client))
             {
                 client.EnableCompression();
             }
@@ -616,7 +630,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets sent.</returns>
         public uint ServerGetPacketSentCount()
         {
-            return server != null && server.IsSet ? server.PacketsSent : 0;
+            return IsValid(server) ? server.PacketsSent : 0;
         }
 
         /// <summary>
@@ -625,7 +639,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets received.</returns>
         public uint ServerGetPacketReceivedCount()
         {
-            return server != null && server.IsSet ? server.PacketsReceived : 0;
+            return IsValid(server) ? server.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -635,7 +649,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets lost.</returns>
         public uint ServerGetPacketLossCount()
         {
-            return server != null && server.IsSet && server.PacketsSent >= server.PacketsReceived ? server.PacketsSent - server.PacketsReceived : 0;
+            return IsValid(server) && server.PacketsSent >= server.PacketsReceived ? server.PacketsSent - server.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -644,7 +658,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets sent.</returns>
         public uint ClientGetPacketSentCount()
         {
-            return client != null && client.IsSet ? client.PacketsSent : 0;
+            return IsValid(client) ? client.PacketsSent : 0;
         }
 
         /// <summary>
@@ -653,7 +667,7 @@ namespace Mirror.Transport
         /// <returns>The amount of packets received.</returns>
         public uint ClientGetPacketReceivedCount()
         {
-            return client != null && client.IsSet ? client.PacketsReceived : 0;
+            return IsValid(client) ? client.PacketsReceived : 0;
         }
 
         /// <summary>
