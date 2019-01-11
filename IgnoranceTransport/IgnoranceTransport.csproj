@@ -48,7 +48,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Dependencies\ENet.cs" />
-    <Compile Include="IgnoranceTransport.cs" />
+    <None Include="IgnoranceNetworkManager.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Compile Include="IgnoranceTransport.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -63,7 +68,21 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Redist\Failsafe.zip" />
+    <None Include="Redist\Android\arm64-v8a\libenet.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Redist\Android\armeabi-v7a\libenet.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Redist\Android\x86\libenet.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Redist\Android\x86_64\libenet.so">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Redist\Failsafe.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="Redist\macOS\enet.bundle">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

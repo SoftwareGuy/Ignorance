@@ -61,7 +61,6 @@ namespace Mirror
         private Host client = new Host();
 
         private Address serverAddress = new Address();
-        private Address clientAddress = new Address();
         private Peer clientPeer = new Peer();
 
         /// <summary>
@@ -162,6 +161,11 @@ namespace Mirror
         /// </summary>
         /// <returns>A integer with the maximum packet size.</returns>
         public int GetMaxPacketSize()
+        {
+            return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire. NX's orders.
+        }
+
+        public int GetMaxPacketSize(int channel)
         {
             return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire. NX's orders.
         }
@@ -284,7 +288,7 @@ namespace Mirror
                 case EventType.Receive:
                     transportEvent = TransportEvent.Data;
 
-                    if (verboseLoggingEnabled) Log($"Ignorance Transport: ServerGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length);
+                    if (verboseLoggingEnabled) Log($"Ignorance Transport: ServerGetNextMessage(): Data channel {incomingEvent.ChannelID} receiving {incomingEvent.Packet.Length} byte payload...");
 
                     // Only process data from known peers.
                     if (knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
@@ -364,7 +368,7 @@ namespace Mirror
         /// <param name="address">The address to bind to.</param>
         /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
         /// <param name="maxConnections">How many connections can we have?</param>
-        public void ServerStart(string address, int port, int maxConnections)
+        public void ServerStart(string address, ushort port)
         {
             // Do not attempt to start more than one server.
             // Check if the server is active before attempting to create. If it returns true,
@@ -381,7 +385,7 @@ namespace Mirror
             knownConnIDToPeers = new Dictionary<int, Peer>();
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
-            if (verboseLoggingEnabled) Log($"Ignorance Transport: ServerStart(): {address ?? "(null)"}, {port}, {maxConnections}");
+            if (verboseLoggingEnabled) Log($"Ignorance Transport: ServerStart(): {address ?? "(null)"}, {port}, {NetworkManager.singleton.maxConnections}");
             if (!string.IsNullOrEmpty(address))
             {
                 Log($"Ignorance Transport: Binding to address {address}");
@@ -392,10 +396,10 @@ namespace Mirror
             serverAddress.Port = (ushort)port;
 
             // Finally create the server.
-            server.Create(serverAddress, maxConnections);
+            server.Create(serverAddress, NetworkManager.singleton.maxConnections);
             
             // Log our best effort attempts
-            Log($"Ignorance Transport: Attempted to create server with capacity of {maxConnections} connections on UDP port {Convert.ToUInt16(port)}");
+            Log($"Ignorance Transport: Attempted to create server with capacity of {NetworkManager.singleton.maxConnections} connections on UDP port {Convert.ToUInt16(port)}");
             Log($"Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
         }
 
@@ -406,7 +410,7 @@ namespace Mirror
         /// <param name="address">The address to bind to.</param>
         /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
         /// <param name="maxConnections">How many connections can we have?</param>
-        public void ServerStartWebsockets(string address, int port, int maxConnections)
+        public void ServerStartWebsockets(string address, ushort port)
         {
             // Websockets? Nani?
             throw new NotImplementedException("WebSockets with ENET are not possible and probably will never be implemented. Sorry to disappoint");
@@ -436,7 +440,7 @@ namespace Mirror
         /// </summary>
         /// <param name="address">The connection address.</param>
         /// <param name="port">The connection port.</param>
-        public void ClientConnect(string address, int port)
+        public void ClientConnect(string address, ushort port)
         {
             if (verboseLoggingEnabled) Log($"Ignorance Transport: ClientConnect({address}, {port})");
             if (client == null) client = new Host();
@@ -447,9 +451,6 @@ namespace Mirror
             // Set hostname and port to connect to.
             clientAddress.SetHost(address);
             clientAddress.Port = (ushort)port;
-
-            // Create the client.
-            client.Create();
 
             // Connect the client to the server.
             clientPeer = client.Connect(clientAddress);
