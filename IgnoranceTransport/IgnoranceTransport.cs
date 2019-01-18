@@ -32,12 +32,26 @@ namespace Mirror
     /// <summary>
     /// Ignorance rUDP Transport is built upon the ENet-C# wrapper by nxrighthere.
     /// </summary>
-    public class IgnoranceTransport : TransportLayer
+    public class IgnoranceTransport : MonoBehaviour, ITransport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "2017-1.0.9.5";
+        private const string TransportVersion = "2017-1.0.9.6";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
+        /// <summary>
+        /// The client's connection port. Can be anything between port 1 to 65535.
+        /// </summary>
+        public ushort ClientConnectionPort = 7777;
+        /// <summary>
+        /// The server's address that it will listen on.
+        /// </summary>
+        public string ServerHostAddress = "127.0.0.1";
+        /// <summary>
+        /// The server's communication port. Can be anything between port 1 to 65535.
+        /// </summary>
+        public ushort ServerHostPort = 7777;
+
+        [Header("Logging Options")]
         public bool verboseLoggingEnabled = false;
         public static bool enableLogging = true;
 
@@ -368,7 +382,7 @@ namespace Mirror
         /// <param name="address">The address to bind to.</param>
         /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
         /// <param name="maxConnections">How many connections can we have?</param>
-        public void ServerStart(string address, ushort port)
+        public void ServerStart()
         {
             // Do not attempt to start more than one server.
             // Check if the server is active before attempting to create. If it returns true,
@@ -385,35 +399,22 @@ namespace Mirror
             knownConnIDToPeers = new Dictionary<int, Peer>();
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
-            if (verboseLoggingEnabled) Log($"Ignorance Transport: ServerStart(): {address ?? "(null)"}, {port}, {NetworkManager.singleton.maxConnections}");
-            if (!string.IsNullOrEmpty(address))
+            if (verboseLoggingEnabled) Log($"Ignorance Transport: ServerStart(): {ServerHostAddress ?? "(null)"}, {ServerHostPort}, {NetworkManager.singleton.maxConnections}");
+            if (!string.IsNullOrEmpty(ServerHostAddress))
             {
-                Log($"Ignorance Transport: Binding to address {address}");
-                serverAddress.SetHost(address);
+                Log($"Ignorance Transport: Binding to address {ServerHostAddress}");
+                serverAddress.SetHost(ServerHostAddress);
             }
 
             // Setup the port.
-            serverAddress.Port = (ushort)port;
+            serverAddress.Port = ServerHostPort;
 
             // Finally create the server.
             server.Create(serverAddress, NetworkManager.singleton.maxConnections);
             
             // Log our best effort attempts
-            Log($"Ignorance Transport: Attempted to create server with capacity of {NetworkManager.singleton.maxConnections} connections on UDP port {Convert.ToUInt16(port)}");
+            Log($"Ignorance Transport: Attempted to create server with capacity of {NetworkManager.singleton.maxConnections} connections on UDP port {ServerHostPort}");
             Log($"Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
-        }
-
-        /// <summary>
-        /// Start the websockets version of the server.
-        /// NOT IMPLEMENTED AND PROBABLY NEVER WILL BE. DO NOT USE!
-        /// </summary>
-        /// <param name="address">The address to bind to.</param>
-        /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
-        /// <param name="maxConnections">How many connections can we have?</param>
-        public void ServerStartWebsockets(string address, ushort port)
-        {
-            // Websockets? Nani?
-            throw new NotImplementedException("WebSockets with ENET are not possible and probably will never be implemented. Sorry to disappoint");
         }
 
         /// <summary>
@@ -440,9 +441,10 @@ namespace Mirror
         /// </summary>
         /// <param name="address">The connection address.</param>
         /// <param name="port">The connection port.</param>
-        public void ClientConnect(string address, ushort port)
+        public void ClientConnect(string address)
         {
-            if (verboseLoggingEnabled) Log($"Ignorance Transport: ClientConnect({address}, {port})");
+            Log($"Ignorance Transport: Acknowledging connection request to {address}:{ClientConnectionPort})");
+
             if (client == null) client = new Host();
             if (!client.IsSet) client.Create(null, 1, packetSendMethods.Length, 0, 0);
 
@@ -450,13 +452,13 @@ namespace Mirror
 
             // Set hostname and port to connect to.
             clientAddress.SetHost(address);
-            clientAddress.Port = (ushort)port;
+            clientAddress.Port = ClientConnectionPort;
 
             // Connect the client to the server.
             clientPeer = client.Connect(clientAddress);
 
             // Debugging only
-            if (verboseLoggingEnabled) Log($"Ignorance Transport: clientPeer isSet? {clientPeer.IsSet}");
+            if (verboseLoggingEnabled) Log($"Ignorance Transport: Is my peer object setup? {clientPeer.IsSet}");
         }
 
         /// <summary>
@@ -465,7 +467,7 @@ namespace Mirror
         /// <returns>True if connected, False if not.</returns>
         public bool ClientConnected()
         {
-            if (verboseLoggingEnabled) Log("Ignorance Transport: ClientConnected() called");
+            if (verboseLoggingEnabled) Log($"Ignorance Transport: Mirror asks if I'm connected. The answer to that is { ((clientPeer.State == PeerState.Connected) ? true : false) }");
             return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
         }
 
@@ -474,7 +476,7 @@ namespace Mirror
         /// </summary>
         public void ClientDisconnect()
         {
-            if (verboseLoggingEnabled) Log("Ignorance Transport: ClientDisconnect() called");
+            Log("Ignorance Transport: Acknowledging client disconnection.");
 
             // TODO: I dunno what to put here! nx has something about Reasons for the disconnection??
             if (clientPeer.IsSet)

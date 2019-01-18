@@ -33,9 +33,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Mirror.Runtime">
-      <HintPath>Dependencies\Mirror.Runtime.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -51,13 +48,37 @@
     <None Include="IgnoranceNetworkManager.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Compile Include="Dependencies\Mirror\ClientScene.cs" />
+    <Compile Include="Dependencies\Mirror\CustomAttributes.cs" />
+    <Compile Include="Dependencies\Mirror\DotNetCompatibility.cs" />
+    <Compile Include="Dependencies\Mirror\ExponentialMovingAverage.cs" />
+    <Compile Include="Dependencies\Mirror\Extensions.cs" />
+    <Compile Include="Dependencies\Mirror\LocalClient.cs" />
+    <Compile Include="Dependencies\Mirror\LocalConnections.cs" />
+    <Compile Include="Dependencies\Mirror\LogFilter.cs" />
+    <Compile Include="Dependencies\Mirror\Messages.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkBehaviour.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkClient.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkConnection.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkIdentity.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkManager.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkManagerHUD.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkProximityChecker.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkReader.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkServer.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkStartPosition.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkTime.cs" />
+    <Compile Include="Dependencies\Mirror\NetworkWriter.cs" />
+    <Compile Include="Dependencies\Mirror\SyncList.cs" />
+    <Compile Include="Dependencies\Mirror\SyncObject.cs" />
+    <Compile Include="Dependencies\Mirror\Transport\ITransport.cs" />
+    <Compile Include="Dependencies\Mirror\UNetwork.cs" />
     <Compile Include="IgnoranceTransport.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Dependencies\Mirror\Mirror.Runtime.dll" />
     <Content Include="Dependencies\UnityEngine\UnityEngine.dll" />
     <Content Include="Dependencies\UnityEngine\UnityEngine.dll.mdb" />
     <Content Include="Redist\Windows\enet.dll">
