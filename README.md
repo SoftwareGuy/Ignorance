@@ -5,7 +5,7 @@ Ignorance is a wrapper that provides ENET-powered reliable UDP transport layer t
 This transport is currently developed and actively used by [Oiran Studio](http://www.oiran.studio).
 
 ## WARNING!
-This version of Ignorance is for the *master* branch of Mirror. **Do not use this branch if you are using the 2018 version of Mirror**. Instead, select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018) to go to the right branch.
+This version of Ignorance is for the *master* branch of Mirror which has "pluggable" transports. **Do not use this branch if you are using the 2018 version of Mirror**. Instead, select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018) to go to the right branch.
 
 ### What happens if I use the wrong version of Ignorance with the wrong version of Mirror?
 * Best case scenario: It works, somehow.
@@ -20,15 +20,20 @@ Ensure you correctly configure the Redist plugins (included in the repo and rele
 
 ## Installation
 ### Release Method
-1. Grab a release from the [releases page](https://github.com/SoftwareGuy/Ignorance/releases)
+1. Grab a release from the [releases page](https://github.com/SoftwareGuy/Ignorance/releases) that says it's a **Pluggable Transport** version.
 2. Make sure you have [Mirror](https://github.com/vis2k/Mirror) installed in your project.
 3. Extract the downloaded release archive into your project, maybe under `Assets/Packages/IgnoranceTransport`.
 4. Let Unity detect the new scripts and compile.
 
 ### Git Clone Method
-- While you can clone this Git repo and copy the transport files and dependencies manually, it's better to take a release. If you're using the cloned git, don't copy the Mirror or UnityEngine dependencies into your project. That'll break both Unity and any other version of Mirror you may have installed.
-- Seriously, play it safe. Save time, money, blood sweat and tears by going with a release.
-
+Okay fine, I get it. You want the bleeding edge, huh? Sure, sure. Mirror upstream master branch does change a lot in very little time, so I understand.
+1. Git clone this repository.
+2. If you haven't already done so, make a folder called `Ignorance` in your project. Also make a `Dependencies` folder just for house keeping under that.
+3. Copy the repos' `ENet.cs` file from the Dependencies folder into your projects `Ignorance/Dependencies` folder.
+4. Copy the repos' Redist folder to your project's `Ignorance` folder.
+5. Delete any duplicate Redist folders from your project that may contain duplicate copies of the ENET binary blobs. **Only one copy of each blob must be present in your project at one time.**
+6. Import, and let Unity recongize everything. There should be no errors.
+7. To get the latest, simply open the cloned repository, do a `git pull` to sync your local copy and you'll get the latest changes. Follow the steps above to update your project to latest Ignorance master.
 
 ## Dependencies
 - [Mirror](https://github.com/vis2k/Mirror)
@@ -37,7 +42,9 @@ Ensure you correctly configure the Redist plugins (included in the repo and rele
 - ENET itself. As in the C library.
 
 ## How to use
-- To be updated to reflect new Mirror master upstream changes.
+- Add the Ignorance Transport script onto your NetworkManager game object and remove any existing ones, like Telepathy, TCP, etc.
+- Configure to your liking
+- You're good to go!
 
 ## Why should I use reliable UDP?
 Since UDP is designed to be a scattershot shotgun approach to networking, there's no promises that UDP packets will get from A to B without going through hell and back. That is why UDP ignores a lot of stuff that TCP fusses over. 
