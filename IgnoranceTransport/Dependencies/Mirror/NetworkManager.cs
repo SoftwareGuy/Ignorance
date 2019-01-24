@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 
@@ -44,6 +45,7 @@ namespace Mirror
         [FormerlySerializedAs("m_OnlineScene")] public string onlineScene = "";
         [FormerlySerializedAs("m_MaxConnections")] public int maxConnections = 4;
         [FormerlySerializedAs("m_SpawnPrefabs")] public List<GameObject> spawnPrefabs = new List<GameObject>();
+        public bool startOnHeadless = true;
 
         public static List<Transform> startPositions = new List<Transform>();
 
@@ -76,6 +78,12 @@ namespace Mirror
             networkSceneName = offlineScene;
 
             InitializeSingleton();
+
+            // headless mode? then start the server
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null && startOnHeadless)
+            {
+                StartServer();
+            }
         }
 
         void InitializeSingleton()
@@ -510,8 +518,12 @@ namespace Mirror
 
             if (msg.value != null && msg.value.Length > 0)
             {
-                NetworkReader reader = new NetworkReader(msg.value);
-                OnServerAddPlayer(netMsg.conn, reader);
+                // convert payload to extra message and call OnServerAddPlayer
+                // (usually for character selection information)
+                NetworkMessage extraMessage = new NetworkMessage();
+                extraMessage.reader = new NetworkReader(msg.value);
+                extraMessage.conn = netMsg.conn;
+                OnServerAddPlayer(netMsg.conn, extraMessage);
             }
             else
             {
@@ -621,7 +633,7 @@ namespace Mirror
             NetworkServer.SetClientReady(conn);
         }
 
-        public virtual void OnServerAddPlayer(NetworkConnection conn, NetworkReader extraMessageReader)
+        public virtual void OnServerAddPlayer(NetworkConnection conn, NetworkMessage extraMessage)
         {
             OnServerAddPlayerInternal(conn);
         }

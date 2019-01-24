@@ -1,23 +1,18 @@
-﻿// SoftwareGuy's Ignorance Reliable UDP Transport
-// Uses ENET as the transport backend.
-// ----------------------------------------
-// Ignorance Transport by Coburn, 2018
+﻿// ----------------------------------------
+// Ignorance Transport by Matt Coburn, 2018.
 // ENet-C# by nxrighthere, 2018
 // ENet by the ENet developers, whenever - whenever.
 // ----------------------------------------
-// IGNORANCE TRANSPORT COMES WITH NO WARRANTY WHATSOEVER.
-// BY USING THIS TRANSPORT FOR MIRROR YOU AGREE THAT YOU
-// CANNOT AND WILL NOT HOLD THE DEVELOPER LIABLE FOR ANY
-// LOSS OF GAME DEVELOPMENT PROGRESS, DATA LOSS OR OTHER
-// PROBLEMS CAUSED DIRECTLY OR INDIRECTLY BY THIS CODE.
+// Ignorance Transport is MIT Licensed. It would be however
+// nice to get some acknowledgement in your program/game's credits
+// that Ignorance was used to build your network code. It would be 
+// greatly appreciated if you reported bugs and donated coffee
+// at https://github.com/SoftwareGuy/Ignorance. Remember, OSS is the
+// way of the future!
 // ----------------------------------------
-// It would be greatly appreciated if you reported bugs
-// and donate coffee at https://github.com/SoftwareGuy/Ignorance.
-// ----------------------------------------
-// THIS IS THE MIRROR 2017 VERSION OF IGNORANCE.
-// IF YOU ARE USING UNITY 2018, IT IS RECOMMENDED YOU USE
-// MIRROR 2018 AND THE MIRROR 2018 BRANCH OF IGNORANCE.
-// PLEASE SEE THE README FOR FURTHER INFORMATION.
+// THIS VERSION IS FOR THE MIRROR MASTER VERSION WITH PLUGGABLE TRANSPORTS.
+// PLEASE DO NOT USE WITH MIRROR 2018 BRANCH JUST YET. USE THE "mirror2018"
+// BRANCH INSTEAD. SEE THE README FOR FURTHER INFORMATION.
 // ----------------------------------------
 
 using ENet;
@@ -35,7 +30,7 @@ namespace Mirror
     public class IgnoranceTransport : MonoBehaviour, ITransport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "2017-1.0.9.6";
+        private const string TransportVersion = "1.0.9.7-master";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
         /// <summary>
@@ -48,9 +43,14 @@ namespace Mirror
         public ushort CommunicationPort = 7777;
 
         [Header("Logging Options")]
+        [Tooltip("If you don't wish to have Ignorance emit any helpful messages, turn this off.")]
+        public bool enableLogging = true;
+        [Tooltip("Enable this for more low-level verbose log entries. May cause performance loss due to Log spam.")]
         public bool verboseLoggingEnabled = false;
-        public static bool enableLogging = true;
+        [Tooltip("Enable this to know what data is being sent in packets.")]
+        public bool packetDataLoggingEnabled = false;
 
+        [Header("Timeout Configuration")]
         // -- TIMEOUTS -- //
         /// <summary>
         /// Use custom peer timeouts?
@@ -154,15 +154,31 @@ namespace Mirror
         /// </summary>
         private void GreetEveryone()
         {
-            Log(string.Format("Thank you for using Ignorance Transport v{0} for Mirror 2017! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance" +
+            Log(string.Format("Thank you for using Ignorance Transport v{0} for Mirror (master branch)! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance" +
                 "\nENET Library Version: {1}", TransportVersion, Library.version));
         }
 
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
+            // dont h8 me
+            Debug.Log("It's a me, Ignorance Transport. Woohoo!");
+
+            // GreetEveryone();
+            // Library.Initialize();
+        }
+
+        public void OnEnable()
+        {
+            // Debug.Log("IgnoranceTransport.OnEnable()");
             GreetEveryone();
             Library.Initialize();
+        }
+
+        public void OnDisable()
+        {
+            // Debug.Log("IgnoranceTransport.OnDisable()");
+            Library.Deinitialize();
         }
 
         /// <summary>
@@ -311,8 +327,14 @@ namespace Mirror
                         data = new byte[incomingEvent.Packet.Length];
                         incomingEvent.Packet.CopyTo(data);
                         incomingEvent.Packet.Dispose();
+                        if (packetDataLoggingEnabled) Log(string.Format("Server receiving incoming packet Payload:\n{0}", BitConverter.ToString(data)));
+                    } else {
+                        // Emit a warning and clean the packet. We don't want it in memory.
+                        incomingEvent.Packet.Dispose();
 
-                        if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ServerGetNextMessage() Payload:\n {0}", BitConverter.ToString(data)));
+                        LogWarning("Ignorance Transport WARNING: Discarded a packet because it was from a unknown peer. If you see this message way too many times " +
+                            "then you are likely a victim of a DoS or DDoS attack that is targeting your server's connection port. Ignorance will keep discarding " +
+                            "packets but please do look into this. Failing to do so is risky and could potentially crash the server instance!");
                     }
                     break;
 
@@ -357,7 +379,8 @@ namespace Mirror
             // More haxx. see https://github.com/nxrighthere/ENet-CSharp/issues/21 for some background info-ish.
             if (knownConnIDToPeers.ContainsKey(connectionId))
             {
-                if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ServerSend() to connID {0} on channel {1}\nPayload: {2}", connectionId, channelId, BitConverter.ToString(data)));
+                if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server sending data length {2} on channel {1} to connection ID {0}", connectionId, channelId, data.Length));
+                if (packetDataLoggingEnabled) Log(string.Format("Server sending payload: Connection {2} Channel {0}, Data:\n{1}", channelId, BitConverter.ToString(data), connectionId));
 
                 if (knownConnIDToPeers[connectionId].Send((byte)channelId, ref mailingPigeon))
                 {
@@ -469,7 +492,7 @@ namespace Mirror
         /// <returns>True if connected, False if not.</returns>
         public bool ClientConnected()
         {
-            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Mirror asks if I'm connected. The answer to that is {0}", (clientPeer.State == PeerState.Connected) ? true : false));
+            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Mirror asks if I'm connected. The answer to that is {0}. Note that if this a local client on the server instance, false may be a acceptable reply.", (clientPeer.State == PeerState.Connected) ? true : false));
             return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
         }
 
@@ -550,7 +573,8 @@ namespace Mirror
                     data = new byte[incomingEvent.Packet.Length];
                     incomingEvent.Packet.CopyTo(data);
                     incomingEvent.Packet.Dispose();
-                    if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientGetNextMessage() Payload data:\n{0}", BitConverter.ToString(data)));
+
+                    if (packetDataLoggingEnabled) Log(string.Format("Client: Incoming Packet Payload:\n{0}", BitConverter.ToString(data)));
                     break;
 
                 case EventType.None:
@@ -585,7 +609,9 @@ namespace Mirror
 
             mailingPigeon.Create(data, packetSendMethods[channelId]);
 
-            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientSend(): channel {0}, data {1}", channelId, BitConverter.ToString(data)));
+            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientSend(): channel {0}, data length {1}", channelId, data.Length));
+            if (packetDataLoggingEnabled) Log(string.Format("Client sending payload: Channel {0}, Data:\n{1}", channelId, BitConverter.ToString(data)));
+
             if (clientPeer.Send((byte)channelId, ref mailingPigeon))
             {
                 return true;
@@ -763,7 +789,7 @@ namespace Mirror
         }
 
         // Static helpers
-        private static void Log(object text)
+        private void Log(object text)
         {
             if (enableLogging) Debug.Log(text);
         }
