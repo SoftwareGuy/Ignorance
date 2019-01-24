@@ -65,7 +65,7 @@ namespace ENet {
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
 		public byte[] host;
 		public ushort port;
-		public ushort sin6_scope_id;
+		public ushort scope;
 	}
 
 	[StructLayout(LayoutKind.Sequential)]
@@ -79,9 +79,9 @@ namespace ENet {
 
 	[StructLayout(LayoutKind.Sequential)]
 	public struct ENetCallbacks {
-		public IntPtr malloc;
-		public IntPtr free;
-		public IntPtr no_memory;
+		public AllocCallback malloc;
+		public FreeCallback free;
+		public NoMemoryCallback noMemory;
 	}
 
 	public delegate IntPtr AllocCallback(IntPtr size);
@@ -137,11 +137,20 @@ namespace ENet {
 			}
 		}
 
+		public string GetHost() {
+			StringBuilder hostName = new StringBuilder(1024);
+
+			if (Native.enet_address_get_host(nativeAddress, hostName, (IntPtr)hostName.Capacity) != 0)
+				return String.Empty;
+
+			return hostName.ToString();
+		}
+
 		public bool SetHost(string hostName) {
 			if (hostName == null)
 				throw new ArgumentNullException("hostName");
 
-			return Native.enet_address_set_host(ref nativeAddress, Encoding.ASCII.GetBytes(hostName)) == 0;
+			return Native.enet_address_set_host(ref nativeAddress, hostName) == 0;
 		}
 	}
 
@@ -207,9 +216,9 @@ namespace ENet {
 		}
 
 		public Callbacks(AllocCallback allocCallback, FreeCallback freeCallback, NoMemoryCallback noMemoryCallback) {
-			nativeCallbacks.malloc = Marshal.GetFunctionPointerForDelegate(allocCallback);
-			nativeCallbacks.free = Marshal.GetFunctionPointerForDelegate(freeCallback);
-			nativeCallbacks.no_memory = Marshal.GetFunctionPointerForDelegate(noMemoryCallback);
+			nativeCallbacks.malloc = allocCallback;
+			nativeCallbacks.free = freeCallback;
+			nativeCallbacks.noMemory = noMemoryCallback;
 		}
 	}
 
@@ -467,7 +476,7 @@ namespace ENet {
 			packet.NativeData = IntPtr.Zero;
 		}
 
-		public void Broadcast(byte channelID, ref Packet packet, ref Peer[] peers) {
+		public void Broadcast(byte channelID, ref Packet packet, Peer[] peers) {
 			CheckCreated();
 
 			packet.CheckCreated();
@@ -795,16 +804,14 @@ namespace ENet {
 		public const uint timeoutLimit = 32;
 		public const uint timeoutMinimum = 5000;
 		public const uint timeoutMaximum = 30000;
-		public const uint version = (2 << 16) | (1 << 8) | (5);
+		public const uint version = (2 << 16) | (1 << 8) | (6);
 
 		public static bool Initialize() {
 			return Native.enet_initialize() == 0;
 		}
 
 		public static bool Initialize(Callbacks inits) {
-			var nativeCallbacks = inits.NativeData;
-
-			return Native.enet_initialize_with_callbacks(version, ref nativeCallbacks) == 0;
+			return Native.enet_initialize_with_callbacks(version, inits.NativeData) == 0;
 		}
 
 		public static void Deinitialize() {
@@ -830,7 +837,7 @@ namespace ENet {
 		internal static extern int enet_initialize();
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-		internal static extern int enet_initialize_with_callbacks(uint version, ref ENetCallbacks inits);
+		internal static extern int enet_initialize_with_callbacks(uint version, ENetCallbacks inits);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_deinitialize();
@@ -839,7 +846,10 @@ namespace ENet {
 		internal static extern uint enet_time_get();
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-		internal static extern int enet_address_set_host(ref ENetAddress address, byte[] hostName);
+		internal static extern int enet_address_get_host(ENetAddress address, StringBuilder hostName, IntPtr nameLength);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern int enet_address_set_host(ref ENetAddress address, string hostName);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern IntPtr enet_packet_create(byte[] data, IntPtr dataLength, PacketFlags flags);
