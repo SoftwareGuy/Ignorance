@@ -329,3 +329,8 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+
+# Dependencies so that people don't get import issues.
+Dependencies/Mirror/
+Dependencies/UnityEngine/
+

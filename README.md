@@ -4,6 +4,13 @@ Ignorance is a wrapper that provides ENET-powered reliable UDP transport layer t
 
 This transport is currently developed and actively used by [Oiran Studio](http://www.oiran.studio).
 
+## Mac OS Compatibility Issue
+Due to a issue inside the Mac Editor of Unity, if you attempt to connect an Editor instance to a Editor instance on the same machine (localhost), then usually you will not be able to connect, even if the server seems to be running.
+
+I **cannot** fix this bug. It seems that the **Unity Editor's Mono runtime** is to blame, however standalone client connecting to a Editor server apparently works. Go figure that one out. Please see the [upstream ENET-CSharp issue](https://github.com/nxrighthere/ENet-CSharp/issues/46) for more information.
+
+NX has reported that ENET-CSharp works fine with the version of Mono that Unity 2019 alpha uses. *I do not recommend using alpha or beta versions of Unity Editor in production.*
+
 ## WARNING!
 This version of Ignorance is for the *master* branch of Mirror which has "pluggable" transports. **Do not use this branch if you are using the 2018 version of Mirror**. Instead, select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018) to go to the right branch.
 
