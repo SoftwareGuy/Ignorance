@@ -331,6 +331,6 @@ ASALocalRun/
 .mfractor/
 
 # Dependencies so that people don't get import issues.
-Dependencies/Mirror/
-Dependencies/UnityEngine/
+IgnoranceTransport/Dependencies/Mirror
+IgnoranceTransport/Dependencies/UnityEngine
 

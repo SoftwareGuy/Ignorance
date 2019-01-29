@@ -52,7 +52,6 @@
     <Compile Include="Dependencies\Mirror\CustomAttributes.cs" />
     <Compile Include="Dependencies\Mirror\DotNetCompatibility.cs" />
     <Compile Include="Dependencies\Mirror\ExponentialMovingAverage.cs" />
-    <Compile Include="Dependencies\Mirror\Extensions.cs" />
     <Compile Include="Dependencies\Mirror\LocalClient.cs" />
     <Compile Include="Dependencies\Mirror\LocalConnections.cs" />
     <Compile Include="Dependencies\Mirror\LogFilter.cs" />
@@ -71,7 +70,7 @@
     <Compile Include="Dependencies\Mirror\NetworkWriter.cs" />
     <Compile Include="Dependencies\Mirror\SyncList.cs" />
     <Compile Include="Dependencies\Mirror\SyncObject.cs" />
-    <Compile Include="Dependencies\Mirror\Transport\ITransport.cs" />
+    <Compile Include="Dependencies\Mirror\Transport\Transport.cs" />
     <Compile Include="Dependencies\Mirror\UNetwork.cs" />
     <Compile Include="IgnoranceTransport.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

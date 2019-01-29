@@ -27,10 +27,10 @@ namespace Mirror
     /// <summary>
     /// Ignorance rUDP Transport is built upon the ENet-C# wrapper by nxrighthere.
     /// </summary>
-    public class IgnoranceTransport : MonoBehaviour, ITransport
+    public class IgnoranceTransport : Transport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "1.0.9.7-master";
+        private const string TransportVersion = "1.0.9.8-master";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
         /// <summary>
@@ -40,7 +40,7 @@ namespace Mirror
         /// <summary>
         /// The server's communication port. Can be anything between port 1 to 65535.
         /// </summary>
-        public ushort CommunicationPort = 7777;
+        public ushort Port = 7777;
 
         [Header("Logging Options")]
         [Tooltip("If you don't wish to have Ignorance emit any helpful messages, turn this off.")]
@@ -161,17 +161,17 @@ namespace Mirror
         // -- INITIALIZATION -- // 
         public IgnoranceTransport()
         {
-            // dont h8 me
-            Debug.Log("It's a me, Ignorance Transport. Woohoo!");
+            // Intentionally left blank.            
+        }
 
-            // GreetEveryone();
-            // Library.Initialize();
+        private void Awake()
+        {
+            GreetEveryone();
         }
 
         public void OnEnable()
         {
             // Debug.Log("IgnoranceTransport.OnEnable()");
-            GreetEveryone();
             Library.Initialize();
         }
 
@@ -186,12 +186,7 @@ namespace Mirror
         /// Please see https://github.com/nxrighthere/ENet-CSharp/issues/33 for more information.
         /// </summary>
         /// <returns>A integer with the maximum packet size.</returns>
-        public int GetMaxPacketSize()
-        {
-            return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire. NX's orders.
-        }
-
-        public int GetMaxPacketSize(int channel)
+        public override int GetMaxPacketSize(int channel)
         {
             return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire. NX's orders.
         }
@@ -204,7 +199,7 @@ namespace Mirror
         /// <param name="connectionId">The connection ID to lookup.</param>
         /// <param name="address">The IP Address. This is what will be returned, don't fill this in!</param>
         /// <returns>The IP Address of the connection. Returns (invalid) if it cannot find it in the dictionary.</returns>
-        public bool GetConnectionInfo(int connectionId, out string address)
+        public override bool GetConnectionInfo(int connectionId, out string address)
         {
             address = "(invalid)";
 
@@ -221,7 +216,7 @@ namespace Mirror
         /// Is the server active?
         /// </summary>
         /// <returns>True if the server is active, false otherwise.</returns>
-        public bool ServerActive()
+        public override bool ServerActive()
         {
             return IsValid(server);
         }
@@ -231,11 +226,11 @@ namespace Mirror
         /// </summary>
         /// <param name="connectionId">The connection ID to evict.</param>
         /// <returns>True if the connection exists, false otherwise.</returns>
-        public bool ServerDisconnect(int connectionId)
+        public override bool ServerDisconnect(int connectionId)
         {
             if (knownConnIDToPeers.ContainsKey(connectionId))
             {
-                knownConnIDToPeers[connectionId].Disconnect(0);
+                knownConnIDToPeers[connectionId].DisconnectNow(0);
                 return true;
             }
 
@@ -249,15 +244,12 @@ namespace Mirror
         /// <param name="transportEvent">What event is this? Connection? Data? Disconnection?</param>
         /// <param name="data">Byte array of the data payload being received.</param>
         /// <returns>True if successful, False if unsuccessful.</returns>
-        public bool ServerGetNextMessage(out int connectionId, out TransportEvent transportEvent, out byte[] data)
+        public bool ProcessServerMessage()
         {
+            if (!ServerActive()) return false;
+
             // The incoming Enet Event.
             Event incomingEvent;
-
-            // Mirror's transport event and data output.
-            transportEvent = TransportEvent.Disconnected;
-            data = null;
-            connectionId = -1;
 
             if (!server.IsSet)
             {
@@ -277,15 +269,15 @@ namespace Mirror
 
                     // Peer ID from ENet Wrapper will be a unsigned Int32. Since Mirror uses a signed int, we need to do a hacky work around.
                     // This sucks, but it has to be done for now. Give the new connection a fake connection ID, but also cache the Peer.
-                    connectionId = serverConnectionCount;
+                    int newConnectionID = serverConnectionCount;
 
                     // The peer object will allow us to do stuff with it later.
                     // Map them in our dictionaries
-                    knownPeersToConnIDs.Add(incomingEvent.Peer, connectionId);
-                    knownConnIDToPeers.Add(connectionId, incomingEvent.Peer);
+                    knownPeersToConnIDs.Add(incomingEvent.Peer, newConnectionID);
+                    knownConnIDToPeers.Add(newConnectionID, incomingEvent.Peer);
 
-                    if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Mapped peer ID {0} (from IP {1}) => server connID {2}", incomingEvent.Peer.ID, incomingEvent.Peer.IP, connectionId));
-                    else Log(string.Format("Ignorance Transport: New connection from IP {0}. Peer ID {1} mapped to internal connection ID {2}", incomingEvent.Peer.IP, incomingEvent.Peer.ID, connectionId));
+                    if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Mapped peer ID {0} (from IP {1}) => server connID {2}", incomingEvent.Peer.ID, incomingEvent.Peer.IP, (int)newConnectionID));
+                    else Log(string.Format("Ignorance Transport: New connection from IP {0}. Peer ID {1} mapped to internal connection ID {2}", incomingEvent.Peer.IP, incomingEvent.Peer.ID, (int)newConnectionID));
 
                     // Increment the fake connection counter by one.
                     serverConnectionCount++;
@@ -294,7 +286,7 @@ namespace Mirror
                     if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
 
                     // Report back saying we got a connection event.
-                    transportEvent = TransportEvent.Connected;
+                    OnServerConnected.Invoke(newConnectionID);
                     break;
 
                 // Disconnections (Normal peer disconnect and timeouts)
@@ -303,31 +295,34 @@ namespace Mirror
                     if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ServerGetNextMessage(): {0} event, peer ID {1}, IP {2}",
                         (incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout"), incomingEvent.Peer.ID, incomingEvent.Peer.IP));
 
-                    Log(string.Format("Ignorance Transport: Acknowledging disconnection on connection ID {0}", knownPeersToConnIDs[incomingEvent.Peer]));
-
-                    if (knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
+                    if(knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
                     {
-                        PeerDisconnectedInternal(incomingEvent.Peer);
-                    }
+                        int deadPeer = knownPeersToConnIDs[incomingEvent.Peer];
 
-                    transportEvent = TransportEvent.Disconnected;
+                        Log(string.Format("Ignorance Transport: Acknowledging disconnection on connection ID {0}", knownPeersToConnIDs[incomingEvent.Peer]));
+                        PeerDisconnectedInternal(incomingEvent.Peer);
+                        OnServerDisconnected.Invoke(deadPeer);
+                    }
                     break;
 
                 case EventType.Receive:
-                    transportEvent = TransportEvent.Data;
-
                     if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ServerGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length));
 
                     // Only process data from known peers.
                     if (knownPeersToConnIDs.ContainsKey(incomingEvent.Peer))
                     {
-                        connectionId = knownPeersToConnIDs[incomingEvent.Peer];
+                        int knownConnectionID = knownPeersToConnIDs[incomingEvent.Peer];
 
                         // Copy our data into our buffers.
-                        data = new byte[incomingEvent.Packet.Length];
+                        byte[] data = new byte[incomingEvent.Packet.Length];
                         incomingEvent.Packet.CopyTo(data);
                         incomingEvent.Packet.Dispose();
+
                         if (packetDataLoggingEnabled) Log(string.Format("Server receiving incoming packet Payload:\n{0}", BitConverter.ToString(data)));
+                        OnServerDataReceived.Invoke(knownConnectionID, data);
+
+                        // Cleanup the data buffer. Might be a better way of doing this?
+                        data = null;
                     } else {
                         // Emit a warning and clean the packet. We don't want it in memory.
                         incomingEvent.Packet.Dispose();
@@ -361,7 +356,7 @@ namespace Mirror
         /// <param name="channelId">The channel ID to send data on. Must not be lower or greater than the values in the sendMethods array.</param>
         /// <param name="data">The payload to transmit.</param>
         /// <returns></returns>
-        public bool ServerSend(int connectionId, int channelId, byte[] data)
+        public override bool ServerSend(int connectionId, int channelId, byte[] data)
         {
             // Another mailing pigeon
             Packet mailingPigeon = default(Packet);
@@ -405,7 +400,7 @@ namespace Mirror
         /// <param name="address">The address to bind to.</param>
         /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
         /// <param name="maxConnections">How many connections can we have?</param>
-        public void ServerStart()
+        public override void ServerStart()
         {
             // Do not attempt to start more than one server.
             // Check if the server is active before attempting to create. If it returns true,
@@ -423,7 +418,7 @@ namespace Mirror
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
             if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ServerStart(): {0}, {1}, {2}", ServerHostAddress ?? "(null)",
-                CommunicationPort, NetworkManager.singleton.maxConnections));
+                Port, NetworkManager.singleton.maxConnections));
 
             if (!string.IsNullOrEmpty(ServerHostAddress))
             {
@@ -432,20 +427,20 @@ namespace Mirror
             }
 
             // Setup the port.
-            serverAddress.Port = CommunicationPort;
+            serverAddress.Port = Port;
 
             // Finally create the server.
             server.Create(serverAddress, NetworkManager.singleton.maxConnections);
 
             // Log our best effort attempts
-            Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, CommunicationPort));
+            Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, Port));
             Log("Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
         }
 
         /// <summary>
         /// Called when the server stops.
         /// </summary>
-        public void ServerStop()
+        public override void ServerStop()
         {
             if (verboseLoggingEnabled) Log("Ignorance Transport: ServerStop()");
 
@@ -466,9 +461,9 @@ namespace Mirror
         /// </summary>
         /// <param name="address">The connection address.</param>
         /// <param name="port">The connection port.</param>
-        public void ClientConnect(string address)
+        public override void ClientConnect(string address)
         {
-            Log(string.Format("Ignorance Transport: Acknowledging connection request to {0}:{1}", address, CommunicationPort));
+            Log(string.Format("Ignorance Transport: Acknowledging connection request to {0}:{1}", address, Port));
 
             if (client == null) client = new Host();
             if (!client.IsSet) client.Create(null, 1, packetSendMethods.Length, 0, 0);
@@ -477,7 +472,7 @@ namespace Mirror
 
             // Set hostname and port to connect to.
             clientAddress.SetHost(address);
-            clientAddress.Port = CommunicationPort;
+            clientAddress.Port = Port;
 
             // Connect the client to the server.
             clientPeer = client.Connect(clientAddress);
@@ -490,7 +485,7 @@ namespace Mirror
         /// Is the client connected currently?
         /// </summary>
         /// <returns>True if connected, False if not.</returns>
-        public bool ClientConnected()
+        public override bool ClientConnected()
         {
             if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Mirror asks if I'm connected. The answer to that is {0}. Note that if this a local client on the server instance, false may be a acceptable reply.", (clientPeer.State == PeerState.Connected) ? true : false));
             return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
@@ -499,7 +494,7 @@ namespace Mirror
         /// <summary>
         /// Disconnect the client.
         /// </summary>
-        public void ClientDisconnect()
+        public override void ClientDisconnect()
         {
             Log("Ignorance Transport: Acknowledging client disconnection.");
 
@@ -524,19 +519,15 @@ namespace Mirror
         /// <param name="transportEvent">The transport event to report back to Mirror.</param>
         /// <param name="data">The byte array of the data.</param>
         /// <returns></returns>
-        public bool ClientGetNextMessage(out TransportEvent transportEvent, out byte[] data)
+        public bool ProcessClientMessage()
         {
             // The incoming Enet Event.
             Event incomingEvent;
 
-            // Mirror's transport event and data output.
-            transportEvent = TransportEvent.Disconnected;
-            data = null;
-
             // Safety check: if the client isn't created, then we shouldn't do anything. ENet might be warming up.
             if (!IsValid(client))
             {
-                LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
+                // LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
                 return false;
             }
 
@@ -555,26 +546,28 @@ namespace Mirror
 
                     // If we're using custom timeouts, then set the timeouts too.
                     if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
-                    transportEvent = TransportEvent.Connected;
+                    OnClientConnected.Invoke();
                     break;
 
                 // Peer disconnects/timeout.
                 case EventType.Disconnect:
                 case EventType.Timeout:
+                    // TODO: Should timeouts be a client error?
                     if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientGetNextMessage() {0}, peerID {1}, address {2}", incomingEvent.Type == EventType.Disconnect ? "disconnect" : "timeout",
                         incomingEvent.Peer.ID, incomingEvent.Peer.IP));
                     else Log(string.Format("Ignorance Transport: Client encountered {0}", incomingEvent.Type == EventType.Disconnect ? "disconnection" : "timeout"));
-                    transportEvent = TransportEvent.Disconnected;
+                    OnClientDisconnected.Invoke();
                     break;
                 // Peer sends data to us.
                 case EventType.Receive:
-                    transportEvent = TransportEvent.Data;
                     if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length));
-                    data = new byte[incomingEvent.Packet.Length];
+
+                    byte[] data = new byte[incomingEvent.Packet.Length];
                     incomingEvent.Packet.CopyTo(data);
                     incomingEvent.Packet.Dispose();
-
+                    
                     if (packetDataLoggingEnabled) Log(string.Format("Client: Incoming Packet Payload:\n{0}", BitConverter.ToString(data)));
+                    OnClientDataReceived.Invoke(data);
                     break;
 
                 case EventType.None:
@@ -591,7 +584,7 @@ namespace Mirror
         /// <param name="channelId">The channel ID.</param>
         /// <param name="data">The data array.</param>
         /// <returns></returns>
-        public bool ClientSend(int channelId, byte[] data)
+        public override bool ClientSend(int channelId, byte[] data)
         {
             Packet mailingPigeon = default(Packet);
 
@@ -629,7 +622,7 @@ namespace Mirror
         /// <summary>
         /// Shuts down the transport.
         /// </summary>
-        public void Shutdown()
+        public override void Shutdown()
         {
             Log("Ignorance Transport: Going down for shutdown NOW!");
 
@@ -656,6 +649,13 @@ namespace Mirror
             Log("Ignorance Transport shutdown complete. Have a good one.");
         }
 
+        // Mirror master update loops.
+        public void Update()
+        {
+            while (ProcessClientMessage()) ;
+            while (ProcessServerMessage()) ;
+        }
+
         // -- TIMEOUT SETTINGS -- //
         /// <summary>
         /// Wall of text. Thanks NX for this detailed explaination.
@@ -677,8 +677,6 @@ namespace Mirror
             }
         }
 
-
-        // -- TIMEOUT SETTINGS -- //
         /// <summary>
         /// Enables or disables Custom Peer Timeout Settings.
         /// Also configures the minimum and maximum ticks to wait for connections to respond before timing out.
