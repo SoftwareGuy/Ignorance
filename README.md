@@ -4,21 +4,17 @@ Ignorance is a wrapper that provides ENET-powered reliable UDP transport layer t
 
 This transport is currently developed and actively used by [Oiran Studio](http://www.oiran.studio).
 
-## Mac OS Compatibility Issue
-Due to a issue inside the Mac Editor of Unity, if you attempt to connect an Editor instance to a Editor instance on the same machine (localhost), then usually you will not be able to connect, even if the server seems to be running.
+## Mac OS Editor Compatibility Issue
+Due to a issue inside the Mac Editor of Unity, if you attempt to connect an Editor instance to a Editor instance on the same machine (localhost), then usually you will not be able to connect, even if the server seems to be running. You might be able to connect from a standalone instance, but not editor to editor.
 
-I **cannot** fix this bug. It seems that the **Unity Editor's Mono runtime** is to blame, however standalone client connecting to a Editor server apparently works. Go figure that one out. Please see the [upstream ENET-CSharp issue](https://github.com/nxrighthere/ENet-CSharp/issues/46) for more information.
+Unfortunately, **I cannot fix this bug**. It seems that the **Mono runtime** that the Unity Editor uses on that platform is to blame, however standalone client connecting to a Editor server apparently works. Go figure that one out. Please see the [upstream ENET-CSharp issue](https://github.com/nxrighthere/ENet-CSharp/issues/46) for more information. #blameUnity.
 
-NX has reported that ENET-CSharp works fine with the version of Mono that Unity 2019 alpha uses. *I do not recommend using alpha or beta versions of Unity Editor in production.*
+NX has reported that ENET-CSharp works fine with the version of Mono that Unity 2019 alpha uses. Refer to my ticket with that developer [located here](https://github.com/nxrighthere/ENet-CSharp/issues/46). *However, I do not recommend using alpha or beta versions of Unity Editor in production. Proceed at your own risk!*
 
-## WARNING!
-This version of Ignorance is for the *master* branch of Mirror which has "pluggable" transports. **Do not use this branch if you are using the 2018 version of Mirror**. Instead, select the "mirror2018" branch under "Branch" [or click here if you're lazy](https://github.com/SoftwareGuy/Ignorance/tree/mirror2018) to go to the right branch.
+## Mirror compatibility
+Mirror master branch and 2018 branches are supported. There is no more seperate branch for Mirror 2018, one size fits all right now.
 
-### What happens if I use the wrong version of Ignorance with the wrong version of Mirror?
-* Best case scenario: It works, somehow.
-* Worse case scenario: You will likely get import errors that say "X does not implement function Y". I will not be able to provide support if you are using the **wrong version of Ignorance** on the **wrong version of Mirror**. I'm not trying to be a dick or anything, I simply cannot support people *mix and matching* versions in hope that it'll work.
-
-## Compatibility
+## Target compatibility
 - 32Bit Standalone targets are **not supported** as I am not able to get a DLL compiled that supports 32Bit targets. Please make sure you target 64Bit for standalone builds.
 - Android 32Bit ARMv7 and 64Bit ARM64, Windows x64, Mac OS x64, Linux x64 platforms are supported.
 - Tested and confirmed to work on both Unity 2017.4 and Unity 2018.2 (using the respective branches of Mirror and Ignorance, of course).
@@ -28,8 +24,8 @@ Ensure you correctly configure the Redist plugins (included in the repo and rele
 ## Installation
 ### Release Method
 1. Grab a release from the [releases page](https://github.com/SoftwareGuy/Ignorance/releases) that says it's a **Pluggable Transport** version.
-2. Make sure you have [Mirror](https://github.com/vis2k/Mirror) installed in your project.
-3. Extract the downloaded release archive into your project, maybe under `Assets/Packages/IgnoranceTransport`.
+2. Make sure you have [Mirror](https://github.com/vis2k/Mirror) installed in your project. **Do not use the asset store version as that one is very outdated.**
+3. Extract the downloaded release archive into your project, maybe under `Assets/Packages/Ignorance`.
 4. Let Unity detect the new scripts and compile.
 
 ### Git Clone Method
@@ -44,7 +40,6 @@ Okay fine, I get it. You want the bleeding edge, huh? Sure, sure. Mirror upstrea
 
 ## Dependencies
 - [Mirror](https://github.com/vis2k/Mirror)
-- UnityAsync (Mirror 2018 branch only)
 - [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
 - ENET itself. As in the C library.
 
@@ -67,3 +62,4 @@ Please do consider TCP (Telepathy) if you're doing Mission Critical networking. 
 - **[Draknith](https://github.com/FizzCube)**: Testing and mapping Reliable/Unreliable channels in Mirror to ENET Channels, testing.
 - **[vis2k](https://github.com/vis2k)**: The mad man behind the scenes that made Mirror happen. Much respect.
 - **Mirror Discord**: Memes, Courage, LOLs, awesome folks to chat with
+- Others who I have missed. Thanks a lot, you know you are.
