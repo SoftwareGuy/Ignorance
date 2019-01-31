@@ -10,9 +10,8 @@
 // at https://github.com/SoftwareGuy/Ignorance. Remember, OSS is the
 // way of the future!
 // ----------------------------------------
-// THIS VERSION IS FOR THE MIRROR MASTER VERSION WITH PLUGGABLE TRANSPORTS.
-// PLEASE DO NOT USE WITH MIRROR 2018 BRANCH JUST YET. USE THE "mirror2018"
-// BRANCH INSTEAD. SEE THE README FOR FURTHER INFORMATION.
+// This version of Ignorance is compatible with both the master
+// and 2018 versions of Mirror Networking.
 // ----------------------------------------
 
 using ENet;
@@ -30,7 +29,7 @@ namespace Mirror
     public class IgnoranceTransport : Transport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "1.0.9.8-master";
+        private const string TransportVersion = "1.0.9.9-master";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
         /// <summary>
@@ -496,17 +495,18 @@ namespace Mirror
         /// </summary>
         public override void ClientDisconnect()
         {
-            Log("Ignorance Transport: Acknowledging client disconnection.");
+            Log("Ignorance Transport: Received disconnection request from Mirror. Acknowledged!");
 
-            // TODO: I dunno what to put here! nx has something about Reasons for the disconnection??
             if (clientPeer.IsSet)
             {
+                if (verboseLoggingEnabled) Log("Ignorance Transport: Disconnecting the client's peer...");
                 clientPeer.DisconnectNow(0);
             }
 
-            if (client != null)
+            if (IsValid(client))
             {
-                client.Flush(); // testing
+                if (verboseLoggingEnabled) Log("Ignorance Transport: Flushing and disposing of the client...");
+                client.Flush();
                 client.Dispose();
             }
 
