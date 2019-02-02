@@ -463,7 +463,7 @@ namespace Mirror
             serverAddress.Port = Port;
 
             // Finally create the server.
-            server.Create(serverAddress, (int)Library.maxPeers, packetSendMethods.Length, 0, 0);
+            server.Create(serverAddress, maximumConnectionsTotallyAllowed, packetSendMethods.Length, 0, 0);
 
             // Log our best effort attempts
             Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, Port));
