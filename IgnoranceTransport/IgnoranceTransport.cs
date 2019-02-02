@@ -29,13 +29,15 @@ namespace Mirror
     public class IgnoranceTransport : Transport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "1.0.9.9-master";
+        private const string TransportVersion = "1.0.9.10-master";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
         /// <summary>
         /// The server's address that it will listen on.
         /// </summary>
-        public string ServerHostAddress = "127.0.0.1";
+#if !UNITY_EDITOR_OSX
+        public string ServerHostAddress = "localhost";
+#endif
         /// <summary>
         /// The server's communication port. Can be anything between port 1 to 65535.
         /// </summary>
@@ -58,11 +60,22 @@ namespace Mirror
         /// <summary>
         /// 5000 ticks (5 seconds)
         /// </summary>
+        [Tooltip("The base amount of ticks to wait for detecting if a client is timing out.")]
         public uint peerBaseTimeout = 5000;
         /// <summary>
-        /// peerBaseTimemout * this value = maximum time waiting until client is removed
+        /// peerBaseTimeout * this value = maximum time waiting until client is removed
         /// </summary>
+        [Tooltip("This value is multiplied by the base timeout for the maximum amount of ticks that we'll wait before evicting connections.")]
         public uint peerBaseTimeoutMultiplier = 3;
+
+        /// <summary>
+        /// Every peer that connects decrements this counter. So that means if you have 30 connections, it will be 970 connections available.
+        /// When this hits 0, the server will not allow any new connections. Hard limit.
+        /// </summary>
+        [Header("Connection Hard Limit Configuration")]
+        [Tooltip("This is not the same as Mirror's Maximum Connections! Leave alone if you don't know exactly what it does.")]
+        public int maximumConnectionsTotallyAllowed = 1000;
+
 
         // -- SERVER WORLD VARIABLES -- //
         // Explicitly give these new references on startup, just to make sure that we get no null reference exceptions.
@@ -77,10 +90,9 @@ namespace Mirror
         /// </summary>
         private Dictionary<int, Peer> knownConnIDToPeers;
         /// <summary>
-        /// Known connections dictonary since ENET is a little weird.
+        /// Known reverse connections dictonary since ENET is a little weird.
         /// </summary>
         private Dictionary<Peer, int> knownPeersToConnIDs;
-
         /// <summary>
         /// Used by our dictionary to map ENET Peers to connections. Start at 1 just to be safe, connection 0 will be localClient.
         /// </summary>
@@ -166,8 +178,14 @@ namespace Mirror
         private void Awake()
         {
             GreetEveryone();
+#if UNITY_EDITOR_OSX
+            Debug.LogWarning("Hmm, looks like you're using Ignorance inside a Mac Editor instance. This is known to be problematic due to some Unity Mono bugs. " +
+                "If you have issues using Ignorance, please try the Unity 2019.1 beta and let the developer know. Thanks!");
+#endif
+            Library.Initialize();
         }
 
+        /*
         public void OnEnable()
         {
             // Debug.Log("IgnoranceTransport.OnEnable()");
@@ -177,6 +195,13 @@ namespace Mirror
         public void OnDisable()
         {
             // Debug.Log("IgnoranceTransport.OnDisable()");
+            Library.Deinitialize();
+        }
+        */
+
+        // TODO: Consult Mirror team and figure out best plan of attack for this deinitialization.
+        public void OnDestroy()
+        {
             Library.Deinitialize();
         }
 
@@ -416,20 +441,29 @@ namespace Mirror
             knownConnIDToPeers = new Dictionary<int, Peer>();
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
-            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ServerStart(): {0}, {1}, {2}", ServerHostAddress ?? "(null)",
-                Port, NetworkManager.singleton.maxConnections));
+#if UNITY_EDITOR_OSX
+            if(verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server startup in MacOS Editor workaround mode on port {0} with capacity of {1} concurrent connections", Port, NetworkManager.singleton.maxConnections));
 
+            LogWarning("Ignorance Transport: Binding to a specific address is disabled on MacOS Editor due to some bugs. Please refer to https://github.com/nxrighthere/ENet-CSharp/issues/46 " +
+                "for technicial details. While you can disable this check, it will most likely bug out and mess connectivity up. You've been warned.");            
+            Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
+            serverAddress.SetHost("::0");
+#else
+            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server startup on port {0} with capacity of {1} concurrent connections", Port, NetworkManager.singleton.maxConnections));
             if (!string.IsNullOrEmpty(ServerHostAddress))
             {
-                Log(string.Format("Ignorance Transport: Binding to address {0}", ServerHostAddress));
+                Log(string.Format("Ignorance Transport: Using {0} as our specific bind address", ServerHostAddress));
                 serverAddress.SetHost(ServerHostAddress);
+            } else
+            {
+                serverAddress.SetHost("::0");
             }
-
+#endif
             // Setup the port.
             serverAddress.Port = Port;
 
             // Finally create the server.
-            server.Create(serverAddress, NetworkManager.singleton.maxConnections);
+            server.Create(serverAddress, (int)Library.maxPeers, packetSendMethods.Length, 0, 0);
 
             // Log our best effort attempts
             Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, Port));

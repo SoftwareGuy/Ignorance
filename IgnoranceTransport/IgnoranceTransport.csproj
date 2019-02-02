@@ -45,9 +45,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Dependencies\ENet.cs" />
-    <None Include="IgnoranceNetworkManager.cs">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <Compile Include="Dependencies\Mirror\ClientScene.cs" />
     <Compile Include="Dependencies\Mirror\CustomAttributes.cs" />
     <Compile Include="Dependencies\Mirror\DotNetCompatibility.cs" />
