@@ -29,19 +29,19 @@ namespace Mirror
     public class IgnoranceTransport : Transport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "1.0.9.10-master";
+        private const string TransportVersion = "1.0.9.11rc-master";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
+        [Header("Bind Options")]
         /// <summary>
-        /// The server's address that it will listen on.
+        /// Disabling this will bind to a specific IP Address. Otherwise it will bind to everything.
         /// </summary>
-#if !UNITY_EDITOR_OSX
-        public string ServerHostAddress = "localhost";
-#endif
-        /// <summary>
-        /// The server's communication port. Can be anything between port 1 to 65535.
+        public bool m_BindToAllInterfaces = true;
+        /// The communication port used by the server and client. Can be anything between port 1 to 65535.
         /// </summary>
         public ushort Port = 7777;
+        // Compatibility.
+        public ushort port { get { return Port; } set { Port = value; } }
 
         [Header("Logging Options")]
         [Tooltip("If you don't wish to have Ignorance emit any helpful messages, turn this off.")]
@@ -450,17 +450,32 @@ namespace Mirror
             serverAddress.SetHost("::0");
 #else
             if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server startup on port {0} with capacity of {1} concurrent connections", Port, NetworkManager.singleton.maxConnections));
-            if (!string.IsNullOrEmpty(ServerHostAddress))
+            if(m_BindToAllInterfaces)
             {
-                Log(string.Format("Ignorance Transport: Using {0} as our specific bind address", ServerHostAddress));
-                serverAddress.SetHost(ServerHostAddress);
-            } else
-            {
+                Log("Ignorance Transport: Binding to all available interfaces.");
+#if UNITY_OSX
                 serverAddress.SetHost("::0");
+#else
+                serverAddress.SetHost("0.0.0.0");
+#endif
+            } else {
+                if (!string.IsNullOrEmpty(NetworkManager.singleton.networkAddress))
+                {
+                    Log(string.Format("Ignorance Transport: Using {0} as our specific bind address", NetworkManager.singleton.networkAddress));
+                    serverAddress.SetHost(NetworkManager.singleton.networkAddress);
+                } else
+                {
+                    // WTF happened to reach here?
+#if UNITY_OSX
+                    serverAddress.SetHost("::0");
+#else
+                    serverAddress.SetHost("0.0.0.0");
+#endif
+                }
             }
 #endif
             // Setup the port.
-            serverAddress.Port = Port;
+            serverAddress.Port = port;
 
             // Finally create the server.
             server.Create(serverAddress, maximumConnectionsTotallyAllowed, packetSendMethods.Length, 0, 0);
