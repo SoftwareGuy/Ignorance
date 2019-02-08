@@ -702,8 +702,8 @@ namespace Mirror
         // Mirror master update loops.
         public void Update()
         {
-            while (ProcessClientMessage()) ;
-            while (ProcessServerMessage()) ;
+            while (enabled && ProcessClientMessage()) ;
+            while (enabled && ProcessServerMessage()) ;
         }
 
         // -- TIMEOUT SETTINGS -- //
