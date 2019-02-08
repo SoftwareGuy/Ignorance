@@ -700,7 +700,7 @@ namespace Mirror
         }
 
         // Mirror master update loops.
-        public void Update()
+        public void LateUpdate()
         {
             while (enabled && ProcessClientMessage()) ;
             while (enabled && ProcessServerMessage()) ;
