@@ -383,6 +383,11 @@ namespace Mirror
         /// <returns></returns>
         public override bool ServerSend(int connectionId, int channelId, byte[] data)
         {
+            return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
+        }
+
+        public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
+        {
             // Another mailing pigeon
             Packet mailingPigeon = default(Packet);
 
@@ -394,13 +399,13 @@ namespace Mirror
 
             // This should fix that bloody AccessViolation
             // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
-            mailingPigeon.Create(data, packetSendMethods[channelId]);
+            mailingPigeon.Create(data.Array, data.Offset, data.Count, packetSendMethods[channelId]);
 
             // More haxx. see https://github.com/nxrighthere/ENet-CSharp/issues/21 for some background info-ish.
             if (knownConnIDToPeers.ContainsKey(connectionId))
             {
-                if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server sending data length {2} on channel {1} to connection ID {0}", connectionId, channelId, data.Length));
-                if (packetDataLoggingEnabled) Log(string.Format("Server sending payload: Connection {2} Channel {0}, Data:\n{1}", channelId, BitConverter.ToString(data), connectionId));
+                if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server sending data length {2} on channel {1} to connection ID {0}", connectionId, channelId, data.Count));
+                if (packetDataLoggingEnabled) Log(string.Format("Server sending payload: Connection {2} Channel {0}, Data:\n{1}", channelId, BitConverter.ToString(data.Array, data.Offset, data.Count), connectionId));
 
                 if (knownConnIDToPeers[connectionId].Send((byte)channelId, ref mailingPigeon))
                 {
@@ -636,6 +641,11 @@ namespace Mirror
         /// <returns></returns>
         public override bool ClientSend(int channelId, byte[] data)
         {
+            return ClientSend(channelId, new ArraySegment<byte>(data));
+        }
+
+        public bool ClientSend(int channelId, ArraySegment<byte> data)
+        {
             Packet mailingPigeon = default(Packet);
 
             if (!client.IsSet)
@@ -650,10 +660,10 @@ namespace Mirror
                 return false;
             }
 
-            mailingPigeon.Create(data, packetSendMethods[channelId]);
+            mailingPigeon.Create(data.Array, data.Offset, data.Count, packetSendMethods[channelId]);
 
-            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientSend(): channel {0}, data length {1}", channelId, data.Length));
-            if (packetDataLoggingEnabled) Log(string.Format("Client sending payload: Channel {0}, Data:\n{1}", channelId, BitConverter.ToString(data)));
+            if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: ClientSend(): channel {0}, data length {1}", channelId, data.Count));
+            if (packetDataLoggingEnabled) Log(string.Format("Client sending payload: Channel {0}, Data:\n{1}", channelId, BitConverter.ToString(data.Array, data.Offset, data.Count)));
 
             if (clientPeer.Send((byte)channelId, ref mailingPigeon))
             {
