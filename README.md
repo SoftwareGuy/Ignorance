@@ -11,6 +11,7 @@ This transport is currently developed and actively used by [Oiran Studio](http:/
 
 ## Mac OS Editor Compatibility Issues
 tl;dr version: Mac OS Editor is buggy!
+
 Long version: Prior to Unity 2018.3.x and 2019.1.0b1, Editor instances could not happily talk to each other about their day over a cup of coffee. After some heavy debugging including upstream tickets, it was found that the Mac OS mono instance was at fault. Unity 2018.3.x and 2019.x seemed to fix this with an updated Mono library. Standalone versions would work fine, just the Editor would not!
 
 There's also weird Mac-specific bugs: When using Ignorance inside the Unity Editor on MacOS, it has been hard-coded to glob all IP Addresses as a workaround for a connection bug. Using `localhost` is seen to be very weird on MacOS, you'd think that `localhost` is `127.0.0.1` but on Mac, it's actually `::1` or something else.
@@ -28,7 +29,7 @@ Mirror master branch and 2018 branches are supported. There is no more seperate 
 ## Target compatibility
 - 32Bit Standalone targets are **not supported** as I am not able to get a DLL compiled that supports 32Bit targets. Please make sure you target 64Bit for standalone builds.
 - Android 32Bit ARMv7 and 64Bit ARM64, Windows x64, Mac OS x64, Linux x64 platforms are supported.
-- Tested and confirmed to work on both Unity 2017.4 and Unity 2018.2 (using the respective branches of Mirror and Ignorance, of course).
+- Tested and confirmed to work on both Unity 2018.2, 2018.3, 2019.1 Beta (using the respective branches of Mirror and Ignorance, of course).
 
 ## Installation
 ### Release Method
