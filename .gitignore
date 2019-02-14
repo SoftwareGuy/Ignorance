@@ -331,6 +331,9 @@ ASALocalRun/
 .mfractor/
 
 # Dependencies so that people don't get import issues.
-IgnoranceTransport/Dependencies/Mirror
-IgnoranceTransport/Dependencies/UnityEngine
+[Aa]ssets/Mirror
+[Ll]ibrary/*
+![Ll]ibrary/.gitkeep
 
+*.csproj
+*.sln
