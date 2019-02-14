@@ -169,8 +169,7 @@ namespace Mirror
         };
 
         // -- Packet buffer -- //
-        private byte[] m_ServerPacketDataBuffer;
-        private byte[] m_ServerPacketDataMiniBuffer;
+        private byte[] m_PacketDataBuffer;
 
         /// <summary>
         /// Outputs a friendly message to the console log. Don't remove unless you hate things saying hello.
@@ -202,22 +201,8 @@ namespace Mirror
 
             // Allocate memory working buffer.
             Log(string.Format("Ignorance Transport is pre-allocating a {0} byte memory buffer to help reduce stack memory allocations. This message is harmless - keep calm and carry on.", Library.maxPacketSize));
-            m_ServerPacketDataBuffer = new byte[Library.maxPacketSize];
+            m_PacketDataBuffer = new byte[Library.maxPacketSize];
         }
-
-        /*
-        public void OnEnable()
-        {
-            // Debug.Log("IgnoranceTransport.OnEnable()");
-            Library.Initialize();
-        }
-
-        public void OnDisable()
-        {
-            // Debug.Log("IgnoranceTransport.OnDisable()");
-            Library.Deinitialize();
-        }
-        */
 
         // TODO: Consult Mirror team and figure out best plan of attack for this deinitialization.
         public void OnDestroy()
@@ -355,11 +340,11 @@ namespace Mirror
 
                         // Copy our data into our buffers.
                         // THIS NEEDS SOME ATTENTION.
-                        incomingEvent.Packet.CopyTo(m_ServerPacketDataBuffer); // ENET World -> Transport World
+                        incomingEvent.Packet.CopyTo(m_PacketDataBuffer); // ENET World -> Transport World
                         incomingEvent.Packet.Dispose();
 
-                        if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log(string.Format("Ignorance Transport: Server packet payload:\n{0}", BitConverter.ToString(m_ServerPacketDataBuffer.SubArray(0, incomingEvent.Packet.Length))));
-                        OnServerDataReceived.Invoke(knownConnectionID, m_ServerPacketDataBuffer.SubArray(0, incomingEvent.Packet.Length));
+                        if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log(string.Format("Ignorance Transport: Server packet payload:\n{0}", BitConverter.ToString(m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length))));
+                        OnServerDataReceived.Invoke(knownConnectionID, m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length));
                     } else {
                         // Emit a warning and clean the packet. We don't want it in memory.
                         incomingEvent.Packet.Dispose();
@@ -497,6 +482,7 @@ namespace Mirror
 
             // Finally create the server.
             server.Create(serverAddress, m_MaximumTotalConnections, packetSendMethods.Length, 0, 0);
+            if (m_UseLZ4Compression) server.EnableCompression();
 
             // Log our best effort attempts
             Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, Port));
@@ -533,13 +519,14 @@ namespace Mirror
 
             if (client == null) client = new Host();
             if (!client.IsSet) client.Create(null, 1, packetSendMethods.Length, 0, 0);
+            if (m_UseLZ4Compression) client.EnableCompression();
 
             Address clientAddress = new Address();
 
             // Set hostname and port to connect to.
             clientAddress.SetHost(address);
             clientAddress.Port = Port;
-
+            
             // Connect the client to the server.
             clientPeer = client.Connect(clientAddress);
 
@@ -632,12 +619,13 @@ namespace Mirror
                 case EventType.Receive:
                     if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: ClientGetNextMessage(): Data channel {0} receiving {1} byte payload...", incomingEvent.ChannelID, incomingEvent.Packet.Length));
 
-                    byte[] data = new byte[incomingEvent.Packet.Length];
-                    incomingEvent.Packet.CopyTo(data);
+                    // Copy our data into our buffers.
+                    // THIS NEEDS SOME ATTENTION.
+                    incomingEvent.Packet.CopyTo(m_PacketDataBuffer); // ENET World -> Transport World
                     incomingEvent.Packet.Dispose();
 
-                    if (m_TransportVerbosity > TransportVerbosity.Paranoid) Log(string.Format("Client: Incoming Packet Payload:\n{0}", BitConverter.ToString(data)));
-                    OnClientDataReceived.Invoke(data);
+                    if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log(string.Format("Ignorance Transport: Client packet payload:\n{0}", BitConverter.ToString(m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length))));
+                    OnClientDataReceived.Invoke(m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length));
                     break;
 
                 case EventType.None:
@@ -732,6 +720,8 @@ namespace Mirror
         }
 
         // -- TIMEOUT SETTINGS -- //
+        // Obsoleted.
+        /*
         /// <summary>
         /// Wall of text. Thanks NX for this detailed explaination.
         /// Sets a timeout parameters for the client. The timeout parameters control how and when a peer will timeout from a failure to acknowledge reliable traffic.<para />
@@ -794,6 +784,7 @@ namespace Mirror
         {
             if (IsValid(client)) client.EnableCompression();
         }
+        */
 
         /// <summary>
         /// Server-world Packets Sent Counter, directly from ENET.
