@@ -5,12 +5,13 @@ Ignorance is a wrapper that provides ENET-powered reliable UDP transport layer t
 This transport is currently developed and actively used by [Oiran Studio](http://www.oiran.studio).
 
 ## Mac OS Editor Compatibility Issue
-I can confirm that using Unity 2019.1.0b1 allows 2 Editor instances to happily talk to each other about their day and other general chit-chat. However, there is a caveat. When using Ignorance inside the Unity Editor on MacOS, it has been hard-coded to glob all IP Addresses. Localhost is seen to be very weird on MacOS, you'd think that `localhost` is `127.0.0.1` but on Mac, it's actually `::1` or something else. 
+I can confirm that using Unity 2019.1.0b1 allows 2 Editor instances to happily talk to each other about their day and other general chit-chat. However, there is a caveat. When using Ignorance inside the Unity Editor on MacOS, it has been hard-coded to glob all IP Addresses as a workaround for a connection bug. Using `localhost` is seen to be very weird on MacOS, you'd think that `localhost` is `127.0.0.1` but on Mac, it's actually `::1` or something else. 
 So due to this issue inside the Mac Editor of Unity, if you press Mirror's LAN Host option, you can connect to that Editor instance on all addresses, for example: `192.168.1.2` (the machine's LAN IP), `127.0.0.1`, `::1`, `localhost`.
 
-Refer to my ticket upstream with ENET-C# [located here](https://github.com/nxrighthere/ENet-CSharp/issues/46). *However, I do not recommend using alpha or beta versions of Unity Editor in production. Proceed at your own risk!*
+Refer to my ticket upstream with ENET-C# [located here](https://github.com/nxrighthere/ENet-CSharp/issues/46) where the developer and I talk about the situation and workarounds. 
+*However, I do not recommend using alpha or beta versions of Unity Editor in production. Mirror networking might not even support it! Proceed at your own risk!*
 
-Standalone builds are fine. I only have implemented this work around because some people develop on a Mac, and are affected by Unity Tech's bugs that break Ignorance on MacOS.
+However, it seems that standalone builds are fine and NOT affected by this bug. I only have implemented this work around because some people develop on a Mac, and are affected by Unity Tech's bugs that break Ignorance on MacOS.
 
 ## Mirror compatibility
 Mirror master branch and 2018 branches are supported. There is no more seperate branch for Mirror 2018, one size fits all right now.
