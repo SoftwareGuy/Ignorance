@@ -33,10 +33,14 @@ namespace Mirror
 		[Tooltip("How do you like your debug logs?")]
 		public TransportVerbosity m_TransportVerbosity = TransportVerbosity.Chatty;
 
-		[Header("Compression Options")]
+        [Header("Experimental Options")]
+        [Tooltip("If enabled, Ignorance will use a new packet processing engine.")]
+        public bool m_UseNewPacketEngine = true;
+
+        [Header("Compression Options")]
 		[Tooltip("Use LZ4 Compression for reduced data transmission costs?")]
 		public bool m_UseLZ4Compression = false;
-		
+
         [Header("Bind Options")]
         /// <summary>
         /// Disabling this will bind to a specific IP Address. Otherwise it will bind to everything.
@@ -177,8 +181,7 @@ namespace Mirror
         /// </summary>
         private void GreetEveryone()
         {			
-            Log(string.Format("Thank you for using Ignorance Transport v{0} for Mirror! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance" +
-                "\nENET Library Version: {1}", TransportInfo.Version, Library.version));
+            Log($"Thank you for using Ignorance Transport v{TransportInfo.Version} for Mirror! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance. ENET Library Version: {Library.version}");
         }
 
         // -- INITIALIZATION -- // 
@@ -200,7 +203,7 @@ namespace Mirror
 			if(m_MaximumTotalConnections < 0) m_MaximumTotalConnections = 0;
 
             // Allocate memory working buffer.
-            Log(string.Format("Ignorance Transport is pre-allocating a {0} byte memory buffer to help reduce stack memory allocations. This message is harmless - keep calm and carry on.", Library.maxPacketSize));
+            Log($"Ignorance Transport is pre-allocating a {Library.maxPacketSize} byte memory buffer to help reduce stack memory allocations. This message is harmless - keep calm and carry on.");
             m_PacketDataBuffer = new byte[Library.maxPacketSize];
         }
 
@@ -343,8 +346,9 @@ namespace Mirror
                         incomingEvent.Packet.CopyTo(m_PacketDataBuffer); // ENET World -> Transport World
                         incomingEvent.Packet.Dispose();
 
-                        if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log(string.Format("Ignorance Transport: Server packet payload:\n{0}", BitConverter.ToString(m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length))));
-                        OnServerDataReceived.Invoke(knownConnectionID, m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length));
+                        if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log(string.Format("Ignorance Transport: Server packet payload:\n{0}", BitConverter.ToString(m_PacketDataBuffer.SubArray(0, incomingEvent.Packet.Length+1))));
+                        // TODO: should i slice the data from the buffer??
+                        OnServerDataReceived.Invoke(knownConnectionID, m_PacketDataBuffer);
                     } else {
                         // Emit a warning and clean the packet. We don't want it in memory.
                         incomingEvent.Packet.Dispose();
@@ -466,8 +470,7 @@ namespace Mirror
                 {
                     Log(string.Format("Ignorance Transport: Using {0} as our specific bind address", NetworkManager.singleton.networkAddress));
                     serverAddress.SetHost(NetworkManager.singleton.networkAddress);
-                } else
-                {
+                } else {
                     // WTF happened to reach here?
 #if UNITY_OSX
                     serverAddress.SetHost("::0");
@@ -483,6 +486,11 @@ namespace Mirror
             // Finally create the server.
             server.Create(serverAddress, m_MaximumTotalConnections, packetSendMethods.Length, 0, 0);
             if (m_UseLZ4Compression) server.EnableCompression();
+
+            if(m_UseNewPacketEngine)
+            {
+                Log("Ignorance Transport: New experimental packet engine will be used.");
+            }
 
             // Log our best effort attempts
             Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, Port));
@@ -526,12 +534,15 @@ namespace Mirror
             // Set hostname and port to connect to.
             clientAddress.SetHost(address);
             clientAddress.Port = Port;
-            
+
+            if (m_UseNewPacketEngine) Log("Ignorance Transport: Client will use new experimental packet engine.");
+
             // Connect the client to the server.
+            if (useCustomPeerTimeout) clientPeer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
             clientPeer = client.Connect(clientAddress);
 
             // Debugging only
-            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Is my peer object setup? {0}", clientPeer.IsSet));
+            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Client Peer Set? {0}", clientPeer.IsSet));
         }
 
         /// <summary>
@@ -540,7 +551,7 @@ namespace Mirror
         /// <returns>True if connected, False if not.</returns>
         public override bool ClientConnected()
         {
-            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Mirror asks if I'm connected. The answer to that is {0}. Note that if this a local client on the server instance, false may be a acceptable reply.", (clientPeer.State == PeerState.Connected) ? true : false));
+            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance Transport: Mirror asks if I'm connected. The answer to that is { ((clientPeer.State == PeerState.Connected) ? true : false) }. Note that if this a local client on the server instance, false may be a acceptable reply.");
             return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
         }
 
@@ -602,7 +613,7 @@ namespace Mirror
                     else Log(string.Format("Ignorance Transport: Connection established with {0}", incomingEvent.Peer.IP));
 
                     // If we're using custom timeouts, then set the timeouts too.
-                    if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
+                    // if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
                     OnClientConnected.Invoke();
                     break;
 
@@ -715,76 +726,20 @@ namespace Mirror
         // Mirror master update loops.
         public void LateUpdate()
         {
-            while (enabled && ProcessClientMessage()) ;
-            while (enabled && ProcessServerMessage()) ;
-        }
-
-        // -- TIMEOUT SETTINGS -- //
-        // Obsoleted.
-        /*
-        /// <summary>
-        /// Wall of text. Thanks NX for this detailed explaination.
-        /// Sets a timeout parameters for the client. The timeout parameters control how and when a peer will timeout from a failure to acknowledge reliable traffic.<para />
-        /// 
-        /// Timeout values used in the semi-linear mechanism, where if a reliable packet is not acknowledged within an average round trip time plus a variance tolerance
-        /// until timeout reaches a set limit.<para />If the timeout is thus at this limit and reliable packets have been sent but not acknowledged within a certain minimum time period,
-        /// the peer will be disconnected. Alternatively, if reliable packets have been sent but not acknowledged for a certain maximum time period, the peer will be disconnected
-        /// regardless of the current timeout limit value.
-        /// </summary>
-        /// <param name="timeoutLimit">The limit before a timeout happens, I guess?</param>
-        /// <param name="timeoutMinimum">Minimum time period allowed.</param>
-        /// <param name="timeoutMaximum">Maximum time period allowed.</param>
-        public void ConfigureClientPingTimeout(uint timeoutLimit, uint timeoutMinimum, uint timeoutMaximum)
-        {
-            if (clientPeer.IsSet)
+            if (enabled)
             {
-                clientPeer.Timeout(timeoutLimit, timeoutMinimum, timeoutMaximum);
+                if (m_UseNewPacketEngine)
+                {
+                    NewServerMessageProcessor();
+                    NewClientMessageProcessor();
+                }
+                else
+                {
+                    while (ProcessServerMessage()) ;
+                    while (ProcessClientMessage()) ;
+                }
             }
         }
-
-        /// <summary>
-        /// Enables or disables Custom Peer Timeout Settings.
-        /// Also configures the minimum and maximum ticks to wait for connections to respond before timing out.
-        /// Use ConfigureCustomPeerTimeoutSettings(min, max) to configure after enabling this.
-        /// </summary>
-        /// <param name="enable">Self-explainatory.</param>
-        /// <param name="minTicks">The minimum almost of time you want to wait before saying it's timed out.</param>
-        /// <param name="multiplier">The multiplier to use to calculate the maximum time to wait.</param>
-        public void UseCustomPeerTimeoutSettings(bool enable, uint minTicks, uint multiplier)
-        {
-            useCustomPeerTimeout = enable;
-            peerBaseTimeout = minTicks;
-            peerBaseTimeoutMultiplier = multiplier;
-        }
-
-        /// <summary>
-        /// Allows you to enable server-side compression via built-in ENET LZ4 methods. Please note that 
-        /// you should only enable this before a server is started. NEVER TURN IT ON DURING
-        /// A SERVER IS ACTIVE OR COMMUNICATION MAY BREAK!<para />
-        /// 
-        /// Note that you also need to ensure clients are using compression or funky things might happen.
-        /// 
-        /// Once enabled, you will need to restart the server to disable it.
-        /// </summary>
-        public void EnableCompressionOnServer()
-        {
-            if (IsValid(server)) server.EnableCompression();
-        }
-
-        /// <summary>
-        /// Allows you to enable client-side compression via built-in ENET LZ4 methods. Please note that 
-        /// you should only enable this before a client is started. NEVER TURN IT ON DURING
-        /// A CLIENT IS ACTIVE OR COMMUNICATION MAY BREAK!<para />
-        /// 
-        /// Note that you also need to ensure the server is using compression or funky things might happen.
-        /// 
-        /// Once enabled, you will need to restart the client to disable it.
-        /// </summary>
-        public void EnableCompressionOnClient()
-        {
-            if (IsValid(client)) client.EnableCompression();
-        }
-        */
 
         /// <summary>
         /// Server-world Packets Sent Counter, directly from ENET.
@@ -869,9 +824,196 @@ namespace Mirror
 			Paranoid,
 			LogSpam
 		}
-		
-		public class TransportInfo {
-			public const string Version = "1.2.0";
+
+        public bool NewClientMessageProcessor()
+        {
+            bool clientWasPolled = false;
+            Event networkEvent;
+
+            // Only process messages if the client is valid.
+            while (!clientWasPolled)
+            {
+                if (!IsValid(client))
+                {
+                    if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport: NewClientMessageProcessor() reports the client object is not valid.");
+                    return false;
+                }
+
+                if (client.CheckEvents(out networkEvent) <= 0)
+                {
+                    if (client.Service(0, out networkEvent) <= 0) break;
+                    clientWasPolled = true;
+                }
+
+                // Spam the logs if we're over paranoid levels.
+                if (m_TransportVerbosity > TransportVerbosity.Paranoid) LogWarning($"Ignorance Transport: NewClientMessageProcessor() processing {networkEvent.Type} event...");
+
+                switch (networkEvent.Type)
+                {
+                    case EventType.None:
+                        // Nothing happened.
+                        break;
+                    case EventType.Connect:
+                        // Connected to a host/server.
+                        if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance Transport: Connected to peer {networkEvent.Peer.IP} with our ENET Peer ID {networkEvent.Peer.ID}");
+                        else Log(string.Format("Ignorance Transport: Connection established! Host Peer IP: {0}", networkEvent.Peer.IP));
+
+                        // If we're using custom timeouts, then set the timeouts too.
+                        // if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
+                        OnClientConnected.Invoke();
+                        break;
+                    case EventType.Disconnect:
+                        // Client disconnected.
+                        Log(string.Format("Ignorance Transport: Connection disconnected from Host Peer IP: {0}", networkEvent.Peer.IP));
+                        OnClientDisconnected.Invoke();
+                        break;
+                    case EventType.Receive:
+                        // Client recieving some data.
+                        if (m_TransportVerbosity >= TransportVerbosity.Paranoid) Log($"Ignorance Transport: Client data channel {networkEvent.ChannelID} is receiving {networkEvent.Packet.Length} byte payload.");
+                        // Don't panic, data processing and invoking is done in a new function.
+                        NewMessageDataProcessor(networkEvent.Packet);                        
+                        break;
+                    case EventType.Timeout:
+                        Log(string.Format("Ignorance Transport: Connection timeout while communicating with Host Peer IP: {0}", networkEvent.Peer.IP));
+                        OnClientDisconnected.Invoke();
+                        break;
+                    default:
+                        break;
+                }
+        }
+            // We're done here. Return.
+            return true;
+        }
+
+        public bool NewServerMessageProcessor()
+        {
+            bool serverWasPolled = false;
+            Event networkEvent;
+
+            int newConnectionID = serverConnectionCount;
+
+            // Don't attempt to process anything if the server is not active.
+            if (!ServerActive()) return false;
+
+            // Only process messages if the server is valid.
+            if (!IsValid(server))
+            {
+                if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport: NewServerMessageProcessor() reports the server host object is not valid.");
+                return false;
+            }
+
+            while (!serverWasPolled)
+            {
+                if (server.CheckEvents(out networkEvent) <= 0)
+                {
+                    if (server.Service(0, out networkEvent) <= 0)
+                        break;
+
+                    serverWasPolled = true;
+                }
+
+                /*
+                do
+                {
+                    server.Service(0, out networkEvent);
+                */
+                switch (networkEvent.Type)
+                {
+                    case EventType.None:
+                        // Nothing happened.
+                        // serverEventBufferEmpty = true;
+                        break;
+                    case EventType.Connect:
+                        // A client connected to the server. Assign a new ID to them.
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: New client connection to server. Peer ID: {networkEvent.Peer.ID}, IP: {networkEvent.Peer.IP}");
+
+                        // Map them into our dictonaries.
+                        knownPeersToConnIDs.Add(networkEvent.Peer, newConnectionID);
+                        knownConnIDToPeers.Add(serverConnectionCount, networkEvent.Peer);
+
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCount}.");
+                        OnServerConnected.Invoke(serverConnectionCount);
+
+                        // Increment the connection counter.
+                        serverConnectionCount++;
+                        break;
+                    case EventType.Disconnect:
+                        // A client disconnected.
+                        if (knownPeersToConnIDs.ContainsKey(networkEvent.Peer))
+                        {
+                            int deadPeer = knownPeersToConnIDs[networkEvent.Peer];
+
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has disconnected.");
+                            OnServerDisconnected.Invoke(deadPeer);
+                            PeerDisconnectedInternal(networkEvent.Peer);
+                        }
+                        else
+                        {
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance Transport: Unknown Peer with ID {networkEvent.Peer.ID} has disconnected. Hmm...");
+                        }
+                        break;
+                    case EventType.Receive:
+                        if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance Transport: Server data channel {networkEvent.ChannelID} receiving a {networkEvent.Packet.Length} byte payload");
+
+                        // Only process data from known peers.
+                        if (knownPeersToConnIDs.ContainsKey(networkEvent.Peer))
+                        {
+                            int knownConnectionID = knownPeersToConnIDs[networkEvent.Peer];
+                            NewMessageDataProcessor(networkEvent.Packet, true, knownConnectionID);
+                        }
+                        else
+                        {
+                            // Emit a warning and clean the packet. We don't want it in memory.
+                            networkEvent.Packet.Dispose();
+
+                            if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport WARNING: Discarded a packet because it was from a unknown peer. " +
+                                "If you see this message way too many times then you are likely a victim of a DoS or DDoS attack that is targeting your server's connection port." +
+                                " Ignorance will keep discarding packets but please do look into this. Failing to do so is risky and could potentially crash the server instance!");
+                        }
+                        break;
+                    case EventType.Timeout:
+                        // A client timed out. Note that this could be the same as the disconnected, but for now I'm going to seperate them for debugging reasons
+                        if (knownPeersToConnIDs.ContainsKey(networkEvent.Peer))
+                        {
+                            int deadPeer = knownPeersToConnIDs[networkEvent.Peer];
+
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has timed out.");
+                            OnServerDisconnected.Invoke(deadPeer);
+                            PeerDisconnectedInternal(networkEvent.Peer);
+                        }
+                        else
+                        {
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance Transport: Unknown Peer with ID {networkEvent.Peer.ID} has timed out. Hmm...");
+                        }
+                        break;
+                    default:
+                        // Do nothing?
+                        // serverEventBufferEmpty = true;
+                        break;
+                }
+            } // while (serverEventBufferEmpty == false);
+
+            // We're done here. Return.
+            return true;
+        }
+
+        public void NewMessageDataProcessor(Packet sourcePacket, bool serverInvoke = false, int connectionID = 0)
+        {
+            if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance Transport: Processing a {sourcePacket.Length} byte payload.");
+            
+            // Copy our data into our buffers.
+            // THIS NEEDS SOME ATTENTION.
+            sourcePacket.CopyTo(m_PacketDataBuffer);
+            sourcePacket.Dispose();
+
+            // if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance Transport: Payload:\n{ BitConverter.ToString(m_PacketDataBuffer.SubArray(0, sourcePacket.Length)) }");
+            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance Transport: Oi Mirror, data's arrived!");
+            if(serverInvoke) OnServerDataReceived.Invoke(connectionID, m_PacketDataBuffer);
+            else OnClientDataReceived.Invoke(m_PacketDataBuffer);
+        }
+
+        public class TransportInfo {
+			public const string Version = "1.2.0 Release Candidate 2";
 		}
     }
 
