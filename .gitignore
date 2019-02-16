@@ -63,7 +63,7 @@ StyleCopReport.xml
 *_p.c
 *_i.h
 *.ilk
-*.meta
+# *.meta
 *.obj
 *.iobj
 *.pch
@@ -331,8 +331,17 @@ ASALocalRun/
 .mfractor/
 
 # Dependencies so that people don't get import issues.
-[Aa]ssets/Mirror
+[Aa]ssets/Mirror/Components
+[Aa]ssets/Mirror/Editor
+[Aa]ssets/Mirror/Examples
+[Aa]ssets/Mirror/Plugins
+[Aa]ssets/Mirror/Runtime
+[Aa]ssets/Mirror/Tests
+[Aa]ssets/Mirror/*.txt
+[Aa]ssets/Mirror/*.meta
 ![Aa]ssets/Mirror/Transports
+![Aa]ssets/Mirror/Transports.meta
+
 [Ll]ibrary/*
 ![Ll]ibrary/.gitkeep
 
