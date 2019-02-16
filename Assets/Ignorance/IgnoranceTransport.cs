@@ -29,33 +29,33 @@ namespace Mirror
     [HelpURL("https://github.com/SoftwareGuy/Ignorance/blob/master/README.md")]
     public class IgnoranceTransport : Transport
     {
-		[Header("Verbosity Options")]
-		[Tooltip("How do you like your debug logs?")]
-		public TransportVerbosity m_TransportVerbosity = TransportVerbosity.Chatty;
+        [Header("Verbosity Options")]
+        [Tooltip("How do you like your debug logs?")]
+        public TransportVerbosity m_TransportVerbosity = TransportVerbosity.Chatty;
 
         [Header("Experimental Options")]
         [Tooltip("If enabled, Ignorance will use a new packet processing engine.")]
         public bool m_UseNewPacketEngine = true;
 
         [Header("Compression Options")]
-		[Tooltip("Use LZ4 Compression for reduced data transmission costs?")]
-		public bool m_UseLZ4Compression = false;
+        [Tooltip("Use LZ4 Compression for reduced data transmission costs?")]
+        public bool m_UseLZ4Compression = false;
 
         [Header("Bind Options")]
         /// <summary>
         /// Disabling this will bind to a specific IP Address. Otherwise it will bind to everything.
         /// </summary>
-		[Tooltip("If set, this will bind to all interfaces rather than a specific IP address.")]
+        [Tooltip("If set, this will bind to all interfaces rather than a specific IP address.")]
         public bool m_BindToAllInterfaces = true;
-		/// <summary>
+        /// <summary>
         /// The communication port used by the server and client. Can be anything between port 1 to 65535.
         /// </summary>
-		[Tooltip("The communication port used by the server and client. Can be anything between port 1 to 65535.")]
+        [Tooltip("The communication port used by the server and client. Can be anything between port 1 to 65535.")]
         public ushort Port = 7777;
         // Compatibility.
         public ushort port { get { return Port; } set { Port = value; } }
 
-		/* OBSOLETED 
+        /* OBSOLETED 
         [Header("Logging Options")]
         [Tooltip("If you don't wish to have Ignorance emit any helpful messages, turn this off.")]
         public bool enableLogging = true;
@@ -63,8 +63,8 @@ namespace Mirror
         public bool verboseLoggingEnabled = false;
         [Tooltip("Enable this to know what data is being sent in packets.")]
         public bool packetDataLoggingEnabled = false;
-		*/
-		
+        */
+        
         [Header("Timeout Configuration")]
         // -- TIMEOUTS -- //
         /// <summary>
@@ -198,9 +198,9 @@ namespace Mirror
                 "If you have issues using Ignorance, please try the Unity 2019.1 beta and let the developer know. Thanks!");
 #endif
             Library.Initialize();
-			
-			// If the user sets this to -1, treat it as no limit.
-			if(m_MaximumTotalConnections < 0) m_MaximumTotalConnections = 0;
+            
+            // If the user sets this to -1, treat it as no limit.
+            if(m_MaximumTotalConnections < 0) m_MaximumTotalConnections = 0;
 
             // Allocate memory working buffer.
             Log($"Ignorance Transport is pre-allocating a {Library.maxPacketSize} byte memory buffer to help reduce stack memory allocations. This message is harmless - keep calm and carry on.");
@@ -795,7 +795,7 @@ namespace Mirror
         {
             return clientPeer.IsSet ? clientPeer.PacketsLost : 0;
         }
-		
+        
         // Static helpers
         private void Log(object text)
         {
@@ -816,14 +816,14 @@ namespace Mirror
         {
             return host != null && host.IsSet;
         }
-		
-		// -- Version 1.2 -- //
-		public enum TransportVerbosity {
-			SilenceIsGolden,			
-			Chatty,
-			Paranoid,
-			LogSpam
-		}
+        
+        // -- Version 1.2 -- //
+        public enum TransportVerbosity {
+            SilenceIsGolden,			
+            Chatty,
+            Paranoid,
+            LogSpam
+        }
 
         public bool NewClientMessageProcessor()
         {
@@ -1013,8 +1013,8 @@ namespace Mirror
         }
 
         public class TransportInfo {
-			public const string Version = "1.2.0 Release Candidate 2";
-		}
+            public const string Version = "1.2.0 Release Candidate 2";
+        }
     }
 
     public static class IgnoranceExtensions
