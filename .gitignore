@@ -332,8 +332,10 @@ ASALocalRun/
 
 # Dependencies so that people don't get import issues.
 [Aa]ssets/Mirror
+![Aa]ssets/Mirror/Transports
 [Ll]ibrary/*
 ![Ll]ibrary/.gitkeep
 
 *.csproj
 *.sln
+Temp/*
