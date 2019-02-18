@@ -30,7 +30,7 @@ namespace Mirror
     public class IgnoranceTransport : Transport
     {
         // -- GENERAL VARIABLES -- //
-        private const string TransportVersion = "1.0.9.11rc-master";
+        private const string TransportVersion = "1.0.9.12-master";
 
         // -- EXPOSED PUBLIC VARIABLES -- //
         [Header("Bind Options")]
@@ -168,6 +168,7 @@ namespace Mirror
         {
             Log(string.Format("Thank you for using Ignorance Transport v{0} for Mirror (master branch)! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance" +
                 "\nENET Library Version: {1}", TransportVersion, Library.version));
+            LogWarning("You are using a legacy version of Ignorance Transport. This version will not receive any improvements and/or new features. Please consider migrating to v1.2.0+ when possible.");
         }
 
         // -- INITIALIZATION -- // 
@@ -186,20 +187,6 @@ namespace Mirror
             Library.Initialize();
         }
 
-        /*
-        public void OnEnable()
-        {
-            // Debug.Log("IgnoranceTransport.OnEnable()");
-            Library.Initialize();
-        }
-
-        public void OnDisable()
-        {
-            // Debug.Log("IgnoranceTransport.OnDisable()");
-            Library.Deinitialize();
-        }
-        */
-
         // TODO: Consult Mirror team and figure out best plan of attack for this deinitialization.
         public void OnDestroy()
         {
@@ -217,26 +204,6 @@ namespace Mirror
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
-        /// <summary>
-        /// Gets info about a connection via the connectionId. <para />
-        /// Apparently it only gets the IP Address. What's up with that?
-        /// </summary>
-        /// <param name="connectionId">The connection ID to lookup.</param>
-        /// <param name="address">The IP Address. This is what will be returned, don't fill this in!</param>
-        /// <returns>The IP Address of the connection. Returns (invalid) if it cannot find it in the dictionary.</returns>
-        public override bool GetConnectionInfo(int connectionId, out string address)
-        {
-            address = "(invalid)";
-
-            if (knownConnIDToPeers.ContainsKey(connectionId))
-            {
-                address = knownConnIDToPeers[connectionId].IP;
-                return true;
-            }
-
-            return false;
-        }
-
         /// <summary>
         /// Is the server active?
         /// </summary>
@@ -451,27 +418,20 @@ namespace Mirror
             serverAddress.SetHost("::0");
 #else
             if (verboseLoggingEnabled) Log(string.Format("Ignorance Transport: Server startup on port {0} with capacity of {1} concurrent connections", Port, NetworkManager.singleton.maxConnections));
-            if(m_BindToAllInterfaces)
+            if (m_BindToAllInterfaces)
             {
                 Log("Ignorance Transport: Binding to all available interfaces.");
-#if UNITY_OSX
-                serverAddress.SetHost("::0");
-#else
-                serverAddress.SetHost("0.0.0.0");
-#endif
+                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) serverAddress.SetHost("::0");
+                else serverAddress.SetHost("0.0.0.0");
             } else {
                 if (!string.IsNullOrEmpty(NetworkManager.singleton.networkAddress))
                 {
                     Log(string.Format("Ignorance Transport: Using {0} as our specific bind address", NetworkManager.singleton.networkAddress));
                     serverAddress.SetHost(NetworkManager.singleton.networkAddress);
-                } else
-                {
+                } else {
                     // WTF happened to reach here?
-#if UNITY_OSX
-                    serverAddress.SetHost("::0");
-#else
-                    serverAddress.SetHost("0.0.0.0");
-#endif
+                    if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) serverAddress.SetHost("::0");
+                    else serverAddress.SetHost("0.0.0.0");
                 }
             }
 #endif
@@ -855,6 +815,17 @@ namespace Mirror
         private static bool IsValid(Host host)
         {
             return host != null && host.IsSet;
+        }
+
+        public override string ServerGetClientAddress(int connectionId)
+        {
+            Peer target;
+            if(knownConnIDToPeers.TryGetValue(connectionId, out target))
+            {
+                return target.IP;
+            }
+
+            return "(invalid)";
         }
     }
 }
