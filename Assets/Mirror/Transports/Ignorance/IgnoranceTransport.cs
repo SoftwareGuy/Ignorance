@@ -215,26 +215,6 @@ namespace Mirror
         }
 
         // -- SERVER WORLD FUNCTIONS -- //
-        /// <summary>
-        /// Gets info about a connection via the connectionId. <para />
-        /// Apparently it only gets the IP Address. What's up with that?
-        /// </summary>
-        /// <param name="connectionId">The connection ID to lookup.</param>
-        /// <param name="address">The IP Address. This is what will be returned, don't fill this in!</param>
-        /// <returns>The IP Address of the connection. Returns (invalid) if it cannot find it in the dictionary.</returns>
-        public override bool GetConnectionInfo(int connectionId, out string address)
-        {
-            Peer result;
-            address = "(invalid)";
-
-            if (knownConnIDToPeers.TryGetValue(connectionId, out result))
-            {
-                address = result.IP;
-                return true;
-            }
-
-            return false;
-        }
 
         /// <summary>
         /// Is the server active?
@@ -999,6 +979,22 @@ namespace Mirror
             else OnClientDataReceived.Invoke(dataBuf);
         }
 
+        /// <summary>
+        //  Gets a client's address on the server. Could be used for bans and whatnot.
+        /// </summary>
+        /// <param name="connectionId">The connection ID to look up.</param>
+        /// <returns>The Peer's IP if valid, otherwise it will return "(invalid)".</returns>
+        public override string ServerGetClientAddress(int connectionId)
+        {
+            Peer result;
+            if(knownConnIDToPeers.TryGetValue(connectionId, out result))
+            {
+                return result.IP;
+            }
+
+            return "(invalid)";
+        }
+
         public override string ToString()
         {
             return $"Ignorance: {(ServerActive() ? (m_BindToAllInterfaces ? $"all interfaces, port {port}" : NetworkManager.singleton.networkAddress + $", port {port}") : "inactive")}";
@@ -1006,7 +1002,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.0 Release Candidate 3";
+            public const string Version = "1.2.0 Release Candidate 4";
         }
     }
 
