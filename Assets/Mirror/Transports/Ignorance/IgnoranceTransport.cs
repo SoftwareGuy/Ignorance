@@ -557,7 +557,10 @@ namespace Mirror
         /// </summary>
         public override void ClientDisconnect()
         {
+            Log(clientPeer.State);
+
             if (clientPeer.State == PeerState.Disconnected) return;
+
             Log("Ignorance Transport: Received disconnection request from Mirror. Acknowledged!");
 
             // Disconnect the client's peer object, only if it's not disconnected. This might fix a bad pointer or something.
@@ -575,7 +578,7 @@ namespace Mirror
                 client.Dispose();
             }
 
-            OnClientDisconnected.Invoke();
+            // OnClientDisconnected.Invoke();
             client = null;
         }
 
@@ -994,6 +997,11 @@ namespace Mirror
 
             if (serverInvoke) OnServerDataReceived.Invoke(connectionID, dataBuf);
             else OnClientDataReceived.Invoke(dataBuf);
+        }
+
+        public override string ToString()
+        {
+            return $"Ignorance: {(ServerActive() ? (m_BindToAllInterfaces ? $"all interfaces, port {port}" : NetworkManager.singleton.networkAddress + $", port {port}") : "inactive")}";
         }
 
         public class TransportInfo
