@@ -48,6 +48,11 @@ namespace Mirror
         [Tooltip("If set, this will bind to all interfaces rather than a specific IP address.")]
         public bool m_BindToAllInterfaces = true;
         /// <summary>
+        /// This will be used if you turn off binding to all interfaces.
+        /// </summary>
+        [Tooltip("Set this to the IP address you want to bind to if you disable the Bind to All Interfaces option.")]
+        public string m_BindToAddress = "127.0.0.1";
+        /// <summary>
         /// The communication port used by the server and client. Can be anything between port 1 to 65535.
         /// </summary>
         [Tooltip("The communication port used by the server and client. Can be anything between port 1 to 65535.")]
@@ -60,6 +65,7 @@ namespace Mirror
         /// <summary>
         /// Use custom peer timeouts?
         /// </summary>
+        [Tooltip("Tick to use a custom peer timeout.")]
         public bool useCustomPeerTimeout = false;
         /// <summary>
         /// Base timeout, default is 5000 ticks (5 seconds).
@@ -71,7 +77,6 @@ namespace Mirror
         /// </summary>
         [Tooltip("This value is multiplied by the base timeout for the maximum amount of ticks that we'll wait before evicting connections.")]
         public uint peerBaseTimeoutMultiplier = 3;
-
         /// <summary>
         /// Every peer that connects decrements this counter. So that means if you have 30 connections, it will be 970 connections available.
         /// When this hits 0, the server will not allow any new connections. Hard limit.
@@ -87,6 +92,8 @@ namespace Mirror
 
         private Address serverAddress = new Address();
         private Peer clientPeer = new Peer();
+
+        private string m_MyServerAddress = string.Empty;
 
         /// <summary>
         /// Known connections dictonary since ENET is a little weird.
@@ -361,7 +368,7 @@ namespace Mirror
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
             // Another mailing pigeon
-            Packet mailingPigeon = default(Packet);
+            Packet mailingPigeon = default;
 
             if (channelId >= packetSendMethods.Length)
             {
@@ -403,7 +410,7 @@ namespace Mirror
         /// <param name="address">The address to bind to.</param>
         /// <param name="port">The port to use. Do not run more than one server on the same port.</param>
         /// <param name="maxConnections">How many connections can we have?</param>
-        public override void ServerStart()
+        public void ServerStart(string networkAddress, ushort port, int maxConnections)
         {
             // Do not attempt to start more than one server.
             // Check if the server is active before attempting to create. If it returns true,
@@ -428,31 +435,31 @@ namespace Mirror
             Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
             serverAddress.SetHost("::0");
 #else
-            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log(string.Format("Ignorance Transport: Server startup on port {0} with capacity of {1} concurrent connections", Port, NetworkManager.singleton.maxConnections));
+            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Server startup on port {Port}");
             if (m_BindToAllInterfaces)
             {
                 Log("Ignorance Transport: Binding to all available interfaces.");
-#if UNITY_EDITOR_OSX
-                serverAddress.SetHost("::0");
-#else
-                serverAddress.SetHost("0.0.0.0");
-#endif
+                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) serverAddress.SetHost("::0");
+                else serverAddress.SetHost("0.0.0.0");
             }
             else
             {
-                if (!string.IsNullOrEmpty(NetworkManager.singleton.networkAddress))
+                // If one is specified, that takes priority.
+                if (!string.IsNullOrEmpty(networkAddress))
                 {
-                    Log(string.Format("Ignorance Transport: Using {0} as our specific bind address", NetworkManager.singleton.networkAddress));
-                    serverAddress.SetHost(NetworkManager.singleton.networkAddress);
+                    Log($"Ignorance Transport: Using {networkAddress} as our specific bind address");
+                    serverAddress.SetHost(networkAddress);
+                }
+                else if (!string.IsNullOrEmpty(m_BindToAddress))
+                {
+                    Log($"Ignorance Transport: Using {m_BindToAddress} as our specific bind address");
+                    serverAddress.SetHost(m_BindToAddress);
                 }
                 else
                 {
-                    // WTF happened to reach here?
-#if UNITY_EDITOR_OSX
-                    serverAddress.SetHost("::0");
-#else
-                    serverAddress.SetHost("0.0.0.0");
-#endif
+                    // No. Just no. Go back and try again, do not pass Go, do not collect $200.
+                    LogError($"Ignorance Transport: No bind address specified and you have disabled bind to all interfaces. Please go back and fix this, then start the server again.");
+                    return;
                 }
             }
 #endif
@@ -464,14 +471,13 @@ namespace Mirror
 
             if (m_UseLZ4Compression) server.EnableCompression();
 
-            if (m_UseNewPacketEngine)
-            {
-                Log("Ignorance Transport: New experimental packet engine will be used.");
-            }
+            if (m_UseNewPacketEngine) Log("Ignorance Transport: New experimental packet engine will be used.");
 
             // Log our best effort attempts
-            Log(string.Format("Ignorance Transport: Attempted to create server with capacity of {0} connections on UDP port {1}", NetworkManager.singleton.maxConnections, Port));
+            Log($"Ignorance Transport: Attempted to create server on UDP port {Port}");
             Log("Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
+
+            m_MyServerAddress = serverAddress.GetHost();
         }
 
         /// <summary>
@@ -635,17 +641,17 @@ namespace Mirror
 
         public bool ClientSend(int channelId, ArraySegment<byte> data)
         {
-            Packet mailingPigeon = default(Packet);
+            Packet mailingPigeon = default;
 
             if (!client.IsSet)
             {
-                LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
                 return false;
             }
 
             if (channelId >= packetSendMethods.Length)
             {
-                LogError("Ignorance Transport ERROR: Trying to use an unknown channel to send data");
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogError("Ignorance Transport ERROR: Trying to use an unknown channel to send data");
                 return false;
             }
 
@@ -664,7 +670,6 @@ namespace Mirror
                 return false;
             }
         }
-
         // -- END CLIENT FUNCTIONS -- //
 
         // -- SHUTDOWN FUNCTIONS -- //
@@ -822,7 +827,7 @@ namespace Mirror
                 }
 
                 // Spam the logs if we're over paranoid levels.
-                if (m_TransportVerbosity > TransportVerbosity.Paranoid) LogWarning($"Ignorance Transport: NewClientMessageProcessor() processing {networkEvent.Type} event...");
+                if (m_TransportVerbosity == TransportVerbosity.Paranoid) LogWarning($"Ignorance Transport: NewClientMessageProcessor() processing {networkEvent.Type} event...");
 
                 switch (networkEvent.Type)
                 {
@@ -987,7 +992,7 @@ namespace Mirror
         public override string ServerGetClientAddress(int connectionId)
         {
             Peer result;
-            if(knownConnIDToPeers.TryGetValue(connectionId, out result))
+            if (knownConnIDToPeers.TryGetValue(connectionId, out result))
             {
                 return result.IP;
             }
@@ -995,14 +1000,33 @@ namespace Mirror
             return "(invalid)";
         }
 
+        // Custom ServerStart() calls for Insight compatibility.
+        // From https://github.com/SoftwareGuy/Ignorance/issues/23
+        // Thanks uwee!!
+        public override void ServerStart()
+        {
+            ServerStart(string.Empty, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
+        }
+
+        public void ServerStart(ushort port)
+        {
+            ServerStart(string.Empty, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
+        }
+
+        public void ServerStart(string networkAddress, ushort port)
+        {
+            ServerStart(networkAddress, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
+        }
+
+        // Prettify the output string, rather than IgnoranceTransport (Mirror.IgnoranceTransport)
         public override string ToString()
         {
-            return $"Ignorance: {(ServerActive() ? (m_BindToAllInterfaces ? $"all interfaces, port {port}" : NetworkManager.singleton.networkAddress + $", port {port}") : "inactive")}";
+            return $"Ignorance {(ServerActive() ? (m_BindToAllInterfaces ? $"bound to all interfaces, port {Port}" : $"bound to {m_MyServerAddress}, port {Port}") : "inactive")}";
         }
 
         public class TransportInfo
         {
-            public const string Version = "1.2.0 Release Candidate 4";
+            public const string Version = "1.2.0 Release Candidate 5";
         }
     }
 

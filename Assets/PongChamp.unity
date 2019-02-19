@@ -1023,6 +1023,7 @@ MonoBehaviour:
   m_UseNewPacketEngine: 1
   m_UseLZ4Compression: 0
   m_BindToAllInterfaces: 1
+  m_BindToAddress: 127.0.0.1
   Port: 7777
   useCustomPeerTimeout: 0
   peerBaseTimeout: 5000
