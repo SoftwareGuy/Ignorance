@@ -27,7 +27,7 @@ namespace Mirror
     /// Ignorance rUDP Transport is built upon the ENet-C# wrapper by nxrighthere.
     /// </summary>
     [HelpURL("https://github.com/SoftwareGuy/Ignorance/blob/master/README.md")]
-    public class IgnoranceTransport : Transport, IDissonanceTransport
+    public class IgnoranceTransport : Transport, ISegmentTransport
     {
         [Header("Verbosity Options")]
         [Tooltip("How do you like your debug logs?")]
