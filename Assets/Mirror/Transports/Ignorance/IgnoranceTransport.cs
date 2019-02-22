@@ -56,9 +56,9 @@ namespace Mirror
         /// The communication port used by the server and client. Can be anything between port 1 to 65535.
         /// </summary>
         [Tooltip("The communication port used by the server and client. Can be anything between port 1 to 65535.")]
-        public ushort Port = 7777;
+        public ushort m_Port = 7777;
         // Compatibility.
-        public ushort port { get { return Port; } set { Port = value; } }
+        public ushort port { get { return m_Port; } set { m_Port = value; } }
 
         [Header("Timeout Configuration")]
         // -- TIMEOUTS -- //
@@ -66,32 +66,32 @@ namespace Mirror
         /// Use custom peer timeouts?
         /// </summary>
         [Tooltip("Tick to use a custom peer timeout.")]
-        public bool useCustomPeerTimeout = false;
+        public bool m_UseCustomTimeout = false;
         /// <summary>
         /// Base timeout, default is 5000 ticks (5 seconds).
         /// </summary>
         [Tooltip("The base amount of ticks to wait for detecting if a client is timing out.")]
-        public uint peerBaseTimeout = 5000;
+        public uint m_BasePeerTimeout = 5000;
         /// <summary>
         /// peerBaseTimeout * this value = maximum time waiting until client is removed
         /// </summary>
         [Tooltip("This value is multiplied by the base timeout for the maximum amount of ticks that we'll wait before evicting connections.")]
-        public uint peerBaseTimeoutMultiplier = 3;
+        public uint m_BasePeerMultiplier = 3;
         /// <summary>
         /// Every peer that connects decrements this counter. So that means if you have 30 connections, it will be 970 connections available.
         /// When this hits 0, the server will not allow any new connections. Hard limit.
         /// </summary>
         [Header("Connection Hard Limit Configuration")]
-        [Tooltip("This is not the same as Mirror's Maximum Connections! Leave alone if you don't know exactly what it does.")]
+        [Tooltip("This is not the same as Mirror's Maximum CCU! Leave alone if you don't know exactly what it does.")]
         public int m_MaximumTotalConnections = 1000;
 
         // -- SERVER WORLD VARIABLES -- //
         // Explicitly give these new references on startup, just to make sure that we get no null reference exceptions.
-        private Host server = new Host();
-        private Host client = new Host();
+        private Host m_Server = new Host();
+        private Host m_Client = new Host();
 
-        private Address serverAddress = new Address();
-        private Peer clientPeer = new Peer();
+        private Address m_ServerAddress = new Address();
+        private Peer m_ClientPeer = new Peer();
 
         private string m_MyServerAddress = string.Empty;
 
@@ -106,7 +106,7 @@ namespace Mirror
         /// <summary>
         /// Used by our dictionary to map ENET Peers to connections. Start at 1 just to be safe, connection 0 will be localClient.
         /// </summary>
-        private int serverConnectionCount = 1;
+        private int serverConnectionCnt = 1;
 
         /// <summary>
         /// This section defines what classic UNET channels refer to.
@@ -229,7 +229,7 @@ namespace Mirror
         /// <returns>True if the server is active, false otherwise.</returns>
         public override bool ServerActive()
         {
-            return IsValid(server);
+            return IsValid(m_Server);
         }
 
         /// <summary>
@@ -262,19 +262,19 @@ namespace Mirror
             if (!ServerActive()) return false;
 
             int deadPeerConnID, knownConnectionID;
-            int newConnectionID = serverConnectionCount;
+            int newConnectionID = serverConnectionCnt;
 
             // The incoming Enet Event.        
             Event incomingEvent;
 
-            if (!server.IsSet)
+            if (!m_Server.IsSet)
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport: Server is not ready.");
                 return false;
             }
 
             // Get the next message...
-            server.Service(0, out incomingEvent);
+            m_Server.Service(0, out incomingEvent);
 
             // What type is this?
             switch (incomingEvent.Type)
@@ -291,10 +291,10 @@ namespace Mirror
                     if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log(string.Format("Ignorance Transport: New connection from IP {0}. Peer ID {1} mapped to internal connection ID {2}", incomingEvent.Peer.IP, incomingEvent.Peer.ID, newConnectionID));
 
                     // Increment the fake connection counter by one.
-                    serverConnectionCount++;
+                    serverConnectionCnt++;
 
                     // If we're using custom timeouts, then set the timeouts too.
-                    if (useCustomPeerTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
+                    if (m_UseCustomTimeout) incomingEvent.Peer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
 
                     // Report back saying we got a connection event.
                     OnServerConnected.Invoke(newConnectionID);
@@ -422,8 +422,8 @@ namespace Mirror
                 return;
             }
 
-            server = new Host();
-            serverAddress = new Address();
+            m_Server = new Host();
+            m_ServerAddress = new Address();
             knownConnIDToPeers = new Dictionary<int, Peer>();
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
@@ -435,12 +435,12 @@ namespace Mirror
             Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
             serverAddress.SetHost("::0");
 #else
-            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Server startup on port {Port}");
+            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Server startup on port {m_Port}");
             if (m_BindToAllInterfaces)
             {
                 Log("Ignorance Transport: Binding to all available interfaces.");
-                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) serverAddress.SetHost("::0");
-                else serverAddress.SetHost("0.0.0.0");
+                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) m_ServerAddress.SetHost("::0");
+                else m_ServerAddress.SetHost("0.0.0.0");
             }
             else
             {
@@ -448,12 +448,12 @@ namespace Mirror
                 if (!string.IsNullOrEmpty(networkAddress))
                 {
                     Log($"Ignorance Transport: Using {networkAddress} as our specific bind address");
-                    serverAddress.SetHost(networkAddress);
+                    m_ServerAddress.SetHost(networkAddress);
                 }
                 else if (!string.IsNullOrEmpty(m_BindToAddress))
                 {
                     Log($"Ignorance Transport: Using {m_BindToAddress} as our specific bind address");
-                    serverAddress.SetHost(m_BindToAddress);
+                    m_ServerAddress.SetHost(m_BindToAddress);
                 }
                 else
                 {
@@ -464,20 +464,20 @@ namespace Mirror
             }
 #endif
             // Setup the port.
-            serverAddress.Port = port;
+            m_ServerAddress.Port = port;
 
             // Finally create the server.
-            server.Create(serverAddress, m_MaximumTotalConnections, packetSendMethods.Length, 0, 0);
+            m_Server.Create(m_ServerAddress, m_MaximumTotalConnections, packetSendMethods.Length, 0, 0);
 
-            if (m_UseLZ4Compression) server.EnableCompression();
+            if (m_UseLZ4Compression) m_Server.EnableCompression();
 
             if (m_UseNewPacketEngine) Log("Ignorance Transport: New experimental packet engine will be used.");
 
             // Log our best effort attempts
-            Log($"Ignorance Transport: Attempted to create server on UDP port {Port}");
+            Log($"Ignorance Transport: Attempted to create server on UDP port {m_Port}");
             Log("Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
 
-            m_MyServerAddress = serverAddress.GetHost();
+            m_MyServerAddress = m_ServerAddress.GetHost();
         }
 
         /// <summary>
@@ -494,8 +494,8 @@ namespace Mirror
             knownPeersToConnIDs = new Dictionary<Peer, int>();
 
             // Don't forget to dispose stuff.
-            if (IsValid(server)) server.Dispose();
-            server = null;
+            if (IsValid(m_Server)) m_Server.Dispose();
+            m_Server = null;
         }
 
         // -- CLIENT WORLD FUNCTIONS -- //
@@ -506,26 +506,26 @@ namespace Mirror
         /// <param name="port">The connection port.</param>
         public override void ClientConnect(string address)
         {
-            Log(string.Format("Ignorance Transport: Acknowledging connection request to {0}:{1}", address, Port));
+            Log(string.Format("Ignorance Transport: Acknowledging connection request to {0}:{1}", address, m_Port));
 
-            if (client == null) client = new Host();
-            if (!client.IsSet) client.Create(null, 1, packetSendMethods.Length, 0, 0);
-            if (m_UseLZ4Compression) client.EnableCompression();
+            if (m_Client == null) m_Client = new Host();
+            if (!m_Client.IsSet) m_Client.Create(null, 1, packetSendMethods.Length, 0, 0);
+            if (m_UseLZ4Compression) m_Client.EnableCompression();
 
             Address clientAddress = new Address();
 
             // Set hostname and port to connect to.
             clientAddress.SetHost(address);
-            clientAddress.Port = Port;
+            clientAddress.Port = m_Port;
 
             if (m_UseNewPacketEngine) Log("Ignorance Transport: Client will use new experimental packet engine.");
 
             // Connect the client to the server.
-            if (useCustomPeerTimeout) clientPeer.Timeout(Library.throttleScale, peerBaseTimeout, peerBaseTimeout * peerBaseTimeoutMultiplier);
-            clientPeer = client.Connect(clientAddress);
+            if (m_UseCustomTimeout) m_ClientPeer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
+            m_ClientPeer = m_Client.Connect(clientAddress);
 
             // Debugging only
-            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Client Peer Set? {0}", clientPeer.IsSet));
+            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Client Peer Set? {0}", m_ClientPeer.IsSet));
         }
 
         /// <summary>
@@ -534,8 +534,8 @@ namespace Mirror
         /// <returns>True if connected, False if not.</returns>
         public override bool ClientConnected()
         {
-            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance Transport: Mirror asks if I'm connected. The answer to that is { ((clientPeer.State == PeerState.Connected) ? true : false) }. Note that if this a local client on the server instance, false may be a acceptable reply.");
-            return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
+            if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance Transport: Mirror asks if I'm connected. The answer to that is { ((m_ClientPeer.State == PeerState.Connected) ? true : false) }. Note that if this a local client on the server instance, false may be a acceptable reply.");
+            return m_ClientPeer.IsSet && m_ClientPeer.State == PeerState.Connected;
         }
 
         /// <summary>
@@ -543,29 +543,29 @@ namespace Mirror
         /// </summary>
         public override void ClientDisconnect()
         {
-            Log(clientPeer.State);
+            Log(m_ClientPeer.State);
 
-            if (clientPeer.State == PeerState.Disconnected) return;
+            if (m_ClientPeer.State == PeerState.Disconnected) return;
 
             Log("Ignorance Transport: Received disconnection request from Mirror. Acknowledged!");
 
             // Disconnect the client's peer object, only if it's not disconnected. This might fix a bad pointer or something.
             // Reference: https://github.com/SoftwareGuy/Ignorance/issues/20
-            if (clientPeer.IsSet)
+            if (m_ClientPeer.IsSet)
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance Transport: Disconnecting the client's peer...");
-                if (clientPeer.State != PeerState.Disconnected) clientPeer.DisconnectNow(0);
+                if (m_ClientPeer.State != PeerState.Disconnected) m_ClientPeer.DisconnectNow(0);
             }
 
-            if (IsValid(client))
+            if (IsValid(m_Client))
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance Transport: Flushing and disposing of the client...");
-                client.Flush();
-                client.Dispose();
+                m_Client.Flush();
+                m_Client.Dispose();
             }
 
             // OnClientDisconnected.Invoke();
-            client = null;
+            m_Client = null;
         }
 
 
@@ -581,14 +581,14 @@ namespace Mirror
             Event incomingEvent;
 
             // Safety check: if the client isn't created, then we shouldn't do anything. ENet might be warming up.
-            if (!IsValid(client))
+            if (!IsValid(m_Client))
             {
                 // LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
                 return false;
             }
 
             // Get the next message...
-            client.Service(0, out incomingEvent);
+            m_Client.Service(0, out incomingEvent);
 
             // Debugging only
             // if (verboseLoggingEnabled) Log($"ClientGetNextMessage event: {incomingEvent.Type}");
@@ -643,7 +643,7 @@ namespace Mirror
         {
             Packet mailingPigeon = default;
 
-            if (!client.IsSet)
+            if (!m_Client.IsSet)
             {
                 if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
                 return false;
@@ -660,7 +660,7 @@ namespace Mirror
             if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Client sending on channel {0} length {1}", channelId, data.Count));
             if (m_TransportVerbosity > TransportVerbosity.Paranoid) Log(string.Format("Ignorance Transport Client sending payload data:\n{0}", BitConverter.ToString(data.Array, data.Offset, data.Count)));
 
-            if (clientPeer.Send((byte)channelId, ref mailingPigeon))
+            if (m_ClientPeer.Send((byte)channelId, ref mailingPigeon))
             {
                 return true;
             }
@@ -681,22 +681,22 @@ namespace Mirror
             Log("Ignorance Transport: Going down for shutdown NOW!");
 
             // Shutdown the client first.
-            if (IsValid(client))
+            if (IsValid(m_Client))
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Sending the client process to the dumpster fire...");
-                if (clientPeer.IsSet) clientPeer.DisconnectNow(0);
+                if (m_ClientPeer.IsSet) m_ClientPeer.DisconnectNow(0);
 
-                client.Flush();
-                client.Dispose();
+                m_Client.Flush();
+                m_Client.Dispose();
             }
 
             // Shutdown the server.
-            if (IsValid(server))
+            if (IsValid(m_Server))
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Sending the server process to the dumpster fire...");
 
-                server.Flush();
-                server.Dispose();
+                m_Server.Flush();
+                m_Server.Dispose();
             }
 
             Library.Deinitialize();
@@ -727,7 +727,7 @@ namespace Mirror
         /// <returns>The amount of packets sent.</returns>
         public uint ServerGetPacketSentCount()
         {
-            return IsValid(server) ? server.PacketsSent : 0;
+            return IsValid(m_Server) ? m_Server.PacketsSent : 0;
         }
 
         /// <summary>
@@ -736,7 +736,7 @@ namespace Mirror
         /// <returns>The amount of packets received.</returns>
         public uint ServerGetPacketReceivedCount()
         {
-            return IsValid(server) ? server.PacketsReceived : 0;
+            return IsValid(m_Server) ? m_Server.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -746,7 +746,7 @@ namespace Mirror
         /// <returns>The amount of packets lost.</returns>
         public uint ServerGetPacketLossCount()
         {
-            return IsValid(server) && server.PacketsSent >= server.PacketsReceived ? server.PacketsSent - server.PacketsReceived : 0;
+            return IsValid(m_Server) && m_Server.PacketsSent >= m_Server.PacketsReceived ? m_Server.PacketsSent - m_Server.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -755,7 +755,7 @@ namespace Mirror
         /// <returns>The amount of packets sent.</returns>
         public uint ClientGetPacketSentCount()
         {
-            return IsValid(client) ? client.PacketsSent : 0;
+            return IsValid(m_Client) ? m_Client.PacketsSent : 0;
         }
 
         /// <summary>
@@ -764,7 +764,7 @@ namespace Mirror
         /// <returns>The amount of packets received.</returns>
         public uint ClientGetPacketReceivedCount()
         {
-            return IsValid(client) ? client.PacketsReceived : 0;
+            return IsValid(m_Client) ? m_Client.PacketsReceived : 0;
         }
 
         /// <summary>
@@ -773,7 +773,7 @@ namespace Mirror
         /// <returns></returns>
         public uint ClientGetPacketLossCount()
         {
-            return clientPeer.IsSet ? clientPeer.PacketsLost : 0;
+            return m_ClientPeer.IsSet ? m_ClientPeer.PacketsLost : 0;
         }
 
         // Static helpers
@@ -814,15 +814,15 @@ namespace Mirror
             // Only process messages if the client is valid.
             while (!clientWasPolled)
             {
-                if (!IsValid(client))
+                if (!IsValid(m_Client))
                 {
                     if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport: NewClientMessageProcessor() reports the client object is not valid.");
                     return false;
                 }
 
-                if (client.CheckEvents(out networkEvent) <= 0)
+                if (m_Client.CheckEvents(out networkEvent) <= 0)
                 {
-                    if (client.Service(0, out networkEvent) <= 0) break;
+                    if (m_Client.Service(0, out networkEvent) <= 0) break;
                     clientWasPolled = true;
                 }
 
@@ -870,14 +870,14 @@ namespace Mirror
         {
             bool serverWasPolled = false;
             int deadPeerConnID, timedOutConnID, knownConnectionID;
-            int newConnectionID = serverConnectionCount;
+            int newConnectionID = serverConnectionCnt;
             Event networkEvent;
 
             // Don't attempt to process anything if the server is not active.
             if (!ServerActive()) return false;
 
             // Only process messages if the server is valid.
-            if (!IsValid(server))
+            if (!IsValid(m_Server))
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport: NewServerMessageProcessor() reports the server host object is not valid.");
                 return false;
@@ -885,9 +885,9 @@ namespace Mirror
 
             while (!serverWasPolled)
             {
-                if (server.CheckEvents(out networkEvent) <= 0)
+                if (m_Server.CheckEvents(out networkEvent) <= 0)
                 {
-                    if (server.Service(0, out networkEvent) <= 0)
+                    if (m_Server.Service(0, out networkEvent) <= 0)
                         break;
 
                     serverWasPolled = true;
@@ -904,13 +904,13 @@ namespace Mirror
 
                         // Map them into our dictonaries.
                         knownPeersToConnIDs.Add(networkEvent.Peer, newConnectionID);
-                        knownConnIDToPeers.Add(serverConnectionCount, networkEvent.Peer);
+                        knownConnIDToPeers.Add(serverConnectionCnt, networkEvent.Peer);
 
-                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCount}.");
-                        OnServerConnected.Invoke(serverConnectionCount);
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
+                        OnServerConnected.Invoke(serverConnectionCnt);
 
                         // Increment the connection counter.
-                        serverConnectionCount++;
+                        serverConnectionCnt++;
                         break;
                     case EventType.Disconnect:
                         // A client disconnected.
@@ -1021,12 +1021,12 @@ namespace Mirror
         // Prettify the output string, rather than IgnoranceTransport (Mirror.IgnoranceTransport)
         public override string ToString()
         {
-            return $"Ignorance {(ServerActive() ? (m_BindToAllInterfaces ? $"bound to all interfaces, port {Port}" : $"bound to {m_MyServerAddress}, port {Port}") : "inactive")}";
+            return $"Ignorance {(ServerActive() ? (m_BindToAllInterfaces ? $"bound to all interfaces, port {m_Port}" : $"bound to {m_MyServerAddress}, port {m_Port}") : "inactive")}";
         }
 
         public class TransportInfo
         {
-            public const string Version = "1.2.0 Release Candidate 5";
+            public const string Version = "1.2.0 Release Candidate 6";
         }
     }
 

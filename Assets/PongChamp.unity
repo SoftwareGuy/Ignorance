@@ -1022,12 +1022,12 @@ MonoBehaviour:
   m_TransportVerbosity: 1
   m_UseNewPacketEngine: 1
   m_UseLZ4Compression: 0
-  m_BindToAllInterfaces: 1
+  m_BindToAllInterfaces: 0
   m_BindToAddress: 127.0.0.1
-  Port: 7777
-  useCustomPeerTimeout: 0
-  peerBaseTimeout: 5000
-  peerBaseTimeoutMultiplier: 3
+  m_Port: 7777
+  m_UseCustomTimeout: 0
+  m_BasePeerTimeout: 5000
+  m_BasePeerMultiplier: 3
   m_MaximumTotalConnections: 1000
 --- !u!114 &1886246554
 MonoBehaviour:
