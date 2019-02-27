@@ -477,7 +477,11 @@ namespace Mirror
             Log($"Ignorance Transport: Attempted to create server on UDP port {m_Port}");
             Log("Ignorance Transport: If you see this, the server most likely was successfully created and started! (This is good.)");
 
-            m_MyServerAddress = m_ServerAddress.GetHost();
+            // 1.2.0 RC7: This is fucked up, mainly because sometimes on different platforms
+            // ENET has not properly initialized right when we try to poll for the server address...
+            // So I will need to come back to this or maybe this shit is dumb.
+            // m_MyServerAddress = m_ServerAddress.GetHost();
+            // Actually on second thought, it's not even used. Why even have it in there then?
         }
 
         /// <summary>
@@ -1029,7 +1033,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.0 Release Candidate 6";
+            public const string Version = "1.2.0 Release Candidate 7";
         }
     }
 
