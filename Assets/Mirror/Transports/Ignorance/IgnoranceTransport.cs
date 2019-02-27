@@ -439,8 +439,16 @@ namespace Mirror
             if (m_BindToAllInterfaces)
             {
                 Log("Ignorance Transport: Binding to all available interfaces.");
-                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) m_ServerAddress.SetHost("::0");
-                else m_ServerAddress.SetHost("0.0.0.0");
+                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
+                {
+                    m_ServerAddress.SetHost("::0");
+                    m_MyServerAddress = "::0";
+                }
+                else
+                {
+                    m_ServerAddress.SetHost("0.0.0.0");
+                    m_MyServerAddress = "0.0.0.0";
+                }
             }
             else
             {
@@ -449,6 +457,7 @@ namespace Mirror
                 {
                     Log($"Ignorance Transport: Using {networkAddress} as our specific bind address");
                     m_ServerAddress.SetHost(networkAddress);
+                    m_MyServerAddress = networkAddress;
                 }
                 else if (!string.IsNullOrEmpty(m_BindToAddress))
                 {
@@ -524,11 +533,15 @@ namespace Mirror
 
             if (m_UseNewPacketEngine) Log("Ignorance Transport: Client will use new experimental packet engine.");
 
-            // Connect the client to the server.            
+            // Connect the client to the server.
             m_ClientPeer = m_Client.Connect(clientAddress);
 
-            if (m_UseCustomTimeout) m_ClientPeer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
-
+            // Set the custom timeouts.
+            if (m_UseCustomTimeout)
+            {
+                m_ClientPeer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
+            }
+            
             // Debugging only
             if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Client Peer Set? {0}", m_ClientPeer.IsSet));
         }
