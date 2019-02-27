@@ -541,7 +541,7 @@ namespace Mirror
             {
                 m_ClientPeer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
             }
-
+            
             // Debugging only
             if (m_TransportVerbosity > TransportVerbosity.Chatty) Log(string.Format("Ignorance Transport: Client Peer Set? {0}", m_ClientPeer.IsSet));
         }
