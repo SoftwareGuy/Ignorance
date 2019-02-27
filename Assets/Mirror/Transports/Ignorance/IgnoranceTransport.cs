@@ -715,8 +715,8 @@ namespace Mirror
                 }
                 else
                 {
-                    while (ProcessServerMessage()) ;
-                    while (ProcessClientMessage()) ;
+                    while (enabled && ProcessServerMessage()) ;
+                    while (enabled && ProcessClientMessage()) ;
                 }
             }
         }
