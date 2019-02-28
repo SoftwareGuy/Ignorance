@@ -431,7 +431,7 @@ namespace Mirror
             if(m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Server startup in MacOS Editor workaround mode on port {m_Port} with capacity of {NetworkManager.singleton.maxConnections} concurrent connections");
 
             LogWarning("Ignorance Transport: Binding to a specific address is disabled on MacOS Editor due to some bugs. Please refer to https://github.com/nxrighthere/ENet-CSharp/issues/46 " +
-                "for technicial details. While you can disable this check, it will most likely bug out and mess connectivity up. You've been warned.");            
+                "for technical details. While you can disable this check, it will most likely bug out and mess connectivity up. You've been warned.");
             Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
             m_ServerAddress.SetHost("::0");
 #else
