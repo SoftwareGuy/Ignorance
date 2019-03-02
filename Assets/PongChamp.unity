@@ -1022,7 +1022,7 @@ MonoBehaviour:
   m_TransportVerbosity: 1
   m_UseNewPacketEngine: 1
   m_UseLZ4Compression: 0
-  m_BindToAllInterfaces: 0
+  m_BindToAllInterfaces: 1
   m_BindToAddress: 127.0.0.1
   m_Port: 7777
   m_UseCustomTimeout: 1
