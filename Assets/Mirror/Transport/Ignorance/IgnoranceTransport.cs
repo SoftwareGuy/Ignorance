@@ -1134,7 +1134,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.0 Release Candidate 7";
+            public const string Version = "1.2.0 Public Release";
         }
     }
 
