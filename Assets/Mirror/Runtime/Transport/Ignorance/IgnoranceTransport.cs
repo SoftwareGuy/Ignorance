@@ -484,6 +484,10 @@ namespace Mirror
             }
 
             // Connect the client to the server.
+            // 1.2.1: GODDAMNIT MATT, WHY DID YOU OMIT THE CHANNEL COUNT?!
+            // Also partially (like 1%) gonna blame NX, because documentation doesn't say anything about the second param
+            // having to match the channel count on the server, or how many channels the client will feature too.
+            // Don't hate me.
             m_ClientPeer = m_Client.Connect(clientAddress, m_ChannelDefinitions.Count);
 
             // Set the custom timeouts.
