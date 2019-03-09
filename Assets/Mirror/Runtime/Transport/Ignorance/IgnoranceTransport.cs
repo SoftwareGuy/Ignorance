@@ -32,7 +32,7 @@ namespace Mirror
         #region Configuration Settings
         public List<KnownChannelTypes> m_ChannelDefinitions = new List<KnownChannelTypes>()
         {
-            KnownChannelTypes.Reliable, // Default channel 0, reliable
+            KnownChannelTypes.Reliable,     // Default channel 0, reliable
             KnownChannelTypes.Unreliable,   // Default channel 1, unreliable
         };
 
@@ -247,7 +247,7 @@ namespace Mirror
             }
 
             // Make sure we're not trying to overflow the channel counts.
-            if((m_ChannelDefinitions.Count-1) >= 255)
+            if ((m_ChannelDefinitions.Count - 1) >= 255)
             {
                 LogError("Ignorance Transport: Too many channels. ENET-senpai can't handle them!");
                 return;
@@ -328,12 +328,6 @@ namespace Mirror
 
             // Log our best effort attempts
             Log($"Ignorance Transport: Attempted to create server on UDP port {m_Port}. If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
-
-            // 1.2.0 RC7: This is fucked up, mainly because sometimes on different platforms
-            // ENET has not properly initialized right when we try to poll for the server address...
-            // So I will need to come back to this or maybe this shit is dumb.
-            // m_MyServerAddress = m_ServerAddress.GetHost();
-            // Actually on second thought, it's not even used. Why even have it in there then?
         }
 
         // Custom ServerStart() calls for Insight compatibility.
@@ -398,14 +392,14 @@ namespace Mirror
             // Another mailing pigeon
             Packet mailingPigeon = default;
 
-            if(channelId >= m_ChannelDefinitions.Count)
+            if (channelId >= m_ChannelDefinitions.Count)
             {
                 LogError($"ERROR: Refusing to even attempt to send data on channel {channelId}. It is either greater than or equal to the channel definition count." +
                     $"If you think this is a bug, consider filing a bug report.");
                 return false;
             }
 
-            if(m_TransportVerbosity == TransportVerbosity.LogSpam)
+            if (m_TransportVerbosity == TransportVerbosity.LogSpam)
             {
                 Log($"DEBUG: m_ChannelDefinitions[{channelId}] => { m_ChannelDefinitions[channelId] }");
             }
@@ -1089,6 +1083,38 @@ namespace Mirror
                 }
             }
         }
+
+        // Sanity checks.
+        private void OnValidate()
+        {
+            if (m_ChannelDefinitions.Count >= 2)
+            {
+                // Check to make sure that Channel 0 and 1 are correct.
+                if(m_ChannelDefinitions[0] != KnownChannelTypes.Reliable)
+                {
+                    LogWarning("Ignorance Transport detected that channel 0 is not set to Reliable. This has been corrected.");
+                    m_ChannelDefinitions[0] = KnownChannelTypes.Reliable;
+                }
+
+                if(m_ChannelDefinitions[1] != KnownChannelTypes.Unreliable)
+                {
+                    LogWarning("Ignorance Transport detected that channel 1 is not set to Unreliable. This has been corrected.");
+                    m_ChannelDefinitions[1] = KnownChannelTypes.Unreliable;
+                }
+            }
+            else
+            {
+                LogWarning("Ignorance Transport detected a configuration problem and will fix it for you. There needs to be at least 2 channels" +
+                    " added at any time, and they must be Reliable and Unreliable.");
+
+                m_ChannelDefinitions = new List<KnownChannelTypes>()
+                {
+                    KnownChannelTypes.Reliable,
+                    KnownChannelTypes.Unreliable,
+                };
+            }
+        }
+
         #endregion
 
         #region Transport - Statistics
