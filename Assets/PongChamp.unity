@@ -1019,7 +1019,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  m_ChannelDefinitions: 000000000100000003000000
+  m_ChannelDefinitions: 0000000001000000
   m_TransportVerbosity: 3
   m_UseNewPacketEngine: 1
   m_UseLZ4Compression: 0

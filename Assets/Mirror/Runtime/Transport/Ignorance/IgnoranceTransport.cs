@@ -1168,7 +1168,7 @@ namespace Mirror
         /// Get the client's packet loss count, directly from ENET.
         /// </summary>
         /// <returns></returns>
-        public uint ClientGetPacketLossCount()
+        public ulong ClientGetPacketLossCount()
         {
             return m_ClientPeer.IsSet ? m_ClientPeer.PacketsLost : 0;
         }
