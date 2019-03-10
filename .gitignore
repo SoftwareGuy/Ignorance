@@ -335,12 +335,17 @@ ASALocalRun/
 [Aa]ssets/Mirror/Editor
 [Aa]ssets/Mirror/Examples
 [Aa]ssets/Mirror/Plugins
-[Aa]ssets/Mirror/Runtime
 [Aa]ssets/Mirror/Tests
 [Aa]ssets/Mirror/*.txt
 [Aa]ssets/Mirror/*.meta
-![Aa]ssets/Mirror/Transports
-![Aa]ssets/Mirror/Transports.meta
+[Aa]ssets/Mirror/Runtime/*.cs
+[Aa]ssets/Mirror/Runtime/*.meta
+[Aa]ssets/Mirror/Runtime/*.asmdef
+
+[Aa]ssets/Mirror/Runtime/Transport/*
+
+![Aa]ssets/Mirror/Runtime/Transport/Ignorance
+![Aa]ssets/Mirror/Runtime/Transport/Ignorance.meta
 
 [Ll]ibrary/*
 ![Ll]ibrary/.gitkeep
