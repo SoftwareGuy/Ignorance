@@ -21,7 +21,7 @@ namespace Mirror.Ignorance
         // maybe not needed? thread.Pause() / thread.Resume() ....?
         public static volatile bool CeaseOperation = false;
 
-        public virtual void Start(ushort port)
+        public virtual void StartInternal(ushort port)
         {
             Port = port;
             CeaseOperation = false;
@@ -32,17 +32,38 @@ namespace Mirror.Ignorance
             CeaseOperation = true;
         }
 
-        public static RingBuffer<Packet> Incoming;   // Client -> ENET World -> Mirror
-        public static RingBuffer<Packet> Outgoing;   // Mirror -> ENET World -> Client
-    
+        public static RingBuffer<QueuedPacket> Incoming;   // Client -> ENET World -> Mirror
+        public static RingBuffer<QueuedPacket> Outgoing;   // Mirror -> ENET World -> Client
     }
 
-    public class ServerShowerhead : BaseShowerhead
+    public static class ServerShowerhead
     {
-        public override void Start(ushort port)
+        public static volatile Host HostObject = new Host();    // ENET Host Object
+        public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
+        public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
+        public static Thread Nozzle;
+        public static volatile bool CeaseOperation = false;
+
+        private static Dictionary<int, Peer> knownConnIDToPeers;
+        private static Dictionary<Peer, int> knownPeersToConnIDs;
+        private static int nextAvailableSlot = 1;
+
+        public static RingBuffer<QueuedPacket> Incoming;   // Client -> ENET World -> Mirror
+        public static RingBuffer<QueuedPacket> Outgoing;   // Mirror -> ENET World -> Client
+
+        public static bool IsServerActive ()
         {
-            // Bootstrap
-            base.Start(port);
+            return Nozzle.IsAlive;
+        }
+
+        public static void Start(ushort port)
+        {
+            StartInternal(port);
+        }
+
+        public static void StartInternal(ushort port)
+        {
+            Port = port;
 
             // Configure and start thread.
             Nozzle = new Thread(WorkerLoop)
@@ -53,13 +74,16 @@ namespace Mirror.Ignorance
             Nozzle.Start();
         }
 
-        public override void Stop()
+        public static void Stop()
         {
-            base.Stop();
+            CeaseOperation = true;
+            Nozzle.Abort();
         }
 
         public static void WorkerLoop(object args)
         {
+            int deadPeerConnID, timedOutConnID, knownConnectionID;
+
             // Copy pasta
             using (HostObject)
             {
@@ -93,36 +117,59 @@ namespace Mirror.Ignorance
                                 break;
 
                             case EventType.Connect:
-                                Console.WriteLine("Client connected - ID: " + netEvent.Peer.ID + ", IP: " + netEvent.Peer.IP);
+                                Debug.Log($"Server has a new client! Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Mirror CID: {nextAvailableSlot}");
+
+                                knownPeersToConnIDs.Add(netEvent.Peer, nextAvailableSlot);
+                                knownConnIDToPeers.Add(nextAvailableSlot, netEvent.Peer);
+
+                                OnServerConnected.Invoke(nextAvailableSlot);
+                                nextAvailableSlot++;
                                 break;
 
                             case EventType.Disconnect:
-                                Console.WriteLine("Client disconnected - ID: " + netEvent.Peer.ID + ", IP: " + netEvent.Peer.IP);
+                                Debug.Log($"Server had a client disconnect. Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
+                                if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out deadPeerConnID))
+                                {                                   
+                                    OnServerDisconnected.Invoke(deadPeerConnID);
+                                    PeerDisconnectedInternal(netEvent.Peer);
+                                }
                                 break;
 
                             case EventType.Timeout:
-                                Console.WriteLine("Client timeout - ID: " + netEvent.Peer.ID + ", IP: " + netEvent.Peer.IP);
+                                Debug.Log("Client timeout - ID: " + netEvent.Peer.ID + ", IP: " + netEvent.Peer.IP);
+                                if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out timedOutConnID))
+                                {
+                                    OnServerDisconnected.Invoke(timedOutConnID);
+                                    PeerDisconnectedInternal(netEvent.Peer);
+                                }
                                 break;
 
                             case EventType.Receive:
-                                // Console.WriteLine("Packet received from - ID: " + netEvent.Peer.ID + ", IP: " + netEvent.Peer.IP + ", Channel ID: " + netEvent.ChannelID + ", Data length: " + netEvent.Packet.Length);
-                                Incoming.Enqueue(netEvent.Packet);
+                                // Enslave a new packet to the queue.
+                                Incoming.Enqueue(new QueuedPacket() { connectionId = knownPeersToConnIDs[netEvent.Peer], contents = netEvent.Packet });
                                 netEvent.Packet.Dispose();
                                 break;
                         }
                     }
                 }
 
-                hostObject.Flush();
+                HostObject.Flush();
             }
         }
 
-        // server
-        public UnityEventInt OnServerConnected;
-        public UnityEventInt OnServerDisconnected;
+        private static void PeerDisconnectedInternal(Peer peer)
+        {
+            // Clean up dictionaries.
+            knownConnIDToPeers.Remove(knownPeersToConnIDs[peer]);
+            knownPeersToConnIDs.Remove(peer);
+        }
 
-        public UnityEventIntByteArray OnServerDataReceived;
-        public UnityEventIntException OnServerError;        
+        // server
+        public static UnityEventInt OnServerConnected;
+        public static UnityEventInt OnServerDisconnected;
+
+        public static UnityEventIntByteArray OnServerDataReceived;
+        public static UnityEventIntException OnServerError;        
     }
 
     public class ClientShowerhead : BaseShowerhead
@@ -134,31 +181,13 @@ namespace Mirror.Ignorance
         public UnityEventException OnClientError;
     }
 
-    public class ServerShowerHead
+    public class QueuedPacket
     {
-        public static volatile Host hostObject;
-
-        public static readonly Thread Nozzle = new Thread(WorkerThread)
-        {
-            Name = "Showerhead Packet Engine (Server)"
-        };
-
-        public static void Start()
-        {
-            // start the server
-        }
-
-        public static void Stop()
-        {
-            // stop the server
-        }
-
-        private static void WorkerThread()
-        {
-            ;
-        }
+        public int connectionId;
+        public Packet contents;
     }
 
+    /*
     public class Showerhead
     {
         /// <summary>
@@ -266,4 +295,5 @@ namespace Mirror.Ignorance
             Debug.Log("Showerhead has finished it's loop.");
         }
     }
+    */
 }
