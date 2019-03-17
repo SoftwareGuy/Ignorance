@@ -373,7 +373,7 @@ namespace Mirror
             {
                 while (ServerShowerhead.Incoming.Count > 0)
                 {
-                    QueuedPacket packet;
+                    QueuedIncomingPacket packet;
 
                     if (ServerShowerhead.Incoming.TryDequeue(out packet))
                     {

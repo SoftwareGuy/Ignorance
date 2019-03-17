@@ -1,69 +1,67 @@
 ﻿using ENet;
-using Event = ENet.Event;
-using EventType = ENet.EventType;
-
+using Mirror.Ignorance.Thirdparty;
 using System;
 using System.Collections.Generic;
 using System.Threading;
-
 using UnityEngine;
-using Mirror.Ignorance.Thirdparty;
+using Event = ENet.Event;
+using EventType = ENet.EventType;
 
 namespace Mirror.Ignorance
 {
-    public class BaseShowerhead
-    {
-        public static volatile Host HostObject = new Host();    // ENET Host Object
-        public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
-        public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
-        public static Thread Nozzle;
-
-        // maybe not needed? thread.Pause() / thread.Resume() ....?
-        public static volatile bool CeaseOperation = false;
-
-        public virtual void StartInternal(ushort port)
-        {
-            Port = port;
-            CeaseOperation = false;
-        }
-
-        public virtual void Stop()
-        {
-            CeaseOperation = true;
-        }
-
-        public static RingBuffer<QueuedPacket> Incoming;   // Client -> ENET World -> Mirror
-        public static RingBuffer<QueuedPacket> Outgoing;   // Mirror -> ENET World -> Client
-    }
-
     public static class ServerShowerhead
     {
         public static volatile Host HostObject = new Host();    // ENET Host Object
-        public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
+        // public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
         public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
-        public static Thread Nozzle;
+        public static volatile int SendPacketQueueSize = 4096;
+        public static volatile int ReceivePacketQueueSize = 4096;
+
         public static volatile bool CeaseOperation = false;
+
+        public static Thread Nozzle;
 
         private static Dictionary<int, Peer> knownConnIDToPeers;
         private static Dictionary<Peer, int> knownPeersToConnIDs;
         private static int nextAvailableSlot = 1;
 
-        public static RingBuffer<QueuedPacket> Incoming;   // Client -> ENET World -> Mirror
-        public static RingBuffer<QueuedPacket> Outgoing;   // Mirror -> ENET World -> Client
+        public static RingBuffer<QueuedIncomingPacket> Incoming;   // Client -> ENET World -> Mirror
+        public static RingBuffer<QueuedOutgoingPacket> Outgoing;  // Mirror -> ENET World -> Client
 
-        public static bool IsServerActive ()
+        internal static void InitializeEventHandlers()
         {
-            return Nozzle.IsAlive;
+            OnServerConnected = new UnityEventInt();
+            OnServerDisconnected = new UnityEventInt();
+
+            OnServerDataReceived = new UnityEventIntByteArray();
+            OnServerError = new UnityEventIntException();
+        }
+
+        public static bool IsServerActive()
+        {
+            Debug.Log("IsServerActive() polled");
+            if (Nozzle != null)
+            {
+                return Nozzle.IsAlive;
+            } else {
+                return false;
+            }
         }
 
         public static void Start(ushort port)
         {
-            StartInternal(port);
-        }
+            Debug.Log("Ignorance Server Showerhead: Start()");
 
-        public static void StartInternal(ushort port)
-        {
             Port = port;
+            CeaseOperation = false;
+
+            // Refresh dictonaries
+            knownConnIDToPeers = new Dictionary<int, Peer>();
+            knownPeersToConnIDs = new Dictionary<Peer, int>();
+
+            // Setup queues.
+            Incoming = new RingBuffer<QueuedIncomingPacket>(SendPacketQueueSize);
+            Outgoing = new RingBuffer<QueuedOutgoingPacket>(ReceivePacketQueueSize);
 
             // Configure and start thread.
             Nozzle = new Thread(WorkerLoop)
@@ -76,15 +74,24 @@ namespace Mirror.Ignorance
 
         public static void Stop()
         {
+            Debug.Log("Ignorance Server Showerhead: Stop()");
+
             CeaseOperation = true;
-            Nozzle.Abort();
+            if (Nozzle.IsAlive)
+            {
+                Nozzle.Abort();
+            }
+            else
+            {
+                Debug.LogError("Tried to call Abort on a dead thread?!");
+            }
         }
 
         public static void WorkerLoop(object args)
         {
-            int deadPeerConnID, timedOutConnID, knownConnectionID;
+            Debug.Log("Nozzle WorkerLoop begins.");
+            int deadPeerConnID, timedOutConnID;
 
-            // Copy pasta
             using (HostObject)
             {
                 // Create a new address.
@@ -94,67 +101,148 @@ namespace Mirror.Ignorance
                 // Create the host object.
                 HostObject.Create(address, 1000);
 
+                Debug.Log("Created HostObject, hopefully.");
+
                 // Hold the network event that's being emitted.
                 Event netEvent;
 
-                while (!CeaseOperation)
+                try
                 {
-                    bool polled = false;
-
-                    while (!polled)
+                    while (!CeaseOperation)
                     {
-                        if (HostObject.CheckEvents(out netEvent) <= 0)
-                        {
-                            if (HostObject.Service(15, out netEvent) <= 0)
-                                break;
+                        bool polled = false;
 
-                            polled = true;
+                        // Send code below.
+                        if (Outgoing.Count > 0)
+                        {
+                            // REMOVE ME
+                            Debug.Log("We've got packets to send!");
+
+                            while (Outgoing.Count > 0)
+                            {
+                                QueuedOutgoingPacket pkt;
+                                if (Outgoing.TryDequeue(out pkt))
+                                {
+                                    if (IsConnectionIdKnown(pkt.targetConnectionId))
+                                    {
+                                        if(knownConnIDToPeers[pkt.targetConnectionId].Send(pkt.channelId, ref pkt.contents))
+                                        {
+                                            Debug.Log("Yay");
+                                        } else
+                                        {
+                                            Debug.LogWarning("No!");
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        switch (netEvent.Type)
+                        // Receive code below.
+                        while (!polled)
                         {
-                            case EventType.None:
-                                break;
+                            if (HostObject.CheckEvents(out netEvent) <= 0)
+                            {
+                                if (HostObject.Service(15, out netEvent) <= 0)
+                                    break;
 
-                            case EventType.Connect:
-                                Debug.Log($"Server has a new client! Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Mirror CID: {nextAvailableSlot}");
+                                polled = true;
+                            }
 
-                                knownPeersToConnIDs.Add(netEvent.Peer, nextAvailableSlot);
-                                knownConnIDToPeers.Add(nextAvailableSlot, netEvent.Peer);
+                            switch (netEvent.Type)
+                            {
+                                case EventType.None:
+                                    break;
 
-                                OnServerConnected.Invoke(nextAvailableSlot);
-                                nextAvailableSlot++;
-                                break;
+                                case EventType.Connect:
+                                    Debug.Log($"Server has a new client! Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Mirror CID: {nextAvailableSlot}");
 
-                            case EventType.Disconnect:
-                                Debug.Log($"Server had a client disconnect. Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
-                                if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out deadPeerConnID))
-                                {                                   
-                                    OnServerDisconnected.Invoke(deadPeerConnID);
-                                    PeerDisconnectedInternal(netEvent.Peer);
-                                }
-                                break;
+                                    knownPeersToConnIDs.Add(netEvent.Peer, nextAvailableSlot);
+                                    knownConnIDToPeers.Add(nextAvailableSlot, netEvent.Peer);
 
-                            case EventType.Timeout:
-                                Debug.Log("Client timeout - ID: " + netEvent.Peer.ID + ", IP: " + netEvent.Peer.IP);
-                                if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out timedOutConnID))
-                                {
-                                    OnServerDisconnected.Invoke(timedOutConnID);
-                                    PeerDisconnectedInternal(netEvent.Peer);
-                                }
-                                break;
+                                    OnServerConnected.Invoke(nextAvailableSlot);
+                                    nextAvailableSlot++;
+                                    break;
 
-                            case EventType.Receive:
-                                // Enslave a new packet to the queue.
-                                Incoming.Enqueue(new QueuedPacket() { connectionId = knownPeersToConnIDs[netEvent.Peer], contents = netEvent.Packet });
-                                netEvent.Packet.Dispose();
-                                break;
+                                case EventType.Disconnect:
+                                    Debug.Log($"Server had a client disconnect. Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
+                                    if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out deadPeerConnID))
+                                    {
+                                        OnServerDisconnected.Invoke(deadPeerConnID);
+                                        PeerDisconnectedInternal(netEvent.Peer);
+                                    }
+                                    break;
+
+                                case EventType.Timeout:
+                                    Debug.Log($"Server had a client timeout. ID: Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
+                                    if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out timedOutConnID))
+                                    {
+                                        OnServerDisconnected.Invoke(timedOutConnID);
+                                        PeerDisconnectedInternal(netEvent.Peer);
+                                    }
+                                    break;
+
+                                case EventType.Receive:
+                                    // Enslave a new packet to the queue.
+                                    Incoming.Enqueue(new QueuedIncomingPacket() { connectionId = knownPeersToConnIDs[netEvent.Peer], contents = netEvent.Packet });
+                                    netEvent.Packet.Dispose();
+                                    break;
+                            }
                         }
                     }
-                }
 
-                HostObject.Flush();
+                    HostObject.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Thread ERROR: {ex.ToString()}");
+                }
+                finally
+                {
+                    Debug.Log("Turned off the Nozzle. Good work out there.");
+                }
             }
+        }
+
+        internal static string GetClientAddress(int connectionId)
+        {
+            Peer result;
+            if (knownConnIDToPeers.TryGetValue(connectionId, out result))
+            {
+                return result.IP;
+            }
+
+            return "(invalid)";
+        }
+
+        internal static bool DisconnectThatConnection(int connectionId)
+        {
+            Peer result;
+
+            if (knownConnIDToPeers.TryGetValue(connectionId, out result))
+            {
+                result.DisconnectNow(0);
+            }
+            else
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        public static bool IsConnectionIdKnown(int connectionId)
+        {
+            if (knownConnIDToPeers.ContainsKey(connectionId))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static Peer ResolveConnectionIDToPeer(int connectionId)
+        {
+            return knownConnIDToPeers[connectionId];
         }
 
         private static void PeerDisconnectedInternal(Peer peer)
@@ -169,131 +257,21 @@ namespace Mirror.Ignorance
         public static UnityEventInt OnServerDisconnected;
 
         public static UnityEventIntByteArray OnServerDataReceived;
-        public static UnityEventIntException OnServerError;        
+        public static UnityEventIntException OnServerError;
     }
 
-    public class ClientShowerhead : BaseShowerhead
-    {
-        public UnityEngine.Events.UnityEvent OnClientConnected;
-        public UnityEngine.Events.UnityEvent OnClientDisconnected;
-
-        public UnityEventByteArray OnClientDataReceived;
-        public UnityEventException OnClientError;
-    }
-
-    public class QueuedPacket
+    // Incoming Packet Class
+    public class QueuedIncomingPacket
     {
         public int connectionId;
         public Packet contents;
     }
 
-    /*
-    public class Showerhead
+    // Outoging Packet Class
+    public class QueuedOutgoingPacket
     {
-        /// <summary>
-        /// Server's host object.
-        /// </summary>
-        public static volatile Host ServerHostObject;
-
-        /// <summary>
-        /// Client's host object.
-        /// </summary>
-        public static volatile Host ClientHostObject;
-
-        /// <summary>
-        /// The server's processing thread.
-        /// </summary>
-        public static readonly Thread ServerNozzle = new Thread(PacketFlow)
-        {
-            Name = "Showerhead Packet Engine (Server)"
-        };
-
-        /// <summary>
-        /// The client's processing thread.
-        /// </summary>
-        public static readonly Thread ClientNozzle = new Thread(PacketFlow)
-        {
-            Name = "Showerhead Packet Engine (Client)"
-        };
-
-        /// <summary>
-        /// The incoming queue (Client -> ENET -> Mirror)
-        /// </summary>
-        public static volatile Queue<Packet> IncomingServerQueue;
-
-        /// <summary>
-        /// The outgoing queue (Mirror -> ENET -> Client)
-        /// </summary>
-        public static volatile Queue<Packet> OutgoingServerQueue;
-
-        /// <summary>
-        /// The control switch. If set to true, operations will be performed.
-        /// </summary>
-        private static volatile bool ContinueOperation = false;
-
-        public static void StartServer()
-        {
-            if (ServerNozzle.IsAlive)
-            {
-                Debug.LogError("Cannot start the server processing thread when it's already running, please stop it first.");
-            }
-            else
-            {
-                Debug.Log("Starting the server processing thread.");
-                ContinueOperation = true;
-
-                ServerNozzle.Start();
-            }
-        }
-
-        public static void Stop()
-        {
-            if (!ServerNozzle.IsAlive)
-            {
-                Debug.Log("Cannot stop the server processing thread when it's already stopped. Please start it first.");
-            }
-            else
-            {
-                Debug.Log("Requested server processing thread to stop.");
-
-                // TODO, clean this up.
-
-                ContinueOperation = false;
-                ServerNozzle.Abort();
-            }
-        }
-
-        /// <summary>
-        /// Full blast!
-        /// </summary>
-        /// <param name="obj">I dunno what this is</param>
-        private static void PacketFlow(object obj)
-        {
-            try
-            {
-                // This needs to be properly implemented.
-                while (ContinueOperation)
-                {
-                    // We talk to ENET and get shit coming out of the nozzle.
-                    // TO BE IMPLEMENTED.
-                    Debug.Log("PacketFlow run!");
-                }
-            }
-            catch (ThreadInterruptedException)
-            {
-                // Something interrupted the packet flow.
-            }
-            catch (ThreadAbortException)
-            {
-                // We aborted the thread.
-            }
-            finally
-            {
-                // Run code here to make sure everything's ok.
-            }
-
-            Debug.Log("Showerhead has finished it's loop.");
-        }
+        public int targetConnectionId;
+        public byte channelId = 0x00;
+        public Packet contents;
     }
-    */
 }
