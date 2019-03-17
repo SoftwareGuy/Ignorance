@@ -2,6 +2,7 @@
 using Mirror.Ignorance.Thirdparty;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Threading;
 using UnityEngine;
 using Event = ENet.Event;
@@ -21,11 +22,12 @@ namespace Mirror.Ignorance
 
         public static Thread Nozzle;
 
-        private static Dictionary<int, Peer> knownConnIDToPeers;
-        private static Dictionary<Peer, int> knownPeersToConnIDs;
-        private static int nextAvailableSlot = 1;
+        internal static Dictionary<int, uint> knownConnIDToPeers;
+        internal static Dictionary<uint, int> knownPeersToConnIDs;
+        private static ConcurrentDictionary<uint, Peer> knownPeers;
+        internal static int nextAvailableSlot = 1;
 
-        public static RingBuffer<QueuedIncomingPacket> Incoming;   // Client -> ENET World -> Mirror
+        public static RingBuffer<QueuedIncomingEvent> Incoming;   // Client -> ENET World -> Mirror
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;  // Mirror -> ENET World -> Client
 
         internal static void InitializeEventHandlers()
@@ -56,11 +58,12 @@ namespace Mirror.Ignorance
             CeaseOperation = false;
 
             // Refresh dictonaries
-            knownConnIDToPeers = new Dictionary<int, Peer>();
-            knownPeersToConnIDs = new Dictionary<Peer, int>();
+            knownConnIDToPeers = new Dictionary<int, uint>();
+            knownPeersToConnIDs = new Dictionary<uint, int>();
+            knownPeers = new ConcurrentDictionary<uint, Peer>();
 
             // Setup queues.
-            Incoming = new RingBuffer<QueuedIncomingPacket>(SendPacketQueueSize);
+            Incoming = new RingBuffer<QueuedIncomingEvent>(SendPacketQueueSize);
             Outgoing = new RingBuffer<QueuedOutgoingPacket>(ReceivePacketQueueSize);
 
             // Configure and start thread.
@@ -90,7 +93,6 @@ namespace Mirror.Ignorance
         public static void WorkerLoop(object args)
         {
             Debug.Log("Nozzle WorkerLoop begins.");
-            int deadPeerConnID, timedOutConnID;
 
             using (HostObject)
             {
@@ -123,9 +125,9 @@ namespace Mirror.Ignorance
                                 QueuedOutgoingPacket pkt;
                                 if (Outgoing.TryDequeue(out pkt))
                                 {
-                                    if (IsConnectionIdKnown(pkt.targetConnectionId))
+                                    if (knownPeers.TryGetValue(pkt.targetPeerId, out Peer peer))
                                     {
-                                        if(knownConnIDToPeers[pkt.targetConnectionId].Send(pkt.channelId, ref pkt.contents))
+                                        if(peer.Send(pkt.channelId, ref pkt.contents))
                                         {
                                             Debug.Log("Yay");
                                         } else
@@ -148,43 +150,58 @@ namespace Mirror.Ignorance
                                 polled = true;
                             }
 
+                            Peer peer = netEvent.Peer;
+                            QueuedIncomingEvent evt = default;
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
                                     break;
 
                                 case EventType.Connect:
-                                    Debug.Log($"Server has a new client! Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Mirror CID: {nextAvailableSlot}");
+                                    Debug.Log($"Worker Thread: Server has a new client! Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Mirror CID: {nextAvailableSlot}");
+                                    
+                                    knownPeers.TryAdd(peer.ID, peer);
 
-                                    knownPeersToConnIDs.Add(netEvent.Peer, nextAvailableSlot);
-                                    knownConnIDToPeers.Add(nextAvailableSlot, netEvent.Peer);
-
-                                    OnServerConnected.Invoke(nextAvailableSlot);
-                                    nextAvailableSlot++;
+                                    evt.eventType = EventType.Connect;
+                                    evt.peerId = peer.ID;
+                                    Incoming.Enqueue(evt);
+                                    
                                     break;
 
                                 case EventType.Disconnect:
-                                    Debug.Log($"Server had a client disconnect. Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
-                                    if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out deadPeerConnID))
-                                    {
-                                        OnServerDisconnected.Invoke(deadPeerConnID);
-                                        PeerDisconnectedInternal(netEvent.Peer);
-                                    }
+                                    Debug.Log($"Worker Thread: Server had a client disconnect. Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
+
+                                    knownPeers.TryRemove(peer.ID, out Peer peerDisconnected);
+
+                                    evt.eventType = EventType.Disconnect;
+                                    evt.peerId = peer.ID;
+                                    Incoming.Enqueue(evt);
+
                                     break;
 
                                 case EventType.Timeout:
-                                    Debug.Log($"Server had a client timeout. ID: Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
-                                    if (knownPeersToConnIDs.TryGetValue(netEvent.Peer, out timedOutConnID))
-                                    {
-                                        OnServerDisconnected.Invoke(timedOutConnID);
-                                        PeerDisconnectedInternal(netEvent.Peer);
-                                    }
+                                    Debug.Log($"Worker Thread: Server had a client timeout. ID: Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
+
+                                    knownPeers.TryRemove(peer.ID, out Peer peerTimedOut);
+
+                                    evt.eventType = EventType.Disconnect;
+                                    evt.peerId = peer.ID;
+                                    Incoming.Enqueue(evt);
+
                                     break;
 
                                 case EventType.Receive:
-                                    // Enslave a new packet to the queue.
-                                    Incoming.Enqueue(new QueuedIncomingPacket() { connectionId = knownPeersToConnIDs[netEvent.Peer], contents = netEvent.Packet });
+                                    evt.eventType = EventType.Receive;
+                                    evt.peerId = peer.ID;
+
+                                    Packet pkt = netEvent.Packet;
+                                    evt.databuff = new byte[pkt.Length];
+                                    pkt.CopyTo(evt.databuff);
                                     netEvent.Packet.Dispose();
+
+                                    // Enslave a new packet to the queue.
+                                    Incoming.Enqueue(evt);
+                                    
                                     break;
                             }
                         }
@@ -213,11 +230,12 @@ namespace Mirror.Ignorance
 
         internal static string GetClientAddress(int connectionId)
         {
-            Peer result;
-
-            if (knownConnIDToPeers.TryGetValue(connectionId, out result))
+            if (knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
             {
-                return result.IP;
+                if (knownPeers.TryGetValue(peerId, out Peer peer))
+                {
+                    return peer.IP;
+                }
             }
 
             return "(invalid)";
@@ -225,12 +243,13 @@ namespace Mirror.Ignorance
 
         internal static bool DisconnectThatConnection(int connectionId)
         {
-            Peer result;
-
-            if (knownConnIDToPeers.TryGetValue(connectionId, out result))
+            if (knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
             {
-                result.DisconnectNow(0);
-                return true;
+                if (knownPeers.TryGetValue(peerId, out Peer peer))
+                {
+                    peer.DisconnectNow(0);
+                    return true;
+                }
             }
 
             return false;
@@ -246,12 +265,12 @@ namespace Mirror.Ignorance
             return false;
         }
 
-        private static Peer ResolveConnectionIDToPeer(int connectionId)
+        internal static uint ResolveConnectionIDToPeer(int connectionId)
         {
             return knownConnIDToPeers[connectionId];
         }
 
-        private static void PeerDisconnectedInternal(Peer peer)
+        internal static void PeerDisconnectedInternal(uint peer)
         {
             // Clean up dictionaries.
             knownConnIDToPeers.Remove(knownPeersToConnIDs[peer]);
@@ -266,6 +285,14 @@ namespace Mirror.Ignorance
         public static UnityEventIntException OnServerError = new UnityEventIntException();
     }
 
+    // Incoming Event Class
+    public struct QueuedIncomingEvent
+    {
+        public uint peerId;
+        public EventType eventType;
+        public byte[] databuff;
+    }
+
     // Incoming Packet Class
     public class QueuedIncomingPacket
     {
@@ -276,7 +303,7 @@ namespace Mirror.Ignorance
     // Outoging Packet Class
     public class QueuedOutgoingPacket
     {
-        public int targetConnectionId;
+        public uint targetPeerId;
         public byte channelId = 0x00;
         public Packet contents;
     }
