@@ -203,9 +203,18 @@ namespace Mirror.Ignorance
             }
         }
 
+        internal static void Shutdown()
+        {
+            if (HostObject != null && HostObject.IsSet)
+            {
+                HostObject.Dispose();
+            }
+        }
+
         internal static string GetClientAddress(int connectionId)
         {
             Peer result;
+
             if (knownConnIDToPeers.TryGetValue(connectionId, out result))
             {
                 return result.IP;
@@ -221,10 +230,7 @@ namespace Mirror.Ignorance
             if (knownConnIDToPeers.TryGetValue(connectionId, out result))
             {
                 result.DisconnectNow(0);
-            }
-            else
-            {
-                return false;
+                return true;
             }
 
             return false;
@@ -253,11 +259,11 @@ namespace Mirror.Ignorance
         }
 
         // server
-        public static UnityEventInt OnServerConnected;
-        public static UnityEventInt OnServerDisconnected;
+        public static UnityEventInt OnServerConnected = new UnityEventInt();
+        public static UnityEventInt OnServerDisconnected = new UnityEventInt();
 
-        public static UnityEventIntByteArray OnServerDataReceived;
-        public static UnityEventIntException OnServerError;
+        public static UnityEventIntByteArray OnServerDataReceived = new UnityEventIntByteArray();
+        public static UnityEventIntException OnServerError = new UnityEventIntException();
     }
 
     // Incoming Packet Class

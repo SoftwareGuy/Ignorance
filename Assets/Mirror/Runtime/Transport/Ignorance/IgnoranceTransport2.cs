@@ -144,9 +144,6 @@ namespace Mirror
 
         public override void ServerStart()
         {
-            // Initialize our event handlers.
-            ServerShowerhead.InitializeEventHandlers();
-
             // Attach them.
             ServerShowerhead.OnServerConnected.AddListener(ServerConnected);
             ServerShowerhead.OnServerDisconnected.AddListener(ServerDisconnected);
@@ -169,7 +166,8 @@ namespace Mirror
 
         public override void Shutdown()
         {
-            throw new NotImplementedException();
+            ServerShowerhead.Shutdown();
+            ClientShowerhead.Shutdown();
         }
         #endregion
 

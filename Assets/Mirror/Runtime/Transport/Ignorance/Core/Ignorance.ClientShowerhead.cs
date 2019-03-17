@@ -1,5 +1,6 @@
 ﻿using ENet;
 using Mirror.Ignorance.Thirdparty;
+using System;
 using System.Threading;
 using UnityEngine;
 using Event = ENet.Event;
@@ -30,7 +31,7 @@ namespace Mirror.Ignorance
         {
             Debug.Log("Ignorance Client Showerhead: Start()");
 
-            InitializeEventHandlers();
+            // InitializeEventHandlers();
 
             ClientAddress = addr;
             ClientPort = port;
@@ -122,17 +123,22 @@ namespace Mirror.Ignorance
                         switch (netEvent.Type)
                         {
                             case EventType.None:
+                                // Nothing happened, continue on.
                                 break;
 
                             case EventType.Connect:
+                                // We connected to the server.
+                                //Debug.Log("We've connected to the server!");
                                 OnClientConnected.Invoke();
                                 break;
 
                             case EventType.Disconnect:
+                                //Debug.Log("We've disconnected from the server!");
                                 OnClientDisconnected.Invoke();
                                 break;
 
                             case EventType.Timeout:
+                                //Debug.Log("We timed out...");
                                 OnClientDisconnected.Invoke();
                                 break;
 
@@ -154,6 +160,20 @@ namespace Mirror.Ignorance
             return ClientPeer.IsSet && ClientPeer.State == PeerState.Connected;
         }
 
+        internal static void Shutdown()
+        {
+            if(ClientPeer.IsSet && ClientPeer.State == PeerState.Connected)
+            {
+                ClientPeer.DisconnectNow(0);
+            }
+
+            if(HostObject != null && HostObject.IsSet)
+            {
+                HostObject.Dispose();
+            }
+        }
+
+        /*
         public static void InitializeEventHandlers()
         {
             OnClientConnected = new UnityEngine.Events.UnityEvent();
@@ -162,6 +182,7 @@ namespace Mirror.Ignorance
             OnClientDataReceived = new UnityEventByteArray();
             OnClientError = new UnityEventException();
         }
+        */
 
         public static UnityEngine.Events.UnityEvent OnClientConnected = new UnityEngine.Events.UnityEvent();
         public static UnityEngine.Events.UnityEvent OnClientDisconnected = new UnityEngine.Events.UnityEvent();
