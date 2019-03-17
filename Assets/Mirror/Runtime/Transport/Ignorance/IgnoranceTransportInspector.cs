@@ -16,10 +16,10 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Mirror
+namespace Mirror.Ignorance
 {
     [CustomEditor(typeof(IgnoranceTransport))]
-    public class IgnoranceTransportInspector : Editor
+    public class IgnoranceTransportInspector : UnityEditor.Editor
     {
         bool showGeneralSettings = true;
         bool showServerSettings = true;
