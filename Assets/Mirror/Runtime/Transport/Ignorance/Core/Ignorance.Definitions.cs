@@ -40,6 +40,4 @@ namespace Mirror.Ignorance
         UnreliableFragmented,
         UnreliableSequenced,
     }
-
-
 }

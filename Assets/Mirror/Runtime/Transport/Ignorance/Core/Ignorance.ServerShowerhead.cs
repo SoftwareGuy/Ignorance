@@ -23,20 +23,25 @@ namespace Mirror.Ignorance
         // public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
         public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
         public static volatile int SendPacketQueueSize = 4096;
-        public static volatile int ReceivePacketQueueSize = 4096;
+        public static volatile int ReceiveEventQueueSize = 4096;
         public static volatile int MaximumConnectionsAllowed = 4095;
 
+        public static volatile int NumChannels = 1;
         public static volatile bool CeaseOperation = false;
+        public static bool DebugMode = false;
 
         public static Thread Nozzle;
 
         internal static Dictionary<int, uint> knownConnIDToPeers;
         internal static Dictionary<uint, int> knownPeersToConnIDs;
-        private static ConcurrentDictionary<uint, Peer> knownPeers;
+        
         internal static int nextAvailableSlot = 1;
 
         public static RingBuffer<QueuedIncomingEvent> Incoming;   // Client -> ENET World -> Mirror
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;  // Mirror -> ENET World -> Client
+
+        private static ConcurrentDictionary<uint, Peer> knownPeers;
+        
 
         public static bool IsServerActive()
         {
@@ -64,7 +69,7 @@ namespace Mirror.Ignorance
 
             // Setup queues.
             Incoming = new RingBuffer<QueuedIncomingEvent>(SendPacketQueueSize);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(ReceivePacketQueueSize);
+            Outgoing = new RingBuffer<QueuedOutgoingPacket>(ReceiveEventQueueSize);
 
             // Configure and start thread.
             Nozzle = new Thread(WorkerLoop)
@@ -94,7 +99,7 @@ namespace Mirror.Ignorance
                 address.Port = Port;
 
                 // Create the host object with the specifed maximum amount of ENET connections allowed.
-                HostObject.Create(address, MaximumConnectionsAllowed);
+                HostObject.Create(address, MaximumConnectionsAllowed, NumChannels, 0, 0);
 
                 // Hold the network event that's being emitted.
                 Event netEvent;
@@ -137,6 +142,7 @@ namespace Mirror.Ignorance
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
+                                    // Do I need to say more?
                                     break;
 
                                 case EventType.Connect:
@@ -162,19 +168,6 @@ namespace Mirror.Ignorance
                                     Incoming.Enqueue(evt);
 
                                     break;
-
-                                /*
-                            case EventType.Timeout:
-                                Debug.Log($"Worker Thread: Server had a client timeout. ID: Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
-
-                                knownPeers.TryRemove(peer.ID, out Peer peerTimedOut);
-
-                                evt.eventType = EventType.Disconnect;
-                                evt.peerId = peer.ID;
-                                Incoming.Enqueue(evt);
-
-                                break;
-                                */
 
                                 case EventType.Receive:
                                     evt.eventType = EventType.Receive;

@@ -13,6 +13,7 @@
 using ENet;
 using Mirror.Ignorance;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
@@ -20,26 +21,31 @@ namespace Mirror
 {
     public class IgnoranceTransport2 : Transport, ISegmentTransport
     {
+        // Transport Port setting
         public ushort Port = 7778;
 
-        public ushort ServerSendQueue = 4096;
-        public ushort ServerReceiveQueue = 4096;
+        public bool DebugEnabled = false;
+        // Server's Send and Receive Queues
+        public ushort ServerOutgoingQueueSize = 4096;
+        public ushort ServerIncomingEventQueueSize = 4096;
 
-        public ushort ClientSendQueue = 4096;
-        public ushort ClientReceiveQueue = 4096;
+        public ushort ClientOutgoingQueueSize = 4096;
+        public ushort ClientIncomingEventQueueSize = 4096;
 
-        public static volatile bool CeaseOperation = false;
-
-        public static Thread Nozzle;
+        public List<KnownChannelTypes> ChannelDefinitions = new List<KnownChannelTypes>()
+        {
+            KnownChannelTypes.Reliable,     // Default channel 0, reliable
+            KnownChannelTypes.Unreliable,   // Default channel 1, unreliable
+        };
 
         public IgnoranceTransport2()
         {
-
+            // Intentionally left blank.
         }
 
         private void Awake()
         {
-            Debug.Log($"This is very experimental version of Ignorance and will likely catch fire.");
+            Debug.Log($"Ignorance Transport, experimental version has awakened.");
 
             Library.Initialize();
         }
@@ -51,14 +57,16 @@ namespace Mirror
 
         public override string ToString()
         {
-            return $"Ignorance on port {Port}.";
+            return $"Ignorance {(ServerShowerhead.IsServerActive() ? $"Server: Up, listen port {Port}." : "")}";
         }
 
         #region Client World
         public override void ClientConnect(string address)
         {
-            ClientShowerhead.IncomingEventQueueCapacity = ClientSendQueue;
-            ClientShowerhead.OutgoingPacketQueueCapacity = ClientReceiveQueue;
+            ClientShowerhead.IncomingEventQueueCapacity = ClientOutgoingQueueSize;
+            ClientShowerhead.OutgoingPacketQueueCapacity = ClientIncomingEventQueueSize;
+            ClientShowerhead.NumChannels = ChannelDefinitions.Count;
+            ClientShowerhead.DebugMode = DebugEnabled;
 
             ClientShowerhead.Start(address, Port);
         }
@@ -76,8 +84,10 @@ namespace Mirror
         public bool ClientSend(int channelId, ArraySegment<byte> data)
         {
             Packet outPkt = default;
-            // outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(m_ChannelDefinitions[channelId]));
-            outPkt.Create(data.Array, data.Offset, data.Count, PacketFlags.Reliable);
+            outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
+            
+            // Failsafe.
+            // outPkt.Create(data.Array, data.Offset, data.Count, PacketFlags.Reliable);
 
             ClientShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
             {
@@ -114,10 +124,13 @@ namespace Mirror
         {
             Packet outPkt = default;
 
-            // outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(m_ChannelDefinitions[channelId]));
-            outPkt.Create(data.Array, data.Offset, data.Count, PacketFlags.Reliable);
+            if(channelId >= ChannelDefinitions.Count)
+            {
+                Debug.LogWarning("NOQUEUE: Discarding a packet because the channel id is higher or equal to the amount of items in the channel list.");
+                return false;
+            }
 
-            // TODO: Channels check.
+            outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
 
             if (ServerShowerhead.knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
             {
@@ -141,6 +154,10 @@ namespace Mirror
 
         public override void ServerStart()
         {
+            ServerShowerhead.ReceiveEventQueueSize = ServerIncomingEventQueueSize;
+            ServerShowerhead.SendPacketQueueSize = ServerOutgoingQueueSize;
+            ServerShowerhead.NumChannels = ChannelDefinitions.Count;
+            ServerShowerhead.DebugMode = DebugEnabled;
             // Start the server thread.
             ServerShowerhead.Start(Port);
         }
@@ -252,9 +269,31 @@ namespace Mirror
             }
         }
         #endregion
+
+        #region Packet Size (maximum)
         public override int GetMaxPacketSize(int channelId = 0)
         {
             return (int)Library.maxPacketSize;  // 33,554,432 bytes.
         }
+        #endregion
+
+        #region Helpers 
+        public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
+        {
+            switch (source)
+            {
+                case KnownChannelTypes.Reliable:
+                    return PacketFlags.Reliable;            // reliable (tcp-like).
+                case KnownChannelTypes.Unreliable:
+                    return PacketFlags.Unsequenced;         // completely unreliable.
+                case KnownChannelTypes.UnreliableFragmented:
+                    return PacketFlags.UnreliableFragment;  // unreliable fragmented.
+                case KnownChannelTypes.UnreliableSequenced:
+                    return PacketFlags.None;                // unreliable, but sequenced.
+                default:
+                    return PacketFlags.Unsequenced;
+            }
+        }
+        #endregion
     }
 }

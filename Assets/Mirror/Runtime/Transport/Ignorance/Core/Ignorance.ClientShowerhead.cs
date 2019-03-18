@@ -31,7 +31,7 @@ namespace Mirror.Ignorance
         public static RingBuffer<QueuedIncomingEvent> Incoming;    // Server -> Client
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;    // Client -> Server
 
-        public static volatile bool CeaseOperation = false;
+        public static volatile bool CeaseOperation = false;     // Kills threads dead!
 
         public static Thread Nozzle;
 
