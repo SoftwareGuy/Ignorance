@@ -121,11 +121,11 @@ namespace Mirror
 
             // TODO: Channels check.
 
-            if (ServerShowerhead.IsConnectionIdKnown(connectionId))
+            if (ServerShowerhead.knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
             {
                 ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
                 {
-                    targetConnectionId = connectionId,
+                    targetPeerId = peerId,
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
@@ -178,14 +178,48 @@ namespace Mirror
             {
                 while (ServerShowerhead.Incoming.Count > 0)
                 {
-                    QueuedIncomingPacket packet;
+                    QueuedIncomingEvent evt;
 
-                    if (ServerShowerhead.Incoming.TryDequeue(out packet))
+                    if (ServerShowerhead.Incoming.TryDequeue(out evt))
                     {
-                        byte[] databuff = new byte[packet.contents.Length];
-                        packet.contents.CopyTo(databuff);
+                        switch (evt.eventType)
+                        {
+                        case ENet.EventType.Connect:
+                            Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {ServerShowerhead.nextAvailableSlot}");
 
-                        OnServerDataReceived.Invoke(packet.connectionId, databuff);
+                            ServerShowerhead.knownPeersToConnIDs.Add(evt.peerId, ServerShowerhead.nextAvailableSlot);
+                            ServerShowerhead.knownConnIDToPeers.Add(ServerShowerhead.nextAvailableSlot, evt.peerId);
+
+                            OnServerConnected.Invoke(ServerShowerhead.nextAvailableSlot);
+                            ServerShowerhead.nextAvailableSlot++;
+
+                            break;
+
+                        case ENet.EventType.Disconnect:
+                            Debug.Log($"Main Thread: Server had a client disconnect. Peer ID: {evt.peerId}");
+                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int deadPeerConnID))
+                            {
+                                OnServerDisconnected.Invoke(deadPeerConnID);
+                                ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
+                            }
+                            break;
+
+                        case ENet.EventType.Timeout:
+                            Debug.Log($"Main Thread: Server had a client timeout. ID: Peer ID: {evt.peerId}");
+                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedOutConnID))
+                            {
+                                OnServerDisconnected.Invoke(timedOutConnID);
+                                ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
+                            }
+                            break;
+
+                        case ENet.EventType.Receive:
+                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int connectionId))
+                            {
+                                OnServerDataReceived.Invoke(connectionId, evt.databuff);
+                            }
+                            break;
+                        }
                     }
                 }
             }
