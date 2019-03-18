@@ -31,4 +31,15 @@ namespace Mirror.Ignorance
         public byte channelId = 0x00;
         public Packet contents;
     }
+
+    [System.Serializable]
+    public enum KnownChannelTypes
+    {
+        Reliable,
+        Unreliable,
+        UnreliableFragmented,
+        UnreliableSequenced,
+    }
+
+
 }

@@ -57,8 +57,8 @@ namespace Mirror
         #region Client World
         public override void ClientConnect(string address)
         {
-            ClientShowerhead.IncomingPacketQueueSize = ClientSendQueue;
-            ClientShowerhead.OutgoingPacketQueueSize = ClientReceiveQueue;
+            ClientShowerhead.IncomingEventQueueCapacity = ClientSendQueue;
+            ClientShowerhead.OutgoingPacketQueueCapacity = ClientReceiveQueue;
 
             ClientShowerhead.Start(address, Port);
         }

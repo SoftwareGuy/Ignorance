@@ -24,6 +24,7 @@ namespace Mirror.Ignorance
         public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
         public static volatile int SendPacketQueueSize = 4096;
         public static volatile int ReceivePacketQueueSize = 4096;
+        public static volatile int MaximumConnectionsAllowed = 4095;
 
         public static volatile bool CeaseOperation = false;
 
@@ -36,15 +37,6 @@ namespace Mirror.Ignorance
 
         public static RingBuffer<QueuedIncomingEvent> Incoming;   // Client -> ENET World -> Mirror
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;  // Mirror -> ENET World -> Client
-
-        internal static void InitializeEventHandlers()
-        {
-            OnServerConnected = new UnityEventInt();
-            OnServerDisconnected = new UnityEventInt();
-
-            OnServerDataReceived = new UnityEventIntByteArray();
-            OnServerError = new UnityEventIntException();
-        }
 
         public static bool IsServerActive()
         {
@@ -101,8 +93,8 @@ namespace Mirror.Ignorance
                 Address address = new Address();
                 address.Port = Port;
 
-                // Create the host object.
-                HostObject.Create(address, 1000);
+                // Create the host object with the specifed maximum amount of ENET connections allowed.
+                HostObject.Create(address, MaximumConnectionsAllowed);
 
                 // Hold the network event that's being emitted.
                 Event netEvent;
@@ -113,12 +105,7 @@ namespace Mirror.Ignorance
                     {
                         bool polled = false;
 
-                        // Send code below.
-                        //if (Outgoing.Count > 0)
-                        //{
-                        // REMOVE ME
-                        // Debug.Log("We've got packets to send!");
-
+                        // Send any pending packets out first.
                         while (Outgoing.Count > 0)
                         {
                             QueuedOutgoingPacket pkt;
@@ -127,28 +114,19 @@ namespace Mirror.Ignorance
                                 if (knownPeers.TryGetValue(pkt.targetPeerId, out Peer peer))
                                 {
                                     peer.Send(pkt.channelId, ref pkt.contents);
-                                    /*
-                                    if (peer.Send(pkt.channelId, ref pkt.contents))
-                                    {
-                                        Debug.Log("Yay");
-                                    }
-                                    else
-                                    {
-                                        Debug.LogWarning("No!");
-                                    }
-                                    */
                                 }
                             }
                         }
-                        //}
 
-                        // Receive code below.
+                        // Now, we receive what's going on in the network chatter.
                         while (!polled)
                         {
                             if (HostObject.CheckEvents(out netEvent) <= 0)
                             {
                                 if (HostObject.Service(15, out netEvent) <= 0)
+                                {
                                     break;
+                                }
 
                                 polled = true;
                             }
@@ -286,12 +264,5 @@ namespace Mirror.Ignorance
             knownConnIDToPeers.Remove(knownPeersToConnIDs[peer]);
             knownPeersToConnIDs.Remove(peer);
         }
-
-        // server
-        public static UnityEventInt OnServerConnected = new UnityEventInt();
-        public static UnityEventInt OnServerDisconnected = new UnityEventInt();
-
-        public static UnityEventIntByteArray OnServerDataReceived = new UnityEventIntByteArray();
-        public static UnityEventIntException OnServerError = new UnityEventIntException();
     }
 }

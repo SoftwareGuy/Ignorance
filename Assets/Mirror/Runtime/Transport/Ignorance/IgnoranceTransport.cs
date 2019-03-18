@@ -15,14 +15,11 @@ using ENet;
 #if UNITY_EDITOR
 using Mirror.Ignorance.Editor;
 #endif
-using Mirror.Ignorance;
-
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
-
 
 namespace Mirror
 {
@@ -191,8 +188,7 @@ namespace Mirror
         /// <returns>True if the server is active, false otherwise.</returns>
         public override bool ServerActive()
         {
-            return ServerShowerhead.IsServerActive();
-            // return IsValid(m_Server);
+            return IsValid(m_Server);
         }
 
         /// <summary>
@@ -339,56 +335,9 @@ namespace Mirror
         // Thanks uwee!!
         public override void ServerStart()
         {
-            // ServerStart(string.Empty, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
-            ServerShowerhead.OnServerConnected.AddListener(ServerConnected);
-            ServerShowerhead.OnServerDisconnected.AddListener(ServerDisconnected);
-            ServerShowerhead.OnServerDataReceived.AddListener(ServerDataReceived);
-            ServerShowerhead.OnServerError.AddListener(ServerErrored);
+            ServerStart(string.Empty, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
         }
 
-        private void ServerConnected(int connectionId)
-        {
-            OnServerConnected.Invoke(connectionId);
-        }
-
-        private void ServerDisconnected(int connectionId)
-        {
-            OnServerDisconnected.Invoke(connectionId);
-        }
-
-        private void ServerDataReceived(int arg0, byte[] arg1)
-        {
-            OnServerDataReceived.Invoke(arg0, arg1);
-        }
-
-        private void ServerErrored(int arg0, Exception arg1)
-        {
-            throw new NotImplementedException();
-        }
-
-        // called in late update
-        private void TempServerMessageProcessor()
-        {
-            /*
-            if (ServerShowerhead.Incoming.Count > 0)
-            {
-                while (ServerShowerhead.Incoming.Count > 0)
-                {
-                    QueuedIncomingPacket packet;
-
-                    if (ServerShowerhead.Incoming.TryDequeue(out packet))
-                    {
-                        byte[] databuff = new byte[packet.contents.Length];
-                        packet.contents.CopyTo(databuff);
-
-                        OnServerDataReceived.Invoke(packet.connectionId, databuff);
-                    }
-                }
-            }
-            */
-        }
-
-        /* 
         public void ServerStart(ushort port)
         {
             ServerStart(string.Empty, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
@@ -398,7 +347,7 @@ namespace Mirror
         {
             ServerStart(networkAddress, port, (m_MaximumTotalConnections <= 0 ? int.MaxValue : m_MaximumTotalConnections));
         }
-        */
+
         /// <summary>
         /// Called when the server stops.
         /// </summary>
@@ -1119,7 +1068,6 @@ namespace Mirror
         {
             if (enabled)
             {
-                /*
                 if (m_UseNewPacketEngine)
                 {
                     NewServerMessageProcessor();
@@ -1133,12 +1081,7 @@ namespace Mirror
                     while (enabled && OldServerMessageProcessor()) ;
                     while (enabled && OldClientMessageProcessor()) ;
                 }
-                */
-
-                TempServerMessageProcessor();
-                NewClientMessageProcessor();
             }
-
         }
 
         // Sanity checks.

@@ -25,8 +25,8 @@ namespace Mirror.Ignorance
         public static int NumChannels = 1;
 
         public static bool DebugMode = false;
-        public static int IncomingPacketQueueSize = 4096;
-        public static int OutgoingPacketQueueSize = 4096;
+        public static int IncomingEventQueueCapacity = 4096;
+        public static int OutgoingPacketQueueCapacity = 4096;
 
         public static RingBuffer<QueuedIncomingEvent> Incoming;    // Server -> Client
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;    // Client -> Server
@@ -44,8 +44,8 @@ namespace Mirror.Ignorance
             ClientAddress = addr;
             ClientPort = port;
 
-            Incoming = new RingBuffer<QueuedIncomingEvent>(4096);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(4096);
+            Incoming = new RingBuffer<QueuedIncomingEvent>(IncomingEventQueueCapacity);
+            Outgoing = new RingBuffer<QueuedOutgoingPacket>(OutgoingPacketQueueCapacity);
 
             CeaseOperation = false;
 
@@ -65,7 +65,6 @@ namespace Mirror.Ignorance
             Debug.Log("Ignorance Client Showerhead: Stop()");
             Debug.Log("Instructing the showerhead worker to stop, this may take a few moments...");
             CeaseOperation = true;
-
         }
 
         public static void WorkerLoop(object args)
@@ -89,40 +88,25 @@ namespace Mirror.Ignorance
                     {
                         bool polled = false;
 
-                        // Send code below.
-                        //if (Outgoing.Count > 0)
-                        //{
-                        // REMOVE ME
-                        //Debug.Log("We've got packets to send!");
-
+                        // Send any pending packets out first.
                         while (Outgoing.Count > 0)
                         {
                             QueuedOutgoingPacket pkt;
                             if (Outgoing.TryDequeue(out pkt))
                             {
                                 ClientPeer.Send(pkt.channelId, ref pkt.contents);
-
-                                /*
-                                if (ClientPeer.Send(pkt.channelId, ref pkt.contents))
-                                {
-                                    Debug.Log("Yay");
-                                }
-                                else
-                                {
-                                    Debug.LogWarning("No!");
-                                }
-                                */
                             }
                         }
-                        //}
 
-                        // Receive code below.
+                        // Now, we receive what's going on in the network chatter.
                         while (!polled)
                         {
                             if (HostObject.CheckEvents(out netEvent) <= 0)
                             {
                                 if (HostObject.Service(1, out netEvent) <= 0)
+                                {
                                     break;
+                                }
 
                                 polled = true;
                             }
@@ -133,10 +117,14 @@ namespace Mirror.Ignorance
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
+                                    // Do I need to say more?
                                     break;
 
                                 case EventType.Connect:
-                                    Debug.Log($"Worker Thread: Client has connected! Peer {netEvent.Peer.ID} (that's me) connects to IP: {netEvent.Peer.IP}");
+                                    if (DebugMode)
+                                    {
+                                        Debug.Log($"Worker Thread: Client has connected! Peer {netEvent.Peer.ID} (that's me) connects to IP: {netEvent.Peer.IP}");
+                                    }
 
                                     evt.eventType = EventType.Connect;
                                     evt.peerId = peer.ID;
@@ -144,7 +132,10 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Disconnect:
-                                    Debug.Log($"Worker Thread: Client has disconnected.");
+                                    if (DebugMode)
+                                    {
+                                        Debug.Log($"Worker Thread: Client has disconnected.");
+                                    }
 
                                     evt.eventType = EventType.Disconnect;
                                     evt.peerId = peer.ID;
@@ -153,7 +144,10 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Timeout:
-                                    Debug.Log($"Worker Thread: Client timed out.");
+                                    if (DebugMode)
+                                    {
+                                        Debug.Log($"Worker Thread: Client timed out.");
+                                    }
 
                                     evt.eventType = EventType.Disconnect;
                                     evt.peerId = peer.ID;
@@ -206,23 +200,6 @@ namespace Mirror.Ignorance
                 Nozzle.Abort();
             }
         }
-
-        /*
-        public static void InitializeEventHandlers()
-        {
-            OnClientConnected = new UnityEngine.Events.UnityEvent();
-            OnClientDisconnected = new UnityEngine.Events.UnityEvent();
-
-            OnClientDataReceived = new UnityEventByteArray();
-            OnClientError = new UnityEventException();
-        }
-        */
-
-        public static UnityEngine.Events.UnityEvent OnClientConnected = new UnityEngine.Events.UnityEvent();
-        public static UnityEngine.Events.UnityEvent OnClientDisconnected = new UnityEngine.Events.UnityEvent();
-
-        public static UnityEventByteArray OnClientDataReceived = new UnityEventByteArray();
-        public static UnityEventException OnClientError = new UnityEventException();
     }
 
 }
