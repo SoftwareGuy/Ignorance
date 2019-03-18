@@ -369,6 +369,7 @@ namespace Mirror
         // called in late update
         private void TempServerMessageProcessor()
         {
+            /*
             if (ServerShowerhead.Incoming.Count > 0)
             {
                 while (ServerShowerhead.Incoming.Count > 0)
@@ -384,6 +385,7 @@ namespace Mirror
                     }
                 }
             }
+            */
         }
 
         /* 

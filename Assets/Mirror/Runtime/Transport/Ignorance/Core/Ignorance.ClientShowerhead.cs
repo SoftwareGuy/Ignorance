@@ -1,4 +1,11 @@
-﻿using ENet;
+﻿// ----------------------------------------
+// Ignorance Transport by Matt Coburn, 2018 - 2019
+// This Transport uses other dependencies that you can
+// find references to in the README.md of this package.
+// ----------------------------------------
+// This file is part of the Ignorance Transport.
+// ----------------------------------------
+using ENet;
 using Mirror.Ignorance.Thirdparty;
 using System;
 using System.Threading;
@@ -17,10 +24,11 @@ namespace Mirror.Ignorance
         public static ushort ClientPort = 65534;
         public static int NumChannels = 1;
 
+        public static bool DebugMode = false;
         public static int IncomingPacketQueueSize = 4096;
         public static int OutgoingPacketQueueSize = 4096;
 
-        public static RingBuffer<QueuedIncomingPacket> Incoming;    // Server -> Client
+        public static RingBuffer<QueuedIncomingEvent> Incoming;    // Server -> Client
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;    // Client -> Server
 
         public static volatile bool CeaseOperation = false;
@@ -31,12 +39,12 @@ namespace Mirror.Ignorance
         {
             Debug.Log("Ignorance Client Showerhead: Start()");
 
-            // InitializeEventHandlers();
+            CeaseOperation = false;
 
             ClientAddress = addr;
             ClientPort = port;
 
-            Incoming = new RingBuffer<QueuedIncomingPacket>(4096);
+            Incoming = new RingBuffer<QueuedIncomingEvent>(4096);
             Outgoing = new RingBuffer<QueuedOutgoingPacket>(4096);
 
             CeaseOperation = false;
@@ -55,17 +63,9 @@ namespace Mirror.Ignorance
             if (Nozzle == null) return;
 
             Debug.Log("Ignorance Client Showerhead: Stop()");
-
+            Debug.Log("Instructing the showerhead worker to stop, this may take a few moments...");
             CeaseOperation = true;
 
-            if (Nozzle.IsAlive)
-            {
-                Nozzle.Abort();
-            }
-            else
-            {
-                Debug.LogError("Tried to call Abort on a dead thread?!");
-            }
         }
 
         public static void WorkerLoop(object args)
@@ -83,93 +83,127 @@ namespace Mirror.Ignorance
 
                 Event netEvent;
 
-                while (!CeaseOperation)
+                try
                 {
-                    bool polled = false;
-
-                    // Send code below.
-                    if (Outgoing.Count > 0)
+                    while (!CeaseOperation)
                     {
+                        bool polled = false;
+
+                        // Send code below.
+                        //if (Outgoing.Count > 0)
+                        //{
                         // REMOVE ME
-                        Debug.Log("We've got packets to send!");
+                        //Debug.Log("We've got packets to send!");
 
                         while (Outgoing.Count > 0)
                         {
                             QueuedOutgoingPacket pkt;
                             if (Outgoing.TryDequeue(out pkt))
                             {
-                               if(ClientPeer.Send(pkt.channelId, ref pkt.contents))
+                                ClientPeer.Send(pkt.channelId, ref pkt.contents);
+
+                                /*
+                                if (ClientPeer.Send(pkt.channelId, ref pkt.contents))
                                 {
                                     Debug.Log("Yay");
-                                } else
-                                {
-                                    Debug.LogWarning("Boo");
                                 }
+                                else
+                                {
+                                    Debug.LogWarning("No!");
+                                }
+                                */
+                            }
+                        }
+                        //}
+
+                        // Receive code below.
+                        while (!polled)
+                        {
+                            if (HostObject.CheckEvents(out netEvent) <= 0)
+                            {
+                                if (HostObject.Service(1, out netEvent) <= 0)
+                                    break;
+
+                                polled = true;
+                            }
+
+                            Peer peer = netEvent.Peer;
+                            QueuedIncomingEvent evt = default;
+
+                            switch (netEvent.Type)
+                            {
+                                case EventType.None:
+                                    break;
+
+                                case EventType.Connect:
+                                    Debug.Log($"Worker Thread: Client has connected! Peer {netEvent.Peer.ID} (that's me) connects to IP: {netEvent.Peer.IP}");
+
+                                    evt.eventType = EventType.Connect;
+                                    evt.peerId = peer.ID;
+                                    Incoming.Enqueue(evt);
+                                    break;
+
+                                case EventType.Disconnect:
+                                    Debug.Log($"Worker Thread: Client has disconnected.");
+
+                                    evt.eventType = EventType.Disconnect;
+                                    evt.peerId = peer.ID;
+                                    Incoming.Enqueue(evt);
+
+                                    break;
+
+                                case EventType.Timeout:
+                                    Debug.Log($"Worker Thread: Client timed out.");
+
+                                    evt.eventType = EventType.Disconnect;
+                                    evt.peerId = peer.ID;
+                                    Incoming.Enqueue(evt);
+
+                                    break;
+
+                                case EventType.Receive:
+                                    evt.eventType = EventType.Receive;
+                                    evt.peerId = peer.ID;
+
+                                    Packet pkt = netEvent.Packet;
+                                    evt.databuff = new byte[pkt.Length];
+                                    pkt.CopyTo(evt.databuff);
+                                    netEvent.Packet.Dispose();
+
+                                    // Enslave a new packet to the queue.
+                                    Incoming.Enqueue(evt);
+                                    break;
                             }
                         }
                     }
 
-                    // Receive code below.
-                    while (!polled)
-                    {
-                        if (HostObject.CheckEvents(out netEvent) <= 0)
-                        {
-                            if (HostObject.Service(1, out netEvent) <= 0)
-                                break;
-
-                            polled = true;
-                        }
-
-                        switch (netEvent.Type)
-                        {
-                            case EventType.None:
-                                // Nothing happened, continue on.
-                                break;
-
-                            case EventType.Connect:
-                                // We connected to the server.
-                                //Debug.Log("We've connected to the server!");
-                                OnClientConnected.Invoke();
-                                break;
-
-                            case EventType.Disconnect:
-                                //Debug.Log("We've disconnected from the server!");
-                                OnClientDisconnected.Invoke();
-                                break;
-
-                            case EventType.Timeout:
-                                //Debug.Log("We timed out...");
-                                OnClientDisconnected.Invoke();
-                                break;
-
-                            case EventType.Receive:
-                                Incoming.Enqueue(new QueuedIncomingPacket() { contents = netEvent.Packet });
-                                netEvent.Packet.Dispose();
-                                break;
-                        }
-                    }
+                    HostObject.Flush();
+                    ClientPeer.DisconnectNow(0);
+                    Debug.Log("Client Worker finished. Going home.");
                 }
-
-                HostObject.Flush();
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Worker thread exception occurred: {ex.ToString()}");
+                }
+                finally
+                {
+                    ClientPeer.DisconnectNow(0);
+                    Debug.Log("Turned off the Nozzle. Good work out there.");
+                }
             }
         }
 
         public static bool IsClientConnected()
         {
-            Debug.Log("IsClientConnected polled");
             return ClientPeer.IsSet && ClientPeer.State == PeerState.Connected;
         }
 
         internal static void Shutdown()
         {
-            if(ClientPeer.IsSet && ClientPeer.State == PeerState.Connected)
+            // ???
+            if (Nozzle != null && Nozzle.IsAlive)
             {
-                ClientPeer.DisconnectNow(0);
-            }
-
-            if(HostObject != null && HostObject.IsSet)
-            {
-                HostObject.Dispose();
+                Nozzle.Abort();
             }
         }
 

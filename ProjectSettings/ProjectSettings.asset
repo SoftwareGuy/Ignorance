@@ -619,7 +619,8 @@ PlayerSettings:
   webGLCompressionFormat: 1
   webGLLinkerTarget: 1
   webGLThreadsSupport: 0
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    1: MIRROR;MIRROR_1726_OR_NEWER
   platformArchitecture: {}
   scriptingBackend: {}
   il2cppCompilerConfiguration: {}
