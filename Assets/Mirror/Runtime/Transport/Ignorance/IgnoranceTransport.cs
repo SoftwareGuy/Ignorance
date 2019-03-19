@@ -10,6 +10,7 @@
 // at https://github.com/SoftwareGuy/Ignorance. Remember, OSS is the
 // way of the future!
 // ----------------------------------------
+#define IGNORANCE_PRESENT
 
 using ENet;
 #if UNITY_EDITOR

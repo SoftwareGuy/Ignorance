@@ -395,6 +395,11 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 21300000, guid: 160d53f9f2b149c418d6d07e95438e53,
         type: 3}
+    - target: {fileID: 114290021321007948, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_SceneId
+      value: 1035721996
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
 --- !u!1 &1346799726
@@ -407,7 +412,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1346799731}
   - component: {fileID: 1346799730}
-  - component: {fileID: 1346799729}
   - component: {fileID: 1346799728}
   - component: {fileID: 1346799727}
   m_Layer: 0
@@ -426,14 +430,6 @@ AudioListener:
   m_GameObject: {fileID: 1346799726}
   m_Enabled: 1
 --- !u!124 &1346799728
-Behaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1346799726}
-  m_Enabled: 1
---- !u!92 &1346799729
 Behaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -904,7 +900,6 @@ GameObject:
   - component: {fileID: 1886246550}
   - component: {fileID: 1886246552}
   - component: {fileID: 1886246551}
-  - component: {fileID: 1886246554}
   - component: {fileID: 1886246553}
   m_Layer: 0
   m_Name: NetworkManager
@@ -1030,58 +1025,6 @@ MonoBehaviour:
   m_BasePeerTimeout: 5000
   m_BasePeerMultiplier: 3
   m_MaximumTotalConnections: 1000
---- !u!114 &1886246554
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1886246549}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c7424c1070fad4ba2a7a96b02fbeb4bb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  OnClientConnected:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: UnityEngine.Events.UnityEvent, UnityEngine.CoreModule, Version=0.0.0.0,
-      Culture=neutral, PublicKeyToken=null
-  OnClientDataReceived:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: Mirror.UnityEventByteArray, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
-  OnClientError:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: Mirror.UnityEventException, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
-  OnClientDisconnected:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: UnityEngine.Events.UnityEvent, UnityEngine.CoreModule, Version=0.0.0.0,
-      Culture=neutral, PublicKeyToken=null
-  OnServerConnected:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  OnServerDataReceived:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: Mirror.UnityEventIntByteArray, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
-  OnServerError:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: Mirror.UnityEventIntException, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
-  OnServerDisconnected:
-    m_PersistentCalls:
-      m_Calls: []
-    m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  port: 7777
-  NoDelay: 1
 --- !u!1 &2011557018
 GameObject:
   m_ObjectHideFlags: 0
@@ -1112,10 +1055,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_SceneId: 0
   m_ServerOnly: 0
   m_LocalPlayerAuthority: 0
   m_AssetId: 
+  m_SceneId: 799345749
 --- !u!114 &2011557020
 MonoBehaviour:
   m_ObjectHideFlags: 0
