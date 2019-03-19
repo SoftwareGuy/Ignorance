@@ -240,15 +240,12 @@ namespace Mirror.Ignorance
         {
             if (knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
             {
-                if (knownPeers.TryGetValue(peerId, out Peer peer))
-                {
-                    QueuedCommand qc = default;
-                    qc.Type = 0;
-                    qc.PeerId = peer.ID;
+                QueuedCommand qc = default;
+                qc.Type = 0;
+                qc.PeerId = peer.ID;
 
-                    CommandQueue.Enqueue(qc);
-                    return true;
-                }
+                CommandQueue.Enqueue(qc);
+                return true;
             }
 
             return false;
