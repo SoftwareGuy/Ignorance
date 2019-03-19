@@ -5,6 +5,8 @@
 // ----------------------------------------
 // This file is part of the Ignorance Transport.
 // ----------------------------------------
+#define IGNORANCE_PRESENT
+
 using ENet;
 
 namespace Mirror.Ignorance

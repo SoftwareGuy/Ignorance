@@ -20,8 +20,10 @@ namespace Mirror.Ignorance
     public static class ServerShowerhead
     {
         public static volatile Host HostObject = new Host();    // ENET Host Object
-        // public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
+
+        public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
         public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
+
         public static volatile int SendPacketQueueSize = 4096;
         public static volatile int ReceiveEventQueueSize = 4096;
         public static volatile int MaximumConnectionsAllowed = 4095;

@@ -14,7 +14,6 @@ using ENet;
 using Mirror.Ignorance;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using UnityEngine;
 
 namespace Mirror
@@ -22,6 +21,7 @@ namespace Mirror
     public class IgnoranceTransport2 : Transport, ISegmentTransport
     {
         // Transport Port setting
+        public string BindAddress = "";
         public ushort Port = 7778;
 
         public bool DebugEnabled = false;
@@ -46,7 +46,9 @@ namespace Mirror
         private void Awake()
         {
             Debug.Log($"Ignorance Transport, experimental version has awakened.");
-
+#if UNITY_EDITOR_OSX
+            Debug.LogWarning("MacOS Editor detected. Binding address workarounds engaged.");
+#endif
             Library.Initialize();
         }
 
@@ -57,7 +59,7 @@ namespace Mirror
 
         public override string ToString()
         {
-            return $"Ignorance {(ServerShowerhead.IsServerActive() ? $"Server: Up, listen port {Port}." : "")}";
+            return $"Ignorance on { (string.IsNullOrEmpty(ServerShowerhead.Address) ? $"all interfaces, port {Port}." : $"{ServerShowerhead.Address}, port {Port}")}";
         }
 
         #region Client World
@@ -85,7 +87,7 @@ namespace Mirror
         {
             Packet outPkt = default;
             outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
-            
+
             // Failsafe.
             // outPkt.Create(data.Array, data.Offset, data.Count, PacketFlags.Reliable);
 
@@ -124,7 +126,7 @@ namespace Mirror
         {
             Packet outPkt = default;
 
-            if(channelId >= ChannelDefinitions.Count)
+            if (channelId >= ChannelDefinitions.Count)
             {
                 Debug.LogWarning("NOQUEUE: Discarding a packet because the channel id is higher or equal to the amount of items in the channel list.");
                 return false;
@@ -154,10 +156,42 @@ namespace Mirror
 
         public override void ServerStart()
         {
+            if (ServerActive())
+            {
+                Debug.LogError("Ignorance Transport: The server is already running... Did you mean to stop it first?");
+                return;
+            }
+            if ((ChannelDefinitions.Count - 1) >= 255)
+            {
+                Debug.LogError("Ignorance Transport: Too many channels. ENET-senpai can't handle them!");
+                return;
+            }
+
+#if UNITY_EDITOR_OSX
+            Debug.Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
+            m_ServerAddress.SetHost("::0");
+#else
+            if (string.IsNullOrEmpty(BindAddress))
+            {
+                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
+                {
+                    ServerShowerhead.Address = "::0";
+                }
+                else
+                {
+                    ServerShowerhead.Address = "0.0.0.0";
+                }
+            } else
+            {
+                ServerShowerhead.Address = BindAddress;
+            }
+#endif
+
             ServerShowerhead.ReceiveEventQueueSize = ServerIncomingEventQueueSize;
             ServerShowerhead.SendPacketQueueSize = ServerOutgoingQueueSize;
             ServerShowerhead.NumChannels = ChannelDefinitions.Count;
             ServerShowerhead.DebugMode = DebugEnabled;
+
             // Start the server thread.
             ServerShowerhead.Start(Port);
         }
