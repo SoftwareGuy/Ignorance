@@ -20,18 +20,25 @@ namespace Mirror.Ignorance
     }
 
     // Incoming Packet Class
-    public class QueuedIncomingPacket
+    public struct QueuedIncomingPacket
     {
         public int connectionId;
         public Packet contents;
     }
 
     // Outoging Packet Class
-    public class QueuedOutgoingPacket
+    public struct QueuedOutgoingPacket
     {
         public uint targetPeerId;
-        public byte channelId = 0x00;
+        public byte channelId;
         public Packet contents;
+    }
+
+    // ENET Commands
+    public struct QueuedCommand
+    {
+        public ushort Type;
+        public uint PeerId;
     }
 
     [System.Serializable]

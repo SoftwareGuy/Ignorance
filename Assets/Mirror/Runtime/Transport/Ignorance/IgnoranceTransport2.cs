@@ -25,12 +25,13 @@ namespace Mirror
         public ushort Port = 7778;
 
         public bool DebugEnabled = false;
-        // Server's Send and Receive Queues
-        public ushort ServerOutgoingQueueSize = 4096;
-        public ushort ServerIncomingEventQueueSize = 4096;
 
-        public ushort ClientOutgoingQueueSize = 4096;
-        public ushort ClientIncomingEventQueueSize = 4096;
+        // Server's Send and Receive Queues
+        public int ServerOutgoingQueueSize = 524288;
+        public int ServerIncomingEventQueueSize = 524288;
+
+        public int ClientOutgoingQueueSize = 524288;
+        public int ClientIncomingEventQueueSize = 524288;
 
         public List<KnownChannelTypes> ChannelDefinitions = new List<KnownChannelTypes>()
         {
@@ -65,8 +66,16 @@ namespace Mirror
         #region Client World
         public override void ClientConnect(string address)
         {
-            ClientShowerhead.IncomingEventQueueCapacity = ClientOutgoingQueueSize;
-            ClientShowerhead.OutgoingPacketQueueCapacity = ClientIncomingEventQueueSize;
+            if (ClientIncomingEventQueueSize > 0)
+            {
+                ClientShowerhead.IncomingEventQueueCapacity = ClientIncomingEventQueueSize;
+            }
+
+            if (ClientOutgoingQueueSize > 0)
+            {
+                ClientShowerhead.OutgoingPacketQueueCapacity = ClientOutgoingQueueSize;
+            }
+
             ClientShowerhead.NumChannels = ChannelDefinitions.Count;
             ClientShowerhead.DebugMode = DebugEnabled;
 
@@ -102,7 +111,16 @@ namespace Mirror
 
         public override bool ClientSend(int channelId, byte[] data)
         {
-            return ClientSend(channelId, new ArraySegment<byte>(data));
+            Packet outPkt = default;
+            outPkt.Create(data, data.Length, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
+
+            ClientShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
+            {
+                channelId = (byte)channelId,
+                contents = outPkt,
+            });
+
+            return true;
         }
         #endregion
 
@@ -181,11 +199,22 @@ namespace Mirror
                 {
                     ServerShowerhead.Address = "0.0.0.0";
                 }
-            } else
+            }
+            else
             {
                 ServerShowerhead.Address = BindAddress;
             }
 #endif
+
+            if (ClientIncomingEventQueueSize > 0)
+            {
+                ClientShowerhead.IncomingEventQueueCapacity = ClientIncomingEventQueueSize;
+            }
+
+            if (ClientOutgoingQueueSize > 0)
+            {
+                ClientShowerhead.OutgoingPacketQueueCapacity = ClientOutgoingQueueSize;
+            }
 
             ServerShowerhead.ReceiveEventQueueSize = ServerIncomingEventQueueSize;
             ServerShowerhead.SendPacketQueueSize = ServerOutgoingQueueSize;
@@ -211,52 +240,60 @@ namespace Mirror
         #region Server packet queue processors
         private void ProcessQueuedServerEvents()
         {
-            if (ServerShowerhead.Incoming != null && ServerShowerhead.Incoming.Count > 0)
+            if (ServerShowerhead.Incoming != null)
             {
-                while (ServerShowerhead.Incoming.Count > 0)
+                QueuedIncomingEvent evt;
+
+                while (ServerShowerhead.Incoming.TryDequeue(out evt))
                 {
-                    QueuedIncomingEvent evt;
-
-                    if (ServerShowerhead.Incoming.TryDequeue(out evt))
+                    switch (evt.eventType)
                     {
-                        switch (evt.eventType)
-                        {
-                            case ENet.EventType.Connect:
+                        case ENet.EventType.Connect:
+                            if (DebugEnabled)
+                            {
                                 Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {ServerShowerhead.nextAvailableSlot}");
+                            }
 
-                                ServerShowerhead.knownPeersToConnIDs.Add(evt.peerId, ServerShowerhead.nextAvailableSlot);
-                                ServerShowerhead.knownConnIDToPeers.Add(ServerShowerhead.nextAvailableSlot, evt.peerId);
+                            ServerShowerhead.knownPeersToConnIDs.Add(evt.peerId, ServerShowerhead.nextAvailableSlot);
+                            ServerShowerhead.knownConnIDToPeers.Add(ServerShowerhead.nextAvailableSlot, evt.peerId);
 
-                                OnServerConnected.Invoke(ServerShowerhead.nextAvailableSlot);
-                                ServerShowerhead.nextAvailableSlot++;
+                            OnServerConnected.Invoke(ServerShowerhead.nextAvailableSlot);
+                            ServerShowerhead.nextAvailableSlot++;
 
-                                break;
+                            break;
 
-                            case ENet.EventType.Disconnect:
+                        case ENet.EventType.Disconnect:
+                            if (DebugEnabled)
+                            {
                                 Debug.Log($"Main Thread: Server had a client disconnect. Peer ID: {evt.peerId}");
-                                if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int deadPeerConnID))
-                                {
-                                    OnServerDisconnected.Invoke(deadPeerConnID);
-                                    ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
-                                }
-                                break;
+                            }
 
-                            case ENet.EventType.Timeout:
+                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int deadPeerConnID))
+                            {
+                                OnServerDisconnected.Invoke(deadPeerConnID);
+                                ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
+                            }
+                            break;
+
+                        case ENet.EventType.Timeout:
+                            if(DebugEnabled)
+                            {
                                 Debug.Log($"Main Thread: Server had a client timeout. ID: Peer ID: {evt.peerId}");
-                                if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedOutConnID))
-                                {
-                                    OnServerDisconnected.Invoke(timedOutConnID);
-                                    ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
-                                }
-                                break;
+                            }
+                            
+                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedOutConnID))
+                            {
+                                OnServerDisconnected.Invoke(timedOutConnID);
+                                ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
+                            }
+                            break;
 
-                            case ENet.EventType.Receive:
-                                if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int connectionId))
-                                {
-                                    OnServerDataReceived.Invoke(connectionId, evt.databuff);
-                                }
-                                break;
-                        }
+                        case ENet.EventType.Receive:
+                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int connectionId))
+                            {
+                                OnServerDataReceived.Invoke(connectionId, evt.databuff);
+                            }
+                            break;
                     }
                 }
             }
@@ -266,7 +303,7 @@ namespace Mirror
         #region Client packet queue processors 
         private void ProcessQueuedClientEvents()
         {
-            if (ClientShowerhead.Incoming != null && ClientShowerhead.Incoming.Count > 0)
+            if (ClientShowerhead.Incoming != null)
             {
                 while (ClientShowerhead.Incoming.Count > 0)
                 {

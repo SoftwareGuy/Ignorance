@@ -25,8 +25,8 @@ namespace Mirror.Ignorance
         public static int NumChannels = 1;
 
         public static bool DebugMode = false;
-        public static int IncomingEventQueueCapacity = 4096;
-        public static int OutgoingPacketQueueCapacity = 4096;
+        public static int IncomingEventQueueCapacity = 524288;  // 512 * 1024
+        public static int OutgoingPacketQueueCapacity = 524288;
 
         public static RingBuffer<QueuedIncomingEvent> Incoming;    // Server -> Client
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;    // Client -> Server
@@ -89,13 +89,9 @@ namespace Mirror.Ignorance
                         bool polled = false;
 
                         // Send any pending packets out first.
-                        while (Outgoing.Count > 0)
-                        {
-                            QueuedOutgoingPacket pkt;
-                            if (Outgoing.TryDequeue(out pkt))
-                            {
-                                ClientPeer.Send(pkt.channelId, ref pkt.contents);
-                            }
+                        QueuedOutgoingPacket opkt;
+                        while (Outgoing.TryDequeue(out opkt)) {
+                            ClientPeer.Send(opkt.channelId, ref opkt.contents);
                         }
 
                         // Now, we receive what's going on in the network chatter.

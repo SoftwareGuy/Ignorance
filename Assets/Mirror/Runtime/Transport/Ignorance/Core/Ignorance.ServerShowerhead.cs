@@ -19,16 +19,14 @@ namespace Mirror.Ignorance
 {
     public static class ServerShowerhead
     {
-        public static volatile Host HostObject = new Host();    // ENET Host Object
+        public static string Address = "127.0.0.1";     // ipv4 or ipv6
+        public static ushort Port = 65534;        // valid between ports 0 - 65535
 
-        public static volatile string Address = "127.0.0.1";     // ipv4 or ipv6
-        public static volatile ushort Port = 65534;        // valid between ports 0 - 65535
+        public static int SendPacketQueueSize = 4096;
+        public static int ReceiveEventQueueSize = 4096;
+        public static int MaximumConnectionsAllowed = 4095;
 
-        public static volatile int SendPacketQueueSize = 4096;
-        public static volatile int ReceiveEventQueueSize = 4096;
-        public static volatile int MaximumConnectionsAllowed = 4095;
-
-        public static volatile int NumChannels = 1;
+        public static int NumChannels = 1;
         public static volatile bool CeaseOperation = false;
         public static bool DebugMode = false;
 
@@ -36,14 +34,17 @@ namespace Mirror.Ignorance
 
         internal static Dictionary<int, uint> knownConnIDToPeers;
         internal static Dictionary<uint, int> knownPeersToConnIDs;
-        
+
         internal static int nextAvailableSlot = 1;
 
         public static RingBuffer<QueuedIncomingEvent> Incoming;   // Client -> ENET World -> Mirror
         public static RingBuffer<QueuedOutgoingPacket> Outgoing;  // Mirror -> ENET World -> Client
 
+        private static RingBuffer<QueuedCommand> CommandQueue;    // ENET Command Queue.
+
         private static ConcurrentDictionary<uint, Peer> knownPeers;
-        
+
+        private static Host HostObject = new Host();    // ENET Host Object
 
         public static bool IsServerActive()
         {
@@ -72,6 +73,7 @@ namespace Mirror.Ignorance
             // Setup queues.
             Incoming = new RingBuffer<QueuedIncomingEvent>(SendPacketQueueSize);
             Outgoing = new RingBuffer<QueuedOutgoingPacket>(ReceiveEventQueueSize);
+            CommandQueue = new RingBuffer<QueuedCommand>(50);
 
             // Configure and start thread.
             Nozzle = new Thread(WorkerLoop)
@@ -112,16 +114,30 @@ namespace Mirror.Ignorance
                     {
                         bool polled = false;
 
-                        // Send any pending packets out first.
-                        while (Outgoing.Count > 0)
+                        // Process any commands first.
+                        QueuedCommand qCmd;
+                        while (CommandQueue.TryDequeue(out qCmd))
                         {
-                            QueuedOutgoingPacket pkt;
-                            if (Outgoing.TryDequeue(out pkt))
+                            switch (qCmd.Type)
                             {
-                                if (knownPeers.TryGetValue(pkt.targetPeerId, out Peer peer))
-                                {
-                                    peer.Send(pkt.channelId, ref pkt.contents);
-                                }
+                                case '0':
+                                    // Boot to the face.
+                                    Peer p;
+                                    if (knownPeers.TryGetValue(qCmd.PeerId, out p))
+                                    {
+                                        p.DisconnectLater(0);
+                                    }
+                                    break;
+                            }
+                        }
+
+                        // Send any pending packets out first.
+                        QueuedOutgoingPacket opkt;
+                        while (Outgoing.TryDequeue(out opkt))
+                        {
+                            if (knownPeers.TryGetValue(opkt.targetPeerId, out Peer peer))
+                            {
+                                peer.Send(opkt.channelId, ref opkt.contents);
                             }
                         }
 
@@ -148,8 +164,6 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
-                                    Debug.Log($"Worker Thread: Server has a new client! Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Mirror CID: {nextAvailableSlot}");
-
                                     knownPeers.TryAdd(peer.ID, peer);
 
                                     evt.eventType = EventType.Connect;
@@ -161,8 +175,6 @@ namespace Mirror.Ignorance
 
                                 case EventType.Disconnect:
                                 case EventType.Timeout:
-                                    Debug.Log($"Worker Thread: Server had a client disconnect/time out. Peer ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}");
-
                                     knownPeers.TryRemove(peer.ID, out Peer peerDisconnected);
 
                                     evt.eventType = EventType.Disconnect;
@@ -189,7 +201,7 @@ namespace Mirror.Ignorance
                     }
 
                     HostObject.Flush();
-                    Debug.Log("Server Worker finished. Going home.");
+                    Debug.Log("Server worker finished. Going home.");
                 }
                 catch (Exception ex)
                 {
@@ -230,7 +242,11 @@ namespace Mirror.Ignorance
             {
                 if (knownPeers.TryGetValue(peerId, out Peer peer))
                 {
-                    peer.DisconnectNow(0);
+                    QueuedCommand qc = default;
+                    qc.Type = 0;
+                    qc.PeerId = peer.ID;
+
+                    CommandQueue.Enqueue(qc);
                     return true;
                 }
             }

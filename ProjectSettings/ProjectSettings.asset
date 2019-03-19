@@ -621,6 +621,7 @@ PlayerSettings:
   webGLThreadsSupport: 0
   scriptingDefineSymbols:
     1: MIRROR;MIRROR_1726_OR_NEWER
+    7: MIRROR;MIRROR_1726_OR_NEWER
   platformArchitecture: {}
   scriptingBackend: {}
   il2cppCompilerConfiguration: {}
