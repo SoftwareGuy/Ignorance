@@ -343,10 +343,10 @@ ASALocalRun/
 [Aa]ssets/Mirror/Runtime/*.asmdef
 
 [Aa]ssets/Mirror/Runtime/Transport/*
+![Aa]ssets/Mirror/Runtime/Transport/ISegmentTransport.*
 
 ![Aa]ssets/Mirror/Runtime/Transport/Ignorance
 ![Aa]ssets/Mirror/Runtime/Transport/Ignorance.meta
-
 [Ll]ibrary/*
 ![Ll]ibrary/.gitkeep
 
