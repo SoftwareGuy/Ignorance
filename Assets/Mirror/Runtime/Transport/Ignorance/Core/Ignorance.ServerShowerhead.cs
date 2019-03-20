@@ -10,6 +10,7 @@ using Mirror.Ignorance.Thirdparty;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using UnityEngine;
 using Event = ENet.Event;
@@ -32,6 +33,8 @@ namespace Mirror.Ignorance
         {
             Name = "Ignorance Transport Server Worker"
         };
+
+        private static Dictionary<int, Peer> Intel; // Intelligence - client, Peer. Change the name before release or risk getting fucked by Intel's lawyers.
 
         private static Dictionary<int, uint> knownConnIDsToPeerIDs;
         private static Dictionary<uint, int> knownPeersToConnIDs;
@@ -59,6 +62,8 @@ namespace Mirror.Ignorance
             CeaseOperation = false;
 
             // Refresh dictonaries
+            Intel = new Dictionary<int, Peer>();
+
             knownConnIDsToPeerIDs = new Dictionary<int, uint>();   // ENET
             knownPeersToConnIDs = new Dictionary<uint, int>();
             knownPeers = new ConcurrentDictionary<uint, Peer>();
@@ -108,10 +113,9 @@ namespace Mirror.Ignorance
                             {
                                 case '0':
                                     // Boot to the face.
-                                    Peer p;
-                                    if (knownPeers.TryGetValue(qCmd.PeerId, out p))
+                                    if (Intel.ContainsKey(qCmd.ConnId))
                                     {
-                                        p.DisconnectLater(0);
+                                        Intel[qCmd.ConnId].DisconnectLater(0);
                                     }
                                     break;
                             }
@@ -121,9 +125,9 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-                            if (knownPeers.TryGetValue(opkt.targetPeerId, out Peer peer))
+                            if (Intel.ContainsKey(opkt.targetConnectionId))
                             {
-                                peer.Send(opkt.channelId, ref opkt.contents);
+                                Intel[opkt.targetConnectionId].Send(opkt.channelId, ref opkt.contents);
                             }
                         }
 
@@ -150,68 +154,77 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
-                                    knownPeersToConnIDs.Add(peer.ID, nextAvailableSlot);
-                                    knownConnIDsToPeerIDs.Add(nextAvailableSlot, peer.ID);
-                                    knownPeers.TryAdd(peer.ID, peer);
+                                    // Add to our intel.
+                                    Intel.Add(nextAvailableSlot, peer);
 
                                     evt.connectionId = nextAvailableSlot;
                                     evt.eventType = EventType.Connect;
+
+                                    // keep for now.
                                     evt.peerId = peer.ID;
+
+                                    // safety
+                                    knownPeersToConnIDs.Add(peer.ID, nextAvailableSlot);
+                                    knownConnIDsToPeerIDs.Add(nextAvailableSlot, peer.ID);
+                                    knownPeers.TryAdd(peer.ID, peer);
 
                                     Incoming.Enqueue(evt);
 
                                     nextAvailableSlot++;
                                     break;
 
-
-                                case EventType.Disconnect:
-                                    knownPeers.TryRemove(peer.ID, out Peer peerDisconnected);
-
-                                    evt.eventType = EventType.Disconnect;
-                                    evt.peerId = peer.ID;
-
-                                    if(knownPeersToConnIDs.TryGetValue(evt.peerId, out int dead))
-                                    {
-                                        evt.connectionId = dead;
-                                    }
-
-                                    Incoming.Enqueue(evt);
-                                    PeerDisconnectedInternal(peer.ID);
-                                    break;
-
                                 case EventType.Timeout:
-                                    knownPeers.TryRemove(peer.ID, out Peer peerTimeouted);
-
-                                    evt.eventType = EventType.Disconnect;
-                                    evt.peerId = peer.ID;
-
-                                    if (knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedout))
+                                case EventType.Disconnect:
+                                    if (Intel.ContainsValue(peer))
                                     {
-                                        evt.connectionId = timedout;
-                                    }
+                                        int dead = Intel.KeysFromValue(peer).Single();
+                                        evt.eventType = evt.eventType == EventType.Disconnect ? EventType.Disconnect : EventType.Timeout;
+                                        evt.peerId = peer.ID;
+                                        evt.connectionId = dead;
 
-                                    Incoming.Enqueue(evt);
-                                    PeerDisconnectedInternal(peer.ID);
+                                        Incoming.Enqueue(evt);
+                                        Intel.Remove(evt.connectionId);
+
+                                        // safety
+                                        //PeerDisconnectedInternal(peer.ID);
+                                    }
                                     break;
+
+                                /*
+                            case EventType.Timeout:
+                                knownPeers.TryRemove(peer.ID, out Peer peerTimeouted);
+
+                                evt.eventType = EventType.Disconnect;
+                                evt.peerId = peer.ID;
+
+                                if (knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedout))
+                                {
+                                    evt.connectionId = timedout;
+                                }
+
+                                Incoming.Enqueue(evt);
+                                PeerDisconnectedInternal(peer.ID);
+                                break;
+                                */
 
                                 case EventType.Receive:
-                                    evt.eventType = EventType.Receive;
-                                    evt.peerId = peer.ID;
-
-                                    Packet pkt = netEvent.Packet;
-                                    evt.databuff = new byte[pkt.Length];
-                                    pkt.CopyTo(evt.databuff);
-                                    // don't dispose the original packet? blame FSE_Vincenzo for memory leaks
-                                    // netEvent.Packet.Dispose();
-                                    pkt.Dispose();
-
-                                    // Enslave a new packet to the queue.
-                                    if (knownPeersToConnIDs.TryGetValue(evt.peerId, out int sender))
+                                    if (Intel.ContainsValue(peer))
                                     {
-                                        evt.connectionId = sender;
-                                    }
-                                    Incoming.Enqueue(evt);
+                                        int sender = Intel.KeysFromValue(peer).Single();
 
+                                        evt.eventType = EventType.Receive;
+                                        evt.peerId = peer.ID;
+                                        evt.connectionId = sender;
+
+                                        Packet pkt = netEvent.Packet;
+                                        evt.databuff = new byte[pkt.Length];
+                                        pkt.CopyTo(evt.databuff);
+                                        // don't dispose the original packet? blame FSE_Vincenzo for memory leaks
+                                        // netEvent.Packet.Dispose();
+                                        pkt.Dispose();
+
+                                        Incoming.Enqueue(evt);
+                                    }
                                     break;
                             }
                         }
@@ -238,12 +251,9 @@ namespace Mirror.Ignorance
 
         public static string GetClientAddress(int connectionId)
         {
-            if (knownConnIDsToPeerIDs.TryGetValue(connectionId, out uint peerId))
+            if (Intel.ContainsKey(connectionId))
             {
-                if (knownPeers.TryGetValue(peerId, out Peer peer))
-                {
-                    return peer.IP;
-                }
+                return Intel[connectionId].IP;
             }
 
             return "(invalid)";
@@ -251,7 +261,7 @@ namespace Mirror.Ignorance
 
         public static bool DoesThisConnectionHaveAPeer(int connectionId)
         {
-            if(knownConnIDsToPeerIDs.ContainsKey(connectionId))
+            if (knownConnIDsToPeerIDs.ContainsKey(connectionId))
             {
                 return true;
             }
@@ -259,18 +269,20 @@ namespace Mirror.Ignorance
             return false;
         }
 
+        /*
         public static uint GetMeThatPeerIDForThisConnection(int connectionId)
         {
             return knownConnIDsToPeerIDs[connectionId];
         }
+        */
 
-        internal static bool DisconnectThatConnection(int connectionId)
+        public static bool DisconnectThatConnection(int connectionId)
         {
-            if (knownConnIDsToPeerIDs.TryGetValue(connectionId, out uint peerId))
+            if(Intel.ContainsKey(connectionId))
             {
                 QueuedCommand qc = default;
                 qc.Type = 0;
-                qc.PeerId = peerId;
+                qc.ConnId = connectionId;
 
                 CommandQueue.Enqueue(qc);
                 return true;
@@ -284,6 +296,17 @@ namespace Mirror.Ignorance
             // Clean up dictionaries.
             knownConnIDsToPeerIDs.Remove(knownPeersToConnIDs[peer]);
             knownPeersToConnIDs.Remove(peer);
+        }
+
+        // -- Hacks -- //
+        // From https://stackoverflow.com/questions/255341/getting-key-of-value-of-a-generic-dictionary/255638#255638
+        private static IEnumerable<TKey> KeysFromValue<TKey, TValue>(this Dictionary<TKey, TValue> dict, TValue val)
+        {
+            if (dict == null)
+            {
+                throw new ArgumentNullException("dict");
+            }
+            return dict.Keys.Where(k => dict[k].Equals(val));
         }
     }
 }

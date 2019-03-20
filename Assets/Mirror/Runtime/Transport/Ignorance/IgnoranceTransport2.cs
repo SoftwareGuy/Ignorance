@@ -159,7 +159,8 @@ namespace Mirror
             {
                 ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
                 {
-                    targetPeerId = ServerShowerhead.GetMeThatPeerIDForThisConnection(connectionId),
+                    targetConnectionId = connectionId,
+                    // targetPeerId = ServerShowerhead.GetMeThatPeerIDForThisConnection(connectionId),
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
@@ -278,7 +279,6 @@ namespace Mirror
                 }
             }
         }
-    }
     #endregion
 
     #region Client packet queue processors 

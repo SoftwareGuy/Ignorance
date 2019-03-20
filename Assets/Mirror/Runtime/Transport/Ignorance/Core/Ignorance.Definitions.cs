@@ -8,6 +8,7 @@
 #define IGNORANCE_PRESENT
 
 using ENet;
+using System.Collections.Generic;
 
 namespace Mirror.Ignorance
 {
@@ -41,6 +42,7 @@ namespace Mirror.Ignorance
     public struct QueuedOutgoingPacket
     {
         public uint targetPeerId;
+        public int targetConnectionId;
         public byte channelId;
         public Packet contents;
     }
@@ -49,6 +51,7 @@ namespace Mirror.Ignorance
     public struct QueuedCommand
     {
         public ushort Type;
+        public int ConnId;
         public uint PeerId;
     }
 
