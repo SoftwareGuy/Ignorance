@@ -21,26 +21,27 @@ namespace Mirror.Ignorance
     {
         public static string Address = "127.0.0.1";     // ipv4 or ipv6
         public static ushort Port = 65534;        // valid between ports 0 - 65535
-
-        public static int SendPacketQueueSize = 4096;
-        public static int ReceiveEventQueueSize = 4096;
         public static int MaximumConnectionsAllowed = 4095;
 
         public static int NumChannels = 1;
         public static volatile bool CeaseOperation = false;
         public static bool DebugMode = false;
 
-        public static Thread Nozzle;
+        public static Thread Nozzle = new Thread(WorkerLoop)
+        {
+            Name = "Ignorance Transport Server Worker"
+        };
 
         internal static Dictionary<int, uint> knownConnIDToPeers;
         internal static Dictionary<uint, int> knownPeersToConnIDs;
 
         internal static int nextAvailableSlot = 1;
 
-        public static RingBuffer<QueuedIncomingEvent> Incoming;   // Client -> ENET World -> Mirror
-        public static RingBuffer<QueuedOutgoingPacket> Outgoing;  // Mirror -> ENET World -> Client
-
-        private static RingBuffer<QueuedCommand> CommandQueue;    // ENET Command Queue.
+        // We create new ringbuffers, but these will be overwritten when the Start() function is called.
+        // This prevents nulls, thus saving null checks being heavy on performance.
+        public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
+        public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
+        private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
 
         private static ConcurrentDictionary<uint, Peer> knownPeers;
 
@@ -48,14 +49,7 @@ namespace Mirror.Ignorance
 
         public static bool IsServerActive()
         {
-            if (Nozzle != null)
-            {
-                return Nozzle.IsAlive;
-            }
-            else
-            {
-                return false;
-            }
+            return Nozzle.IsAlive;
         }
 
         public static void Start(ushort port)
@@ -71,15 +65,16 @@ namespace Mirror.Ignorance
             knownPeers = new ConcurrentDictionary<uint, Peer>();
 
             // Setup queues.
-            Incoming = new RingBuffer<QueuedIncomingEvent>(SendPacketQueueSize);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(ReceiveEventQueueSize);
-            CommandQueue = new RingBuffer<QueuedCommand>(50);
+            Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
+            Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
+            CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
 
             // Configure and start thread.
-            Nozzle = new Thread(WorkerLoop)
+            /* Nozzle = new Thread(WorkerLoop)
             {
-                Name = "Showerhead (Server)"
+                Name = "Ignorance Transport Server Worker"
             };
+            */
 
             Nozzle.Start();
         }
@@ -88,7 +83,6 @@ namespace Mirror.Ignorance
         {
             Debug.Log("Ignorance Server Showerhead: Stop()");
             Debug.Log("Instructing the showerhead worker to stop, this may take a few moments...");
-
             CeaseOperation = true;
         }
 
@@ -190,7 +184,9 @@ namespace Mirror.Ignorance
                                     Packet pkt = netEvent.Packet;
                                     evt.databuff = new byte[pkt.Length];
                                     pkt.CopyTo(evt.databuff);
-                                    netEvent.Packet.Dispose();
+                                    // don't dispose the original packet? blame FSE_Vincenzo for memory leaks
+                                    // netEvent.Packet.Dispose();
+                                    pkt.Dispose();
 
                                     // Enslave a new packet to the queue.
                                     Incoming.Enqueue(evt);
@@ -242,7 +238,7 @@ namespace Mirror.Ignorance
             {
                 QueuedCommand qc = default;
                 qc.Type = 0;
-                qc.PeerId = peer.ID;
+                qc.PeerId = peerId;
 
                 CommandQueue.Enqueue(qc);
                 return true;

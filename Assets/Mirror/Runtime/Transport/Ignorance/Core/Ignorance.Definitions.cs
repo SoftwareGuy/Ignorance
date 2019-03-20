@@ -11,6 +11,16 @@ using ENet;
 
 namespace Mirror.Ignorance
 {
+    public class IgnoranceConstants
+    {
+        public readonly static string TransportVersion = "2.0 EXPERIMENTAL";
+        public readonly static int ClientIncomingRingBufferSize = 524288;
+        public readonly static int ClientOutgoingRingBufferSize = 1024;
+        public readonly static int ServerOutgoingRingBufferSize = 524288;   // 512 x 1024
+        public readonly static int ServerIncomingRingBufferSize = 524288;   // 512 x 1024
+        public readonly static int ServerCommandRingBufferSize = 50;        // Should be enough, this is used to signal things to the ENET Thread
+    }
+
     // Incoming Event Class
     public struct QueuedIncomingEvent
     {
@@ -48,5 +58,14 @@ namespace Mirror.Ignorance
         Unreliable,
         UnreliableFragmented,
         UnreliableSequenced,
+    }
+
+    public enum ThreadState
+    {
+        Starting,
+        Started,
+        Busy,
+        Stopping,
+        Stopped
     }
 }

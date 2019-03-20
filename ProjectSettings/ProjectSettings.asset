@@ -620,7 +620,7 @@ PlayerSettings:
   webGLLinkerTarget: 1
   webGLThreadsSupport: 0
   scriptingDefineSymbols:
-    1: MIRROR;MIRROR_1726_OR_NEWER
+    1: MIRROR;MIRROR_1726_OR_NEWER;IGNORANCE;IGNORANCE_2;IGNORANCE_2_0
     7: MIRROR;MIRROR_1726_OR_NEWER
   platformArchitecture: {}
   scriptingBackend: {}

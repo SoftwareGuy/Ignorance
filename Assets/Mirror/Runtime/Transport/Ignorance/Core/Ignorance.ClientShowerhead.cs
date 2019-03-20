@@ -25,13 +25,15 @@ namespace Mirror.Ignorance
         public static int NumChannels = 1;
 
         public static bool DebugMode = false;
-        public static int IncomingEventQueueCapacity = 524288;  // 512 * 1024
-        public static int OutgoingPacketQueueCapacity = 524288;
 
-        public static RingBuffer<QueuedIncomingEvent> Incoming;    // Server -> Client
-        public static RingBuffer<QueuedOutgoingPacket> Outgoing;    // Client -> Server
+        // We create new ringbuffers, but these will be overwritten when the Start() function is called.
+        // This prevents nulls, thus saving null checks being heavy on performance.
+        public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);    // Server -> Client
+        public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);    // Client -> Server
 
         public static volatile bool CeaseOperation = false;     // Kills threads dead!
+
+        private static volatile ThreadState CurrentState = ThreadState.Stopped;   // Goddamnit Mirror.
 
         public static Thread Nozzle;
 
@@ -40,31 +42,36 @@ namespace Mirror.Ignorance
             Debug.Log("Ignorance Client Showerhead: Start()");
 
             CeaseOperation = false;
+            CurrentState = ThreadState.Starting;
 
             ClientAddress = addr;
             ClientPort = port;
 
-            Incoming = new RingBuffer<QueuedIncomingEvent>(IncomingEventQueueCapacity);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(OutgoingPacketQueueCapacity);
-
-            CeaseOperation = false;
+            Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ClientIncomingRingBufferSize);
+            Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ClientOutgoingRingBufferSize);
 
             Nozzle = new Thread(WorkerLoop)
             {
-                Name = "Shower Head (Client)"
+                Name = "Ignorance Transport Client Worker"
             };
-
-            Nozzle.Start();
         }
 
         public static void Stop()
         {
             // Mirror bug: ClientDisconnect gets called on connection ID 0 when it shouldn't.
-            if (Nozzle == null) return;
+            // if (Nozzle == null) return;
+            if (CurrentState == ThreadState.Stopping)
+            {
+                Debug.LogWarning("Give me a damn break Mirror, I'm stopping already!");
+                return;
+            }
 
             Debug.Log("Ignorance Client Showerhead: Stop()");
             Debug.Log("Instructing the showerhead worker to stop, this may take a few moments...");
+
+            CurrentState = ThreadState.Stopping;
             CeaseOperation = true;
+
         }
 
         public static void WorkerLoop(object args)
@@ -72,6 +79,8 @@ namespace Mirror.Ignorance
             Debug.Log("Ignorance Client Showerhead: Starting loop...");
             using (HostObject)
             {
+                Event netEvent;
+
                 Address address = new Address();
                 address.SetHost(ClientAddress);
                 address.Port = ClientPort;
@@ -80,8 +89,7 @@ namespace Mirror.Ignorance
 
                 ClientPeer = HostObject.Connect(address);
 
-                Event netEvent;
-
+                CurrentState = ThreadState.Started;
                 try
                 {
                     while (!CeaseOperation)
@@ -90,7 +98,8 @@ namespace Mirror.Ignorance
 
                         // Send any pending packets out first.
                         QueuedOutgoingPacket opkt;
-                        while (Outgoing.TryDequeue(out opkt)) {
+                        while (Outgoing.TryDequeue(out opkt))
+                        {
                             ClientPeer.Send(opkt.channelId, ref opkt.contents);
                         }
 
@@ -179,6 +188,7 @@ namespace Mirror.Ignorance
                 {
                     ClientPeer.DisconnectNow(0);
                     Debug.Log("Turned off the Nozzle. Good work out there.");
+                    CurrentState = ThreadState.Stopped;
                 }
             }
         }

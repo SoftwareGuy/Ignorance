@@ -26,13 +26,6 @@ namespace Mirror
 
         public bool DebugEnabled = false;
 
-        // Server's Send and Receive Queues
-        public int ServerOutgoingQueueSize = 524288;
-        public int ServerIncomingEventQueueSize = 524288;
-
-        public int ClientOutgoingQueueSize = 524288;
-        public int ClientIncomingEventQueueSize = 524288;
-
         public List<KnownChannelTypes> ChannelDefinitions = new List<KnownChannelTypes>()
         {
             KnownChannelTypes.Reliable,     // Default channel 0, reliable
@@ -55,6 +48,25 @@ namespace Mirror
 
         private void OnDestroy()
         {
+            ServerShowerhead.CeaseOperation = true;
+            ClientShowerhead.CeaseOperation = true;
+
+            System.Threading.Thread.Sleep(50);
+
+            // Abort if these threads are runaway.
+            // Check against null to ensure shit doesn't catch fire.
+            if (ServerShowerhead.Nozzle != null && ServerShowerhead.Nozzle.IsAlive) {
+                Debug.LogWarning("Ignorance Transport: Server worker thread has run away, exterminating...");
+                ServerShowerhead.Nozzle.Abort();
+            }
+            // Check against null to ensure shit doesn't catch fire.
+            if (ClientShowerhead.Nozzle != null && ClientShowerhead.Nozzle.IsAlive)
+            {
+                Debug.Log("Ignorance Transport: Client worker thread has run away, exterminating...");
+                ClientShowerhead.Nozzle.Abort();
+            }
+
+            // Yank out the carpet.
             Library.Deinitialize();
         }
 
@@ -66,16 +78,6 @@ namespace Mirror
         #region Client World
         public override void ClientConnect(string address)
         {
-            if (ClientIncomingEventQueueSize > 0)
-            {
-                ClientShowerhead.IncomingEventQueueCapacity = ClientIncomingEventQueueSize;
-            }
-
-            if (ClientOutgoingQueueSize > 0)
-            {
-                ClientShowerhead.OutgoingPacketQueueCapacity = ClientOutgoingQueueSize;
-            }
-
             ClientShowerhead.NumChannels = ChannelDefinitions.Count;
             ClientShowerhead.DebugMode = DebugEnabled;
 
@@ -206,18 +208,6 @@ namespace Mirror
             }
 #endif
 
-            if (ClientIncomingEventQueueSize > 0)
-            {
-                ClientShowerhead.IncomingEventQueueCapacity = ClientIncomingEventQueueSize;
-            }
-
-            if (ClientOutgoingQueueSize > 0)
-            {
-                ClientShowerhead.OutgoingPacketQueueCapacity = ClientOutgoingQueueSize;
-            }
-
-            ServerShowerhead.ReceiveEventQueueSize = ServerIncomingEventQueueSize;
-            ServerShowerhead.SendPacketQueueSize = ServerOutgoingQueueSize;
             ServerShowerhead.NumChannels = ChannelDefinitions.Count;
             ServerShowerhead.DebugMode = DebugEnabled;
 
