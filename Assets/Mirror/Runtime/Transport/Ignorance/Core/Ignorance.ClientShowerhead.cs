@@ -54,6 +54,8 @@ namespace Mirror.Ignorance
             {
                 Name = "Ignorance Transport Client Worker"
             };
+
+            Nozzle.Start();
         }
 
         public static void Stop()

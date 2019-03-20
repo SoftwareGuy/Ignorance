@@ -231,124 +231,115 @@ namespace Mirror
         #region Server packet queue processors
         private void ProcessQueuedServerEvents()
         {
-            if (ServerShowerhead.Incoming != null)
+            QueuedIncomingEvent evt;
+            while (ServerShowerhead.Incoming.TryDequeue(out evt))
             {
-                QueuedIncomingEvent evt;
-
-                while (ServerShowerhead.Incoming.TryDequeue(out evt))
+                switch (evt.eventType)
                 {
-                    switch (evt.eventType)
-                    {
-                        case ENet.EventType.Connect:
-                            if (DebugEnabled)
-                            {
-                                Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {evt.connectionId}");
-                            }
-
-                            OnServerConnected.Invoke(evt.connectionId);
-                            break;
-
-                        case ENet.EventType.Disconnect:
-                            if (DebugEnabled)
-                            {
-                                Debug.Log($"Main Thread: Server had a client disconnect. Peer ID: {evt.peerId}");
-                            }
-
-                            if(evt.connectionId > 0)
-                            {
-                                OnServerDisconnected.Invoke(evt.connectionId);
-                            }
-                            break;
-
-                        case ENet.EventType.Timeout:
-                            if (DebugEnabled)
-                            {
-                                Debug.Log($"Main Thread: Server had a client timeout. ID: Peer ID: {evt.peerId}");
-                            }
-
-                            if(evt.connectionId > 0)
-                            {
-                                OnServerDisconnected.Invoke(evt.connectionId);
-                            }
-                            break;
-
-                        case ENet.EventType.Receive:
-                            if (evt.connectionId > 0)
-                            {
-                                OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
-                            }
-                            break;
-                    }
-                }
-            }
-        }
-        #endregion
-
-        #region Client packet queue processors 
-        private void ProcessQueuedClientEvents()
-        {
-            if (ClientShowerhead.Incoming != null)
-            {
-                while (ClientShowerhead.Incoming.Count > 0)
-                {
-                    QueuedIncomingEvent evt;
-
-                    if (ClientShowerhead.Incoming.TryDequeue(out evt))
-                    {
-                        switch (evt.eventType)
+                    case ENet.EventType.Connect:
+                        if (DebugEnabled)
                         {
-                            case ENet.EventType.Connect:
-                                OnClientConnected.Invoke();
-                                break;
-                            case ENet.EventType.Disconnect:
-                            case ENet.EventType.Timeout:
-                                OnClientDisconnected.Invoke();
-                                break;
-                            case ENet.EventType.Receive:
-                                OnClientDataReceived.Invoke(evt.databuff);
-                                break;
+                            Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {evt.connectionId}");
                         }
-                    }
+
+                        OnServerConnected.Invoke(evt.connectionId);
+                        break;
+
+                    case ENet.EventType.Disconnect:
+                        if (DebugEnabled)
+                        {
+                            Debug.Log($"Main Thread: Server had a client disconnect. Peer ID: {evt.peerId}");
+                        }
+
+                        if (evt.connectionId > 0)
+                        {
+                            OnServerDisconnected.Invoke(evt.connectionId);
+                        }
+                        break;
+
+                    case ENet.EventType.Timeout:
+                        if (DebugEnabled)
+                        {
+                            Debug.Log($"Main Thread: Server had a client timeout. ID: Peer ID: {evt.peerId}");
+                        }
+
+                        if (evt.connectionId > 0)
+                        {
+                            OnServerDisconnected.Invoke(evt.connectionId);
+                        }
+                        break;
+
+                    case ENet.EventType.Receive:
+                        if (evt.connectionId > 0)
+                        {
+                            OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
+                        }
+                        break;
                 }
             }
         }
-        #endregion
-
-        #region Update method
-        private void LateUpdate()
-        {
-            if (enabled)
-            {
-                ProcessQueuedServerEvents();
-                ProcessQueuedClientEvents();
-            }
-        }
-        #endregion
-
-        #region Packet Size (maximum)
-        public override int GetMaxPacketSize(int channelId = 0)
-        {
-            return (int)Library.maxPacketSize;  // 33,554,432 bytes.
-        }
-        #endregion
-
-        #region Helpers 
-        public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
-        {
-            switch (source)
-            {
-                case KnownChannelTypes.Reliable:
-                    return PacketFlags.Reliable;            // reliable (tcp-like).
-                case KnownChannelTypes.Unreliable:
-                    return PacketFlags.Unsequenced;         // completely unreliable.
-                case KnownChannelTypes.UnreliableFragmented:
-                    return PacketFlags.UnreliableFragment;  // unreliable fragmented.
-                case KnownChannelTypes.UnreliableSequenced:
-                    return PacketFlags.None;                // unreliable, but sequenced.
-                default:
-                    return PacketFlags.Unsequenced;
-            }
-        }
-        #endregion
     }
+    #endregion
+
+    #region Client packet queue processors 
+    private void ProcessQueuedClientEvents()
+    {
+        QueuedIncomingEvent evt;
+
+        while (ClientShowerhead.Incoming.TryDequeue(out evt))
+        {
+            switch (evt.eventType)
+            {
+                case ENet.EventType.Connect:
+                    OnClientConnected.Invoke();
+                    break;
+                case ENet.EventType.Disconnect:
+                case ENet.EventType.Timeout:
+                    OnClientDisconnected.Invoke();
+                    break;
+                case ENet.EventType.Receive:
+                    OnClientDataReceived.Invoke(evt.databuff);
+                    break;
+            }
+        }
+    }
+    #endregion
+
+    #region Update method
+    private void LateUpdate()
+    {
+        if (enabled)
+        {
+            ProcessQueuedServerEvents();
+            ProcessQueuedClientEvents();
+        }
+    }
+    #endregion
+
+    #region Packet Size (maximum)
+    public override int GetMaxPacketSize(int channelId = 0)
+    {
+        return (int)Library.maxPacketSize;  // 33,554,432 bytes.
+    }
+    #endregion
+
+    #region Helpers 
+    public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
+    {
+        switch (source)
+        {
+            case KnownChannelTypes.Reliable:
+                return PacketFlags.Reliable;            // reliable (tcp-like).
+            case KnownChannelTypes.Unreliable:
+                return PacketFlags.Unsequenced;         // completely unreliable.
+            case KnownChannelTypes.UnreliableFragmented:
+                return PacketFlags.UnreliableFragment;  // unreliable fragmented.
+            case KnownChannelTypes.UnreliableSequenced:
+                return PacketFlags.None;                // unreliable, but sequenced.
+            default:
+                return PacketFlags.Unsequenced;
+        }
+    }
+    #endregion
+}
 }

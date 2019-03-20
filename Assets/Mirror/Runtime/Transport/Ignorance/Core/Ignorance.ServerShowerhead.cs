@@ -150,13 +150,14 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
-                                    knownPeersToConnIDs.Add(evt.peerId, nextAvailableSlot);
-                                    knownConnIDsToPeerIDs.Add(nextAvailableSlot, evt.peerId);
+                                    knownPeersToConnIDs.Add(peer.ID, nextAvailableSlot);
+                                    knownConnIDsToPeerIDs.Add(nextAvailableSlot, peer.ID);
                                     knownPeers.TryAdd(peer.ID, peer);
 
                                     evt.connectionId = nextAvailableSlot;
                                     evt.eventType = EventType.Connect;
                                     evt.peerId = peer.ID;
+
                                     Incoming.Enqueue(evt);
 
                                     nextAvailableSlot++;
