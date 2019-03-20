@@ -27,6 +27,7 @@ namespace Mirror.Ignorance
         public uint peerId;
         public EventType eventType;
         public byte[] databuff;
+        public int connectionId;
     }
 
     // Incoming Packet Class

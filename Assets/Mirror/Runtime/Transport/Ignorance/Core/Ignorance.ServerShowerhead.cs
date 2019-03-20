@@ -24,17 +24,20 @@ namespace Mirror.Ignorance
         public static int MaximumConnectionsAllowed = 4095;
 
         public static int NumChannels = 1;
-        public static volatile bool CeaseOperation = false;
         public static bool DebugMode = false;
+
+        public static volatile bool CeaseOperation = false;
 
         public static Thread Nozzle = new Thread(WorkerLoop)
         {
             Name = "Ignorance Transport Server Worker"
         };
 
-        internal static Dictionary<int, uint> knownConnIDToPeers;
-        internal static Dictionary<uint, int> knownPeersToConnIDs;
+        private static Dictionary<int, uint> knownConnIDsToPeerIDs;
+        private static Dictionary<uint, int> knownPeersToConnIDs;
+        private static ConcurrentDictionary<uint, Peer> knownPeers;
 
+        private static Host HostObject = new Host();    // ENET Host Object
         internal static int nextAvailableSlot = 1;
 
         // We create new ringbuffers, but these will be overwritten when the Start() function is called.
@@ -42,10 +45,6 @@ namespace Mirror.Ignorance
         public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
         public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
         private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
-
-        private static ConcurrentDictionary<uint, Peer> knownPeers;
-
-        private static Host HostObject = new Host();    // ENET Host Object
 
         public static bool IsServerActive()
         {
@@ -60,7 +59,7 @@ namespace Mirror.Ignorance
             CeaseOperation = false;
 
             // Refresh dictonaries
-            knownConnIDToPeers = new Dictionary<int, uint>();
+            knownConnIDsToPeerIDs = new Dictionary<int, uint>();   // ENET
             knownPeersToConnIDs = new Dictionary<uint, int>();
             knownPeers = new ConcurrentDictionary<uint, Peer>();
 
@@ -68,13 +67,6 @@ namespace Mirror.Ignorance
             Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
             Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
             CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
-
-            // Configure and start thread.
-            /* Nozzle = new Thread(WorkerLoop)
-            {
-                Name = "Ignorance Transport Server Worker"
-            };
-            */
 
             Nozzle.Start();
         }
@@ -158,23 +150,47 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
+                                    knownPeersToConnIDs.Add(evt.peerId, nextAvailableSlot);
+                                    knownConnIDsToPeerIDs.Add(nextAvailableSlot, evt.peerId);
                                     knownPeers.TryAdd(peer.ID, peer);
 
+                                    evt.connectionId = nextAvailableSlot;
                                     evt.eventType = EventType.Connect;
                                     evt.peerId = peer.ID;
                                     Incoming.Enqueue(evt);
 
+                                    nextAvailableSlot++;
                                     break;
 
 
                                 case EventType.Disconnect:
-                                case EventType.Timeout:
                                     knownPeers.TryRemove(peer.ID, out Peer peerDisconnected);
 
                                     evt.eventType = EventType.Disconnect;
                                     evt.peerId = peer.ID;
-                                    Incoming.Enqueue(evt);
 
+                                    if(knownPeersToConnIDs.TryGetValue(evt.peerId, out int dead))
+                                    {
+                                        evt.connectionId = dead;
+                                    }
+
+                                    Incoming.Enqueue(evt);
+                                    PeerDisconnectedInternal(peer.ID);
+                                    break;
+
+                                case EventType.Timeout:
+                                    knownPeers.TryRemove(peer.ID, out Peer peerTimeouted);
+
+                                    evt.eventType = EventType.Disconnect;
+                                    evt.peerId = peer.ID;
+
+                                    if (knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedout))
+                                    {
+                                        evt.connectionId = timedout;
+                                    }
+
+                                    Incoming.Enqueue(evt);
+                                    PeerDisconnectedInternal(peer.ID);
                                     break;
 
                                 case EventType.Receive:
@@ -189,6 +205,10 @@ namespace Mirror.Ignorance
                                     pkt.Dispose();
 
                                     // Enslave a new packet to the queue.
+                                    if (knownPeersToConnIDs.TryGetValue(evt.peerId, out int sender))
+                                    {
+                                        evt.connectionId = sender;
+                                    }
                                     Incoming.Enqueue(evt);
 
                                     break;
@@ -210,14 +230,14 @@ namespace Mirror.Ignorance
             }
         }
 
-        internal static void Shutdown()
+        public static void Shutdown()
         {
             CeaseOperation = true;
         }
 
-        internal static string GetClientAddress(int connectionId)
+        public static string GetClientAddress(int connectionId)
         {
-            if (knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
+            if (knownConnIDsToPeerIDs.TryGetValue(connectionId, out uint peerId))
             {
                 if (knownPeers.TryGetValue(peerId, out Peer peer))
                 {
@@ -228,9 +248,24 @@ namespace Mirror.Ignorance
             return "(invalid)";
         }
 
+        public static bool DoesThisConnectionHaveAPeer(int connectionId)
+        {
+            if(knownConnIDsToPeerIDs.ContainsKey(connectionId))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public static uint GetMeThatPeerIDForThisConnection(int connectionId)
+        {
+            return knownConnIDsToPeerIDs[connectionId];
+        }
+
         internal static bool DisconnectThatConnection(int connectionId)
         {
-            if (knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
+            if (knownConnIDsToPeerIDs.TryGetValue(connectionId, out uint peerId))
             {
                 QueuedCommand qc = default;
                 qc.Type = 0;
@@ -243,25 +278,10 @@ namespace Mirror.Ignorance
             return false;
         }
 
-        public static bool IsConnectionIdKnown(int connectionId)
-        {
-            if (knownConnIDToPeers.ContainsKey(connectionId))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        internal static uint ResolveConnectionIDToPeer(int connectionId)
-        {
-            return knownConnIDToPeers[connectionId];
-        }
-
-        internal static void PeerDisconnectedInternal(uint peer)
+        private static void PeerDisconnectedInternal(uint peer)
         {
             // Clean up dictionaries.
-            knownConnIDToPeers.Remove(knownPeersToConnIDs[peer]);
+            knownConnIDsToPeerIDs.Remove(knownPeersToConnIDs[peer]);
             knownPeersToConnIDs.Remove(peer);
         }
     }

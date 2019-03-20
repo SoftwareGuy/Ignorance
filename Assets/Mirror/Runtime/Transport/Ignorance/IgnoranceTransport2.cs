@@ -55,7 +55,8 @@ namespace Mirror
 
             // Abort if these threads are runaway.
             // Check against null to ensure shit doesn't catch fire.
-            if (ServerShowerhead.Nozzle != null && ServerShowerhead.Nozzle.IsAlive) {
+            if (ServerShowerhead.Nozzle != null && ServerShowerhead.Nozzle.IsAlive)
+            {
                 Debug.LogWarning("Ignorance Transport: Server worker thread has run away, exterminating...");
                 ServerShowerhead.Nozzle.Abort();
             }
@@ -154,11 +155,11 @@ namespace Mirror
 
             outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
 
-            if (ServerShowerhead.knownConnIDToPeers.TryGetValue(connectionId, out uint peerId))
+            if (ServerShowerhead.DoesThisConnectionHaveAPeer(connectionId))
             {
                 ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
                 {
-                    targetPeerId = peerId,
+                    targetPeerId = ServerShowerhead.GetMeThatPeerIDForThisConnection(connectionId),
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
@@ -241,15 +242,10 @@ namespace Mirror
                         case ENet.EventType.Connect:
                             if (DebugEnabled)
                             {
-                                Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {ServerShowerhead.nextAvailableSlot}");
+                                Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {evt.connectionId}");
                             }
 
-                            ServerShowerhead.knownPeersToConnIDs.Add(evt.peerId, ServerShowerhead.nextAvailableSlot);
-                            ServerShowerhead.knownConnIDToPeers.Add(ServerShowerhead.nextAvailableSlot, evt.peerId);
-
-                            OnServerConnected.Invoke(ServerShowerhead.nextAvailableSlot);
-                            ServerShowerhead.nextAvailableSlot++;
-
+                            OnServerConnected.Invoke(evt.connectionId);
                             break;
 
                         case ENet.EventType.Disconnect:
@@ -258,30 +254,28 @@ namespace Mirror
                                 Debug.Log($"Main Thread: Server had a client disconnect. Peer ID: {evt.peerId}");
                             }
 
-                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int deadPeerConnID))
+                            if(evt.connectionId > 0)
                             {
-                                OnServerDisconnected.Invoke(deadPeerConnID);
-                                ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
+                                OnServerDisconnected.Invoke(evt.connectionId);
                             }
                             break;
 
                         case ENet.EventType.Timeout:
-                            if(DebugEnabled)
+                            if (DebugEnabled)
                             {
                                 Debug.Log($"Main Thread: Server had a client timeout. ID: Peer ID: {evt.peerId}");
                             }
-                            
-                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedOutConnID))
+
+                            if(evt.connectionId > 0)
                             {
-                                OnServerDisconnected.Invoke(timedOutConnID);
-                                ServerShowerhead.PeerDisconnectedInternal(evt.peerId);
+                                OnServerDisconnected.Invoke(evt.connectionId);
                             }
                             break;
 
                         case ENet.EventType.Receive:
-                            if (ServerShowerhead.knownPeersToConnIDs.TryGetValue(evt.peerId, out int connectionId))
+                            if (evt.connectionId > 0)
                             {
-                                OnServerDataReceived.Invoke(connectionId, evt.databuff);
+                                OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
                             }
                             break;
                     }
