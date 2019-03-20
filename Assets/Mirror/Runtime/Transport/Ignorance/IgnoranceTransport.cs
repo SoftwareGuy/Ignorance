@@ -372,6 +372,16 @@ namespace Mirror
             Log("Ignorance Transport: Server stopped.");
         }
 
+        /// <summary>
+        /// Get a peer from their associated connection ID
+        /// </summary>
+        /// <param name="connectionID">The id of the Peer's connection</param>
+        /// <returns>The Peer</returns>
+        public Peer GetPeerByConnection(int connectionID)
+        {
+            return knownConnIDToPeers[connectionID];
+        }
+
         #endregion
 
         #region Transport - Outgoing Server Transmission Functions
