@@ -10,8 +10,6 @@
 // at https://github.com/SoftwareGuy/Ignorance. Remember, OSS is the
 // way of the future!
 // ----------------------------------------
-#define IGNORANCE_PRESENT
-
 using ENet;
 #if UNITY_EDITOR
 using Mirror.Ignorance.Editor;
@@ -1245,7 +1243,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.1 In-Development";
+            public const string Version = "1.2.1 Patch Release 2";
         }
         #endregion
 
