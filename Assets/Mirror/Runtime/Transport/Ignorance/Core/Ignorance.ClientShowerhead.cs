@@ -200,11 +200,7 @@ namespace Mirror.Ignorance
 
         internal static void Shutdown()
         {
-            // ???
-            if (Nozzle != null && Nozzle.IsAlive)
-            {
-                Nozzle.Abort();
-            }
+            CeaseOperation = true;
         }
     }
 
