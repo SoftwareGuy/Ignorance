@@ -39,6 +39,8 @@ namespace Mirror.Ignorance
 
         public static Thread Nozzle;
 
+        private static volatile bool IsClientConnectedNow = false;
+
         public static void Start(string addr, ushort port)
         {
             Debug.Log("Ignorance Client Showerhead: Start()");
@@ -75,7 +77,6 @@ namespace Mirror.Ignorance
 
             CurrentState = ThreadState.Stopping;
             CeaseOperation = true;
-
         }
 
         public static void WorkerLoop(object args)
@@ -120,8 +121,6 @@ namespace Mirror.Ignorance
                                 polled = true;
                             }
 
-                            //Peer peer = netEvent.Peer;
-
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
@@ -132,6 +131,8 @@ namespace Mirror.Ignorance
                                 case EventType.Timeout:
                                     var connevent = new QueuedIncomingConnectionEvent {eventType = netEvent.Type};
                                     IncommingConnEvents.Enqueue(connevent);
+
+                                    IsClientConnectedNow = netEvent.Type == EventType.Connect;
                                     break;
                                 case EventType.Receive:
                                     var packet = netEvent.Packet;
@@ -172,7 +173,7 @@ namespace Mirror.Ignorance
 
         public static bool IsClientConnected()
         {
-            return ClientPeer.IsSet && ClientPeer.State == PeerState.Connected;
+            return IsClientConnectedNow;//ClientPeer.IsSet && ClientPeer.State == PeerState.Connected;
         }
 
         internal static void Shutdown()
