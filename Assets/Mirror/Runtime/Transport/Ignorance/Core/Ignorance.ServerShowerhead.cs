@@ -47,6 +47,7 @@ namespace Mirror.Ignorance
         public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
         public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
         private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
+        public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(4096); // ENET World -> Mirror conn events.
 
         public static bool IsServerActive()
         {
@@ -130,6 +131,7 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
+
                             // Try mapping the peer id to the peer object.
                             if (ConnectionIdToPeerMappings.TryGetValue(opkt.targetConnectionId, out Peer p))
                             {
@@ -155,7 +157,6 @@ namespace Mirror.Ignorance
                             }
 
                             Peer peer = netEvent.Peer;
-                            QueuedIncomingEvent evt = default;
 
                             switch (netEvent.Type)
                             {
@@ -164,45 +165,48 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
-                                    evt.eventType = EventType.Connect;
-                                    evt.connectionId = nextAvailableSlot;                                    
-                                    // keep for now.
-                                    evt.peerId = peer.ID;
+                                    var connevent = new QueuedIncomingConnectionEvent 
+                                    {
+                                        connectionId = nextAvailableSlot,
+                                        eventType = EventType.Connect,
+                                        peerIp = peer.IP,
+                                        peerPort = peer.Port
+                                    };
 
-                                    // Debug.Log($"nas {nextAvailableSlot} peerid {peer.ID}");
 
                                     // Update dictonaries
                                     ConnectionIdToPeerMappings.TryAdd(nextAvailableSlot, peer);
                                     PeerIDsToConnectionIdMappings.TryAdd(peer.ID, nextAvailableSlot);
 
                                     nextAvailableSlot++;
-                                    Incoming.Enqueue(evt);
-                                    break;
 
+                                    IncommingConnEvents.Enqueue(connevent);
+                                    break;
                                 case EventType.Timeout:
                                 case EventType.Disconnect:
+                                    var peerId = peer.ID;
                                     if (PeerIDsToConnectionIdMappings.ContainsKey(peer.ID))
                                     {
-                                        int dead = PeerIDsToConnectionIdMappings[peer.ID];
+                                      var connectionId = PeerIDsToConnectionIdMappings[peerId];
+                                      var disconnevent = new QueuedIncomingConnectionEvent
+                                      {
+                                          connectionId = connectionId,
+                                          eventType = netEvent.Type
+                                      };
 
-                                        evt.eventType = evt.eventType == EventType.Disconnect ? EventType.Timeout : EventType.Disconnect;
-                                        evt.peerId = peer.ID;
-                                        evt.connectionId = dead;
-
-                                        Incoming.Enqueue(evt);
-
-                                        ConnectionIdToPeerMappings.TryRemove(dead, out Peer deadPeer);
-                                        PeerIDsToConnectionIdMappings.TryRemove(peer.ID, out int deadConnID);
+                                        ConnectionIdToPeerMappings.TryRemove(connectionId, out Peer deadPeer);
+                                        PeerIDsToConnectionIdMappings.TryRemove(peerId, out int deadConnID);
+                                      
+                                      IncommingConnEvents.Enqueue(disconnevent);
                                     }
                                     break;
-
                                 case EventType.Receive:
+                                    QueuedIncomingEvent evt = default;
                                     if (PeerIDsToConnectionIdMappings.ContainsKey(peer.ID))
                                     {
                                         int sender = PeerIDsToConnectionIdMappings[peer.ID];
-
-                                        evt.eventType = EventType.Receive;
-                                        evt.peerId = peer.ID;
+                                        
+                                       // evt.peerId = peer.ID;
                                         evt.connectionId = sender;
 
                                         Packet pkt = netEvent.Packet;

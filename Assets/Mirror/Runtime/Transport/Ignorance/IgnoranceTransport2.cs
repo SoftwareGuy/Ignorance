@@ -171,10 +171,10 @@ namespace Mirror
 
             if (KnownConnections.ContainsKey(connectionId))
             {
-                ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
+                ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket
                 {
                     targetConnectionId = connectionId,
-                    // targetPeerId = KnownConnections[connectionId].PeerUniqueId,
+                    //targetPeerId = KnownConnections[connectionId].PeerUniqueId,
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
@@ -245,60 +245,60 @@ namespace Mirror
         #region Server packet queue processors
         private void ProcessQueuedServerEvents()
         {
-            QueuedIncomingEvent evt;
-            while (ServerShowerhead.Incoming.TryDequeue(out evt))
+            QueuedIncomingConnectionEvent connectionEvent;
+
+            while (ServerShowerhead.IncommingConnEvents.TryDequeue(out connectionEvent))
             {
-                switch (evt.eventType)
+                switch (connectionEvent.eventType)
                 {
                     case ENet.EventType.Connect:
                         if (DebugEnabled)
                         {
-                            Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {evt.connectionId}");
+                            Debug.Log($"Main Thread: Server has a new client! Mirror CID: {connectionEvent.connectionId}");
                         }
 
                         // Fun fact: Was supposed to be "Poi?" (Yuudachi's KanColle verbal tic) but I couldn't really find a use for the 'o'
                         PeerInfo pi = default;
 
-                        pi.PeerUniqueId = evt.peerId;
-                        pi.PeerIp = evt.peerIp;
-                        pi.PeerPort = evt.peerPort;
+                        pi.connectionId = connectionEvent.connectionId;
+                        pi.PeerIp = connectionEvent.peerIp;
+                        pi.PeerPort = connectionEvent.peerPort;
 
-                        AddToKnownConnections(evt.connectionId, pi);
-                        OnServerConnected.Invoke(evt.connectionId);
+                        AddToKnownConnections(connectionEvent.connectionId, pi);
+                        OnServerConnected.Invoke(connectionEvent.connectionId);
                         break;
 
                     case ENet.EventType.Disconnect:
                         if (DebugEnabled)
                         {
-                            Debug.Log($"Main Thread: Server had a client disconnect. Peer ID: {evt.peerId}");
+                            Debug.Log($"Main Thread: Server had a client disconnect. Mirror CID: {connectionEvent.connectionId}");
                         }
 
-                        if (evt.connectionId > 0)
-                        {
-                            OnServerDisconnected.Invoke(evt.connectionId);
-                            RemoveFromKnownConnections(evt.connectionId);
-                        }
+                        OnServerDisconnected.Invoke(connectionEvent.connectionId);
+                        RemoveFromKnownConnections(connectionEvent.connectionId);
+
                         break;
 
                     case ENet.EventType.Timeout:
                         if (DebugEnabled)
                         {
-                            Debug.Log($"Main Thread: Server had a client timeout. ID: Peer ID: {evt.peerId}");
+                            Debug.Log($"Main Thread: Server had a client timeout. ID: Mirror CID: {connectionEvent.connectionId}");
                         }
 
-                        if (evt.connectionId > 0)
-                        {
-                            OnServerDisconnected.Invoke(evt.connectionId);
-                        }
-                        break;
-
-                    case ENet.EventType.Receive:
-                        if (evt.connectionId > 0)
-                        {
-                            OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
-                        }
+                        OnServerDisconnected.Invoke(connectionEvent.connectionId);
                         break;
                 }
+            }
+
+
+            QueuedIncomingEvent evt;
+            while (ServerShowerhead.Incoming.TryDequeue(out evt))
+            {
+                if (evt.connectionId > 0)
+                {
+                    OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
+                }
+                
             }
         }
         #endregion
@@ -306,11 +306,10 @@ namespace Mirror
         #region Client packet queue processors 
         private void ProcessQueuedClientEvents()
         {
-            QueuedIncomingEvent evt;
-
-            while (ClientShowerhead.Incoming.TryDequeue(out evt))
+            QueuedIncomingConnectionEvent connectionEvent;
+            while (ServerShowerhead.IncommingConnEvents.TryDequeue(out connectionEvent))
             {
-                switch (evt.eventType)
+                switch (connectionEvent.eventType)
                 {
                     case ENet.EventType.Connect:
                         OnClientConnected.Invoke();
@@ -319,10 +318,13 @@ namespace Mirror
                     case ENet.EventType.Timeout:
                         OnClientDisconnected.Invoke();
                         break;
-                    case ENet.EventType.Receive:
-                        OnClientDataReceived.Invoke(evt.databuff);
-                        break;
                 }
+            }
+            
+            QueuedIncomingEvent evt;
+            while (ClientShowerhead.Incoming.TryDequeue(out evt))
+            {
+                OnClientDataReceived.Invoke(evt.databuff);
             }
         }
         #endregion

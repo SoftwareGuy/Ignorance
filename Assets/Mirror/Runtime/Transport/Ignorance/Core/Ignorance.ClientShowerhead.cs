@@ -30,6 +30,7 @@ namespace Mirror.Ignorance
         // This prevents nulls, thus saving null checks being heavy on performance.
         public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);    // Server -> Client
         public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);    // Client -> Server
+        public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(16); // ENET World -> Mirror conn events.
 
         public static volatile bool CeaseOperation = false;     // Kills threads dead!
 
@@ -119,43 +120,25 @@ namespace Mirror.Ignorance
                             }
 
                             Peer peer = netEvent.Peer;
-                            QueuedIncomingEvent evt = default;
 
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
                                     // Do I need to say more?
                                     break;
-
                                 case EventType.Connect:
-                                    evt.eventType = EventType.Connect;
-                                    evt.peerId = peer.ID;
-
-                                    Incoming.Enqueue(evt);
-                                    break;
-
                                 case EventType.Disconnect:
-                                    evt.eventType = EventType.Disconnect;
-                                    evt.peerId = peer.ID;
-                                    Incoming.Enqueue(evt);
-
-                                    break;
-
                                 case EventType.Timeout:
-                                    evt.eventType = EventType.Disconnect;
-                                    evt.peerId = peer.ID;
-                                    Incoming.Enqueue(evt);
-
+                                    var connevent = new QueuedIncomingConnectionEvent {eventType = netEvent.Type};
+                                    IncommingConnEvents.Enqueue(connevent);
                                     break;
-
                                 case EventType.Receive:
-                                    evt.eventType = EventType.Receive;
-                                    evt.peerId = peer.ID;
+                                    QueuedIncomingEvent evt = default;
 
                                     Packet pkt = netEvent.Packet;
                                     evt.databuff = new byte[pkt.Length];
                                     pkt.CopyTo(evt.databuff);
-                                    netEvent.Packet.Dispose();
+                                    pkt.Dispose();
 
                                     // Enslave a new packet to the queue.
                                     Incoming.Enqueue(evt);
