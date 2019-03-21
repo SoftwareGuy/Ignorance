@@ -25,21 +25,25 @@ namespace Mirror.Ignorance
     // Peer Info Struct
     public struct PeerInfo
     {
-        public uint PeerUniqueId;
+        public int connectionId;
         public string PeerIp;
         public ushort PeerPort;
     }
 
     // Incoming Event Class
-    public struct QueuedIncomingEvent
+    public struct QueuedIncomingEvent 
     {
-        public uint peerId;
+        public int connectionId;
+        public byte[] databuff;
+    }
+
+    // Incoming Connection Event Class
+    public struct QueuedIncomingConnectionEvent 
+    {
+        public int connectionId;
+        public EventType eventType;
         public string peerIp;
         public ushort peerPort;
-
-        public EventType eventType;
-        public byte[] databuff;
-        public int connectionId;
     }
 
     // Incoming Packet Class
