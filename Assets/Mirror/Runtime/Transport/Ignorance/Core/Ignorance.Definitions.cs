@@ -45,14 +45,7 @@ namespace Mirror.Ignorance
         public string peerIp;
         public ushort peerPort;
     }
-
-    // Incoming Packet Class
-    public struct QueuedIncomingPacket
-    {
-        public int connectionId;
-        public Packet contents;
-    }
-
+    
     // Outoging Packet Class
     public struct QueuedOutgoingPacket
     {
@@ -67,7 +60,6 @@ namespace Mirror.Ignorance
     {
         public ushort Type;
         public int ConnId;
-        public uint PeerId;
     }
 
     [System.Serializable]

@@ -128,6 +128,7 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
+
                             // Try mapping the peer id to the peer object.
                             if (PeerIDsToPeerMappings.TryGetValue(opkt.targetPeerId, out Peer p))
                             {
