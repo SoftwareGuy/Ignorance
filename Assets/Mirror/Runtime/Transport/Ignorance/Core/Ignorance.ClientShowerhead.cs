@@ -8,6 +8,7 @@
 using ENet;
 using Mirror.Ignorance.Thirdparty;
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
 using Event = ENet.Event;
@@ -119,7 +120,7 @@ namespace Mirror.Ignorance
                                 polled = true;
                             }
 
-                            Peer peer = netEvent.Peer;
+                            //Peer peer = netEvent.Peer;
 
                             switch (netEvent.Type)
                             {
@@ -133,12 +134,16 @@ namespace Mirror.Ignorance
                                     IncommingConnEvents.Enqueue(connevent);
                                     break;
                                 case EventType.Receive:
-                                    QueuedIncomingEvent evt = default;
+                                    var packet = netEvent.Packet;
+                                    var length = packet.Length;
+                                    var data = new byte[length];
+                                    Marshal.Copy(packet.Data, data, 0, length); //packet.CopyTo(data);
+                                    packet.Dispose();
 
-                                    Packet pkt = netEvent.Packet;
-                                    evt.databuff = new byte[pkt.Length];
-                                    pkt.CopyTo(evt.databuff);
-                                    pkt.Dispose();
+                                    var evt = new QueuedIncomingEvent
+                                    {
+                                        databuff = data
+                                    };
 
                                     // Enslave a new packet to the queue.
                                     Incoming.Enqueue(evt);

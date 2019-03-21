@@ -10,6 +10,7 @@ using Mirror.Ignorance.Thirdparty;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 // using System.Linq;
 using System.Threading;
 using UnityEngine;
@@ -33,8 +34,8 @@ namespace Mirror.Ignorance
 
         private static volatile ThreadState CurrentState = ThreadState.Stopped;
 
-        private static ConcurrentDictionary<int, Peer> ConnectionIdToPeerMappings;
-        private static ConcurrentDictionary<uint, int> PeerIDsToConnectionIdMappings;
+        private static Dictionary<int, Peer> ConnectionIdToPeerMappings;
+        private static Dictionary<uint, int> PeerIDsToConnectionIdMappings;
 
         //private static Dictionary<int, uint> ConnectionIdToPeerIDMappings;
         //private static ConcurrentDictionary<uint, Peer> PeerIDsToPeerMappings;
@@ -63,8 +64,8 @@ namespace Mirror.Ignorance
             CeaseOperation = false;
 
             // Refresh dictonaries
-            ConnectionIdToPeerMappings = new ConcurrentDictionary<int, Peer>(); // Mirror CIDs. -> ENET Peers.
-            PeerIDsToConnectionIdMappings = new ConcurrentDictionary<uint, int>();  // Reverse lookup, ENET Peer IDs -> Mirror CIDs.
+            ConnectionIdToPeerMappings = new Dictionary<int, Peer>(); // Mirror CIDs. -> ENET Peers.
+            PeerIDsToConnectionIdMappings = new Dictionary<uint, int>();  // Reverse lookup, ENET Peer IDs -> Mirror CIDs.
             // PeerIDsToPeerMappings = new ConcurrentDictionary<uint, Peer>(); // PeerID lookup.
 
             // Setup queues.
@@ -131,16 +132,10 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-
-                            // Try mapping the peer id to the peer object.
                             if (ConnectionIdToPeerMappings.TryGetValue(opkt.targetConnectionId, out Peer p))
                             {
                                 p.Send(opkt.channelId, ref opkt.contents);
-                                // It worked
-                            } 
-                            
-                            // } else { Debug.Log("You idiot, it didn't work"); }
-                            
+                            }
                         }
 
                         // Now, we receive what's going on in the network chatter.
@@ -163,7 +158,6 @@ namespace Mirror.Ignorance
                                 case EventType.None:
                                     // Do I need to say more?
                                     break;
-
                                 case EventType.Connect:
                                     var connevent = new QueuedIncomingConnectionEvent 
                                     {
@@ -172,11 +166,10 @@ namespace Mirror.Ignorance
                                         peerIp = peer.IP,
                                         peerPort = peer.Port
                                     };
-
-
+                                    
                                     // Update dictonaries
-                                    ConnectionIdToPeerMappings.TryAdd(nextAvailableSlot, peer);
-                                    PeerIDsToConnectionIdMappings.TryAdd(peer.ID, nextAvailableSlot);
+                                    ConnectionIdToPeerMappings.Add(nextAvailableSlot, peer);
+                                    PeerIDsToConnectionIdMappings.Add(peer.ID, nextAvailableSlot);
 
                                     nextAvailableSlot++;
 
@@ -185,37 +178,34 @@ namespace Mirror.Ignorance
                                 case EventType.Timeout:
                                 case EventType.Disconnect:
                                     var peerId = peer.ID;
-                                    if (PeerIDsToConnectionIdMappings.ContainsKey(peer.ID))
+                                    if (PeerIDsToConnectionIdMappings.TryGetValue(peerId, out var connectionId))
                                     {
-                                      var connectionId = PeerIDsToConnectionIdMappings[peerId];
-                                      var disconnevent = new QueuedIncomingConnectionEvent
-                                      {
-                                          connectionId = connectionId,
-                                          eventType = netEvent.Type
-                                      };
+                                        var disconnevent = new QueuedIncomingConnectionEvent
+                                        {
+                                            connectionId = connectionId,
+                                            eventType = netEvent.Type
+                                        };
 
-                                        ConnectionIdToPeerMappings.TryRemove(connectionId, out Peer deadPeer);
-                                        PeerIDsToConnectionIdMappings.TryRemove(peerId, out int deadConnID);
-                                      
-                                      IncommingConnEvents.Enqueue(disconnevent);
+                                        ConnectionIdToPeerMappings.Remove(connectionId);
+                                        PeerIDsToConnectionIdMappings.Remove(peerId);
+
+                                        IncommingConnEvents.Enqueue(disconnevent);
                                     }
                                     break;
                                 case EventType.Receive:
-                                    QueuedIncomingEvent evt = default;
-                                    if (PeerIDsToConnectionIdMappings.ContainsKey(peer.ID))
+                                    if (PeerIDsToConnectionIdMappings.TryGetValue(peer.ID, out var sender))
                                     {
-                                        int sender = PeerIDsToConnectionIdMappings[peer.ID];
-                                        
-                                       // evt.peerId = peer.ID;
-                                        evt.connectionId = sender;
+                                        var packet = netEvent.Packet;
+                                        var length = packet.Length;
+                                        var data = new byte[length];
+                                        Marshal.Copy(packet.Data, data, 0, length); //packet.CopyTo(data);
+                                        packet.Dispose();
 
-                                        Packet pkt = netEvent.Packet;
-                                        evt.databuff = new byte[pkt.Length];
-                                        pkt.CopyTo(evt.databuff);
-
-                                        // don't dispose the original packet? blame FSE_Vincenzo for memory leaks
-                                        // netEvent.Packet.Dispose();
-                                        pkt.Dispose();
+                                        var evt = new QueuedIncomingEvent
+                                        {
+                                            connectionId = sender,
+                                            databuff = data
+                                        };
 
                                         Incoming.Enqueue(evt);
                                     }
@@ -281,18 +271,13 @@ namespace Mirror.Ignorance
 
         public static bool DisconnectThatConnection(int connectionId)
         {
-            // This could be improved.
-            if(ConnectionIdToPeerMappings.ContainsKey(connectionId))
+            var qc = new QueuedCommand 
             {
-                QueuedCommand qc = default;
-                qc.Type = 0;
-                qc.ConnId = connectionId;
-
-                CommandQueue.Enqueue(qc);
-                return true;
-            }
-
-            return false;
+                Type = 0,
+                ConnId = connectionId
+            };
+            CommandQueue.Enqueue(qc);
+            return true;
         }
 
         // -- Hacks -- //
