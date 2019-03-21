@@ -52,7 +52,6 @@ namespace Mirror.Ignorance
     // Outoging Packet Class
     public struct QueuedOutgoingPacket
     {
-        public uint targetPeerId;
         public int targetConnectionId;
         public byte channelId;
         public Packet contents;

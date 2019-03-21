@@ -173,8 +173,8 @@ namespace Mirror
             {
                 ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
                 {
-                    //targetConnectionId = connectionId,
-                    targetPeerId = KnownConnections[connectionId].PeerUniqueId,
+                    targetConnectionId = connectionId,
+                    // targetPeerId = KnownConnections[connectionId].PeerUniqueId,
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
