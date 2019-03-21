@@ -128,22 +128,13 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
-                                    if (DebugMode)
-                                    {
-                                        Debug.Log($"Worker Thread: Client has connected! Peer {netEvent.Peer.ID} (that's me) connects to IP: {netEvent.Peer.IP}");
-                                    }
-
                                     evt.eventType = EventType.Connect;
                                     evt.peerId = peer.ID;
+
                                     Incoming.Enqueue(evt);
                                     break;
 
                                 case EventType.Disconnect:
-                                    if (DebugMode)
-                                    {
-                                        Debug.Log($"Worker Thread: Client has disconnected.");
-                                    }
-
                                     evt.eventType = EventType.Disconnect;
                                     evt.peerId = peer.ID;
                                     Incoming.Enqueue(evt);
@@ -151,11 +142,6 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Timeout:
-                                    if (DebugMode)
-                                    {
-                                        Debug.Log($"Worker Thread: Client timed out.");
-                                    }
-
                                     evt.eventType = EventType.Disconnect;
                                     evt.peerId = peer.ID;
                                     Incoming.Enqueue(evt);
@@ -180,7 +166,8 @@ namespace Mirror.Ignorance
 
                     HostObject.Flush();
                     ClientPeer.DisconnectNow(0);
-                    Debug.Log("Client Worker finished. Going home.");
+                    Debug.Log("Client worker finished. Going home.");
+                    CurrentState = ThreadState.Stopping;
                 }
                 catch (Exception ex)
                 {

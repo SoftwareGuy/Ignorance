@@ -22,10 +22,21 @@ namespace Mirror.Ignorance
         public readonly static int ServerCommandRingBufferSize = 50;        // Should be enough, this is used to signal things to the ENET Thread
     }
 
+    // Peer Info Struct
+    public struct PeerInfo
+    {
+        public uint PeerUniqueId;
+        public string PeerIp;
+        public ushort PeerPort;
+    }
+
     // Incoming Event Class
     public struct QueuedIncomingEvent
     {
         public uint peerId;
+        public string peerIp;
+        public ushort peerPort;
+
         public EventType eventType;
         public byte[] databuff;
         public int connectionId;

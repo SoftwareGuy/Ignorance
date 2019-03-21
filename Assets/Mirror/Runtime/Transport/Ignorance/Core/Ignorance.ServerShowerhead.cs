@@ -10,7 +10,7 @@ using Mirror.Ignorance.Thirdparty;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+// using System.Linq;
 using System.Threading;
 using UnityEngine;
 using Event = ENet.Event;
@@ -29,20 +29,17 @@ namespace Mirror.Ignorance
 
         public static volatile bool CeaseOperation = false;
 
-        public static Thread Nozzle = new Thread(WorkerLoop)
-        {
-            Name = "Ignorance Transport Server Worker"
-        };
+        public static Thread Nozzle;
 
-        private static Dictionary<int, Peer> Intel; // Intelligence - client, Peer. Change the name before release or risk getting fucked by Intel's lawyers.
-
-        private static Dictionary<int, uint> knownConnIDsToPeerIDs;
-        private static Dictionary<uint, int> knownPeersToConnIDs;
-        private static ConcurrentDictionary<uint, Peer> knownPeers;
+        private static volatile ThreadState CurrentState = ThreadState.Stopped;        
+        
+        private static Dictionary<int, uint> ConnectionIdToPeerIDMappings;
+        private static Dictionary<uint, int> PeerIDsToConnectionIdMappings;
+        private static ConcurrentDictionary<uint, Peer> PeerIDsToPeerMappings;
 
         private static Host HostObject = new Host();    // ENET Host Object
         internal static int nextAvailableSlot = 1;
-
+        
         // We create new ringbuffers, but these will be overwritten when the Start() function is called.
         // This prevents nulls, thus saving null checks being heavy on performance.
         public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
@@ -57,21 +54,25 @@ namespace Mirror.Ignorance
         public static void Start(ushort port)
         {
             Debug.Log("Ignorance Server Showerhead: Start()");
+            CurrentState = ThreadState.Starting;
 
             Port = port;
             CeaseOperation = false;
 
             // Refresh dictonaries
-            Intel = new Dictionary<int, Peer>();
-
-            knownConnIDsToPeerIDs = new Dictionary<int, uint>();   // ENET
-            knownPeersToConnIDs = new Dictionary<uint, int>();
-            knownPeers = new ConcurrentDictionary<uint, Peer>();
+            ConnectionIdToPeerIDMappings = new Dictionary<int, uint>();   // Mirror CIDs. -> ENET PeerIDs.
+            PeerIDsToConnectionIdMappings = new Dictionary<uint, int>();  // Reverse lookup, ENET Peer IDs -> Mirror CIDs.
+            PeerIDsToPeerMappings = new ConcurrentDictionary<uint, Peer>(); // PeerID lookup.
 
             // Setup queues.
             Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
             Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
             CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
+
+            Nozzle = new Thread(WorkerLoop)
+            {
+                Name = "Ignorance Transport Server Worker"
+            };
 
             Nozzle.Start();
         }
@@ -86,6 +87,7 @@ namespace Mirror.Ignorance
         public static void WorkerLoop(object args)
         {
             Debug.Log("Server Worker has arrived!");
+            CurrentState = ThreadState.Started;
 
             using (HostObject)
             {
@@ -113,9 +115,9 @@ namespace Mirror.Ignorance
                             {
                                 case '0':
                                     // Boot to the face.
-                                    if (Intel.ContainsKey(qCmd.ConnId))
+                                    if (ConnectionIdToPeerIDMappings.TryGetValue(qCmd.ConnId, out uint victim))
                                     {
-                                        Intel[qCmd.ConnId].DisconnectLater(0);
+                                        PeerIDsToPeerMappings[victim].DisconnectLater(0);
                                     }
                                     break;
                             }
@@ -125,10 +127,15 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-                            if (Intel.ContainsKey(opkt.targetConnectionId))
+                            // Try mapping the peer id to the peer object.
+                            if (PeerIDsToPeerMappings.TryGetValue(opkt.targetPeerId, out Peer p))
                             {
-                                Intel[opkt.targetConnectionId].Send(opkt.channelId, ref opkt.contents);
-                            }
+                                p.Send(opkt.channelId, ref opkt.contents);
+                                // It worked
+                            } 
+                            
+                            // } else { Debug.Log("You idiot, it didn't work"); }
+                            
                         }
 
                         // Now, we receive what's going on in the network chatter.
@@ -154,63 +161,40 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Connect:
-                                    // Add to our intel.
-                                    Intel.Add(nextAvailableSlot, peer);
-
                                     evt.connectionId = nextAvailableSlot;
                                     evt.eventType = EventType.Connect;
 
                                     // keep for now.
                                     evt.peerId = peer.ID;
 
-                                    // safety
-                                    knownPeersToConnIDs.Add(peer.ID, nextAvailableSlot);
-                                    knownConnIDsToPeerIDs.Add(nextAvailableSlot, peer.ID);
-                                    knownPeers.TryAdd(peer.ID, peer);
+                                    // Update dictonaries
+                                    // Debug.Log($"nas {nextAvailableSlot} peerid {peer.ID}");
+
+                                    AddMappings(nextAvailableSlot, peer.ID, peer);
 
                                     Incoming.Enqueue(evt);
-
                                     nextAvailableSlot++;
                                     break;
 
                                 case EventType.Timeout:
                                 case EventType.Disconnect:
-                                    if (Intel.ContainsValue(peer))
+                                    if (PeerIDsToPeerMappings.ContainsKey(peer.ID))
                                     {
-                                        int dead = Intel.KeysFromValue(peer).Single();
-                                        evt.eventType = evt.eventType == EventType.Disconnect ? EventType.Disconnect : EventType.Timeout;
+                                        int dead = PeerIDsToConnectionIdMappings[peer.ID];
+
+                                        evt.eventType = evt.eventType == EventType.Disconnect ? EventType.Timeout : EventType.Disconnect;
                                         evt.peerId = peer.ID;
                                         evt.connectionId = dead;
 
                                         Incoming.Enqueue(evt);
-                                        Intel.Remove(evt.connectionId);
-
-                                        // safety
-                                        //PeerDisconnectedInternal(peer.ID);
+                                        RemoveMappings(dead, evt.peerId, peer);
                                     }
                                     break;
 
-                                /*
-                            case EventType.Timeout:
-                                knownPeers.TryRemove(peer.ID, out Peer peerTimeouted);
-
-                                evt.eventType = EventType.Disconnect;
-                                evt.peerId = peer.ID;
-
-                                if (knownPeersToConnIDs.TryGetValue(evt.peerId, out int timedout))
-                                {
-                                    evt.connectionId = timedout;
-                                }
-
-                                Incoming.Enqueue(evt);
-                                PeerDisconnectedInternal(peer.ID);
-                                break;
-                                */
-
                                 case EventType.Receive:
-                                    if (Intel.ContainsValue(peer))
+                                    if (PeerIDsToConnectionIdMappings.ContainsKey(peer.ID))
                                     {
-                                        int sender = Intel.KeysFromValue(peer).Single();
+                                        int sender = PeerIDsToConnectionIdMappings[peer.ID];
 
                                         evt.eventType = EventType.Receive;
                                         evt.peerId = peer.ID;
@@ -232,6 +216,7 @@ namespace Mirror.Ignorance
 
                     HostObject.Flush();
                     Debug.Log("Server worker finished. Going home.");
+                    CurrentState = ThreadState.Stopping;
                 }
                 catch (Exception ex)
                 {
@@ -240,6 +225,7 @@ namespace Mirror.Ignorance
                 finally
                 {
                     Debug.Log("Turned off the Nozzle. Good work out there.");
+                    CurrentState = ThreadState.Stopped;
                 }
             }
         }
@@ -249,19 +235,21 @@ namespace Mirror.Ignorance
             CeaseOperation = true;
         }
 
+        /*
         public static string GetClientAddress(int connectionId)
         {
-            if (Intel.ContainsKey(connectionId))
+            if (ConnectionIdToPeerIDMappings.TryGetValue(connectionId, out uint pid))
             {
-                return Intel[connectionId].IP;
+                return PeerIDsToPeerMappings[pid].IP;
             }
 
             return "(invalid)";
         }
+        */
 
         public static bool DoesThisConnectionHaveAPeer(int connectionId)
         {
-            if (knownConnIDsToPeerIDs.ContainsKey(connectionId))
+            if (ConnectionIdToPeerIDMappings.ContainsKey(connectionId))
             {
                 return true;
             }
@@ -269,16 +257,10 @@ namespace Mirror.Ignorance
             return false;
         }
 
-        /*
-        public static uint GetMeThatPeerIDForThisConnection(int connectionId)
-        {
-            return knownConnIDsToPeerIDs[connectionId];
-        }
-        */
-
         public static bool DisconnectThatConnection(int connectionId)
         {
-            if(Intel.ContainsKey(connectionId))
+            // This could be improved.
+            if(ConnectionIdToPeerIDMappings.ContainsKey(connectionId))
             {
                 QueuedCommand qc = default;
                 qc.Type = 0;
@@ -291,22 +273,22 @@ namespace Mirror.Ignorance
             return false;
         }
 
-        private static void PeerDisconnectedInternal(uint peer)
+        // -- Hacks -- //
+        private static void AddMappings(int connectionId, uint peerId, Peer peerObj)
         {
-            // Clean up dictionaries.
-            knownConnIDsToPeerIDs.Remove(knownPeersToConnIDs[peer]);
-            knownPeersToConnIDs.Remove(peer);
+            // ConnID -> PeerID
+            ConnectionIdToPeerIDMappings.Add(connectionId, peerId);
+            // ConnID <- PeerID
+            PeerIDsToConnectionIdMappings.Add(peerId, connectionId);
+            // PeerID -> Peer Object
+            PeerIDsToPeerMappings.TryAdd(peerId, peerObj);
         }
 
-        // -- Hacks -- //
-        // From https://stackoverflow.com/questions/255341/getting-key-of-value-of-a-generic-dictionary/255638#255638
-        private static IEnumerable<TKey> KeysFromValue<TKey, TValue>(this Dictionary<TKey, TValue> dict, TValue val)
+        private static void RemoveMappings(int connectionId, uint peerId, Peer peerObj)
         {
-            if (dict == null)
-            {
-                throw new ArgumentNullException("dict");
-            }
-            return dict.Keys.Where(k => dict[k].Equals(val));
+            ConnectionIdToPeerIDMappings.Remove(connectionId);
+            PeerIDsToConnectionIdMappings.Remove(peerId);
+            PeerIDsToPeerMappings.TryRemove(peerId, out Peer evictedPeer);
         }
     }
 }

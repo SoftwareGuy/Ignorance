@@ -23,7 +23,6 @@ namespace Mirror
         // Transport Port setting
         public string BindAddress = "";
         public ushort Port = 7778;
-
         public bool DebugEnabled = false;
 
         public List<KnownChannelTypes> ChannelDefinitions = new List<KnownChannelTypes>()
@@ -39,7 +38,7 @@ namespace Mirror
 
         private void Awake()
         {
-            Debug.Log($"Ignorance Transport, experimental version has awakened.");
+            Debug.Log($"Ignorance Transport {IgnoranceConstants.TransportVersion} has awakened.");
 #if UNITY_EDITOR_OSX
             Debug.LogWarning("MacOS Editor detected. Binding address workarounds engaged.");
 #endif
@@ -140,7 +139,22 @@ namespace Mirror
 
         public override string ServerGetClientAddress(int connectionId)
         {
-            return ServerShowerhead.GetClientAddress(connectionId);
+            if(KnownConnections.TryGetValue(connectionId, out PeerInfo value))
+            {
+                return value.PeerIp;
+            }
+
+            return "(unknown)";
+        }
+
+        public ushort ServerGetClientPort(int connectionId)
+        {
+            if(KnownConnections.TryGetValue(connectionId, out PeerInfo value))
+            {
+                return value.PeerPort;
+            }
+            
+            return 0;
         }
 
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
@@ -155,16 +169,15 @@ namespace Mirror
 
             outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
 
-            if (ServerShowerhead.DoesThisConnectionHaveAPeer(connectionId))
+            if (KnownConnections.ContainsKey(connectionId))
             {
                 ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
                 {
-                    targetConnectionId = connectionId,
-                    // targetPeerId = ServerShowerhead.GetMeThatPeerIDForThisConnection(connectionId),
+                    //targetConnectionId = connectionId,
+                    targetPeerId = KnownConnections[connectionId].PeerUniqueId,
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
-
                 return true;
             }
 
@@ -243,6 +256,14 @@ namespace Mirror
                             Debug.Log($"Main Thread: Server has a new client! Peer ID: {evt.peerId}, Mirror CID: {evt.connectionId}");
                         }
 
+                        // Fun fact: Was supposed to be "Poi?" (Yuudachi's KanColle verbal tic) but I couldn't really find a use for the 'o'
+                        PeerInfo pi = default;
+
+                        pi.PeerUniqueId = evt.peerId;
+                        pi.PeerIp = evt.peerIp;
+                        pi.PeerPort = evt.peerPort;
+
+                        AddToKnownConnections(evt.connectionId, pi);
                         OnServerConnected.Invoke(evt.connectionId);
                         break;
 
@@ -255,6 +276,7 @@ namespace Mirror
                         if (evt.connectionId > 0)
                         {
                             OnServerDisconnected.Invoke(evt.connectionId);
+                            RemoveFromKnownConnections(evt.connectionId);
                         }
                         break;
 
@@ -279,67 +301,86 @@ namespace Mirror
                 }
             }
         }
-    #endregion
+        #endregion
 
-    #region Client packet queue processors 
-    private void ProcessQueuedClientEvents()
-    {
-        QueuedIncomingEvent evt;
-
-        while (ClientShowerhead.Incoming.TryDequeue(out evt))
+        #region Client packet queue processors 
+        private void ProcessQueuedClientEvents()
         {
-            switch (evt.eventType)
+            QueuedIncomingEvent evt;
+
+            while (ClientShowerhead.Incoming.TryDequeue(out evt))
             {
-                case ENet.EventType.Connect:
-                    OnClientConnected.Invoke();
-                    break;
-                case ENet.EventType.Disconnect:
-                case ENet.EventType.Timeout:
-                    OnClientDisconnected.Invoke();
-                    break;
-                case ENet.EventType.Receive:
-                    OnClientDataReceived.Invoke(evt.databuff);
-                    break;
+                switch (evt.eventType)
+                {
+                    case ENet.EventType.Connect:
+                        OnClientConnected.Invoke();
+                        break;
+                    case ENet.EventType.Disconnect:
+                    case ENet.EventType.Timeout:
+                        OnClientDisconnected.Invoke();
+                        break;
+                    case ENet.EventType.Receive:
+                        OnClientDataReceived.Invoke(evt.databuff);
+                        break;
+                }
             }
         }
-    }
-    #endregion
+        #endregion
 
-    #region Update method
-    private void LateUpdate()
-    {
-        if (enabled)
+        #region Update method
+        private void LateUpdate()
         {
-            ProcessQueuedServerEvents();
-            ProcessQueuedClientEvents();
+            if (enabled)
+            {
+                ProcessQueuedServerEvents();
+                ProcessQueuedClientEvents();
+            }
         }
-    }
-    #endregion
+        #endregion
 
-    #region Packet Size (maximum)
-    public override int GetMaxPacketSize(int channelId = 0)
-    {
-        return (int)Library.maxPacketSize;  // 33,554,432 bytes.
-    }
-    #endregion
-
-    #region Helpers 
-    public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
-    {
-        switch (source)
+        #region Packet Size (maximum)
+        public override int GetMaxPacketSize(int channelId = 0)
         {
-            case KnownChannelTypes.Reliable:
-                return PacketFlags.Reliable;            // reliable (tcp-like).
-            case KnownChannelTypes.Unreliable:
-                return PacketFlags.Unsequenced;         // completely unreliable.
-            case KnownChannelTypes.UnreliableFragmented:
-                return PacketFlags.UnreliableFragment;  // unreliable fragmented.
-            case KnownChannelTypes.UnreliableSequenced:
-                return PacketFlags.None;                // unreliable, but sequenced.
-            default:
-                return PacketFlags.Unsequenced;
+            return (int)Library.maxPacketSize;  // 33,554,432 bytes.
         }
+        #endregion
+
+        #region Helpers 
+        public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
+        {
+            switch (source)
+            {
+                case KnownChannelTypes.Reliable:
+                    return PacketFlags.Reliable;            // reliable (tcp-like).
+                case KnownChannelTypes.Unreliable:
+                    return PacketFlags.Unsequenced;         // completely unreliable.
+                case KnownChannelTypes.UnreliableFragmented:
+                    return PacketFlags.UnreliableFragment;  // unreliable fragmented.
+                case KnownChannelTypes.UnreliableSequenced:
+                    return PacketFlags.None;                // unreliable, but sequenced.
+                default:
+                    return PacketFlags.Unsequenced;
+            }
+        }
+
+        // Adds a peer info struct to our dictonary.
+        private void AddToKnownConnections(int connectionId, PeerInfo data)
+        {
+            KnownConnections.Add(connectionId, data);
+        }
+
+        // Removes a peer info struct from our dictonary.
+        private void RemoveFromKnownConnections(int connectionId)
+        {
+            if(KnownConnections.ContainsKey(connectionId))
+            {
+                KnownConnections.Remove(connectionId);
+            }
+        }
+        #endregion
+
+        #region Internal database things 
+        private Dictionary<int, PeerInfo> KnownConnections = new Dictionary<int, PeerInfo>();
+        #endregion
     }
-    #endregion
-}
 }

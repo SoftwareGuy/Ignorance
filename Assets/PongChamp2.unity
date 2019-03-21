@@ -1023,8 +1023,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  BindAddress: 
   Port: 7778
-  ServerSendQueue: 4096
-  ServerReceiveQueue: 4096
-  ClientSendQueue: 4096
-  ClientReceiveQueue: 4096
+  DebugEnabled: 1
+  ChannelDefinitions: 0000000001000000
