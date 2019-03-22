@@ -97,12 +97,12 @@ namespace Mirror
         public bool ClientSend(int channelId, ArraySegment<byte> data)
         {
             Packet outPkt = default;
-            outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
+            outPkt.Create(data.Array, data.Offset, data.Count, (PacketFlags)ChannelDefinitions[channelId]);
 
             // Failsafe.
             // outPkt.Create(data.Array, data.Offset, data.Count, PacketFlags.Reliable);
 
-            ClientShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
+            ClientShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket
             {
                 channelId = (byte)channelId,
                 contents = outPkt,
@@ -114,9 +114,9 @@ namespace Mirror
         public override bool ClientSend(int channelId, byte[] data)
         {
             Packet outPkt = default;
-            outPkt.Create(data, data.Length, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
+            outPkt.Create(data, data.Length, (PacketFlags)ChannelDefinitions[channelId]);
 
-            ClientShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket()
+            ClientShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket
             {
                 channelId = (byte)channelId,
                 contents = outPkt,
@@ -159,22 +159,20 @@ namespace Mirror
 
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
-            Packet outPkt = default;
-
             if (channelId >= ChannelDefinitions.Count)
             {
                 Debug.LogWarning("NOQUEUE: Discarding a packet because the channel id is higher or equal to the amount of items in the channel list.");
                 return false;
             }
 
-            outPkt.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(ChannelDefinitions[channelId]));
+            Packet outPkt = default;
+            outPkt.Create(data.Array, data.Offset, data.Count, (PacketFlags)ChannelDefinitions[channelId]);
 
             if (KnownConnections.ContainsKey(connectionId))
             {
                 ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket
                 {
                     targetConnectionId = connectionId,
-                    //targetPeerId = KnownConnections[connectionId].PeerUniqueId,
                     channelId = (byte)channelId,
                     contents = outPkt,
                 });
@@ -186,7 +184,26 @@ namespace Mirror
 
         public override bool ServerSend(int connectionId, int channelId, byte[] data)
         {
-            return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
+            if (channelId >= ChannelDefinitions.Count) {
+                Debug.LogWarning("NOQUEUE: Discarding a packet because the channel id is higher or equal to the amount of items in the channel list.");
+                return false;
+            }
+
+            Packet outPkt = default;
+            outPkt.Create(data, data.Length, (PacketFlags)ChannelDefinitions[channelId]);
+
+            if (KnownConnections.ContainsKey(connectionId)) 
+            {
+                ServerShowerhead.Outgoing.Enqueue(new QueuedOutgoingPacket 
+                {
+                    targetConnectionId = connectionId,
+                    channelId = (byte)channelId,
+                    contents = outPkt,
+                });
+                return true;
+            }
+
+            return false;
         }
 
         public override void ServerStart()
@@ -265,6 +282,7 @@ namespace Mirror
                         pi.PeerPort = connectionEvent.peerPort;
 
                         AddToKnownConnections(connectionEvent.connectionId, pi);
+
                         OnServerConnected.Invoke(connectionEvent.connectionId);
                         break;
 
@@ -294,11 +312,7 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ServerShowerhead.Incoming.TryDequeue(out evt))
             {
-                if (evt.connectionId > 0)
-                {
-                    OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
-                }
-                
+                OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
             }
         }
         #endregion
@@ -307,7 +321,7 @@ namespace Mirror
         private void ProcessQueuedClientEvents()
         {
             QueuedIncomingConnectionEvent connectionEvent;
-            while (ServerShowerhead.IncommingConnEvents.TryDequeue(out connectionEvent))
+            while (ClientShowerhead.IncommingConnEvents.TryDequeue(out connectionEvent))
             {
                 switch (connectionEvent.eventType)
                 {
@@ -348,23 +362,6 @@ namespace Mirror
         #endregion
 
         #region Helpers 
-        public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
-        {
-            switch (source)
-            {
-                case KnownChannelTypes.Reliable:
-                    return PacketFlags.Reliable;            // reliable (tcp-like).
-                case KnownChannelTypes.Unreliable:
-                    return PacketFlags.Unsequenced;         // completely unreliable.
-                case KnownChannelTypes.UnreliableFragmented:
-                    return PacketFlags.UnreliableFragment;  // unreliable fragmented.
-                case KnownChannelTypes.UnreliableSequenced:
-                    return PacketFlags.None;                // unreliable, but sequenced.
-                default:
-                    return PacketFlags.Unsequenced;
-            }
-        }
-
         // Adds a peer info struct to our dictonary.
         private void AddToKnownConnections(int connectionId, PeerInfo data)
         {

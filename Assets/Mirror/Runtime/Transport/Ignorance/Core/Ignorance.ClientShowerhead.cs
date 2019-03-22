@@ -8,6 +8,7 @@
 using ENet;
 using Mirror.Ignorance.Thirdparty;
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
 using Event = ENet.Event;
@@ -37,6 +38,8 @@ namespace Mirror.Ignorance
         private static volatile ThreadState CurrentState = ThreadState.Stopped;   // Goddamnit Mirror.
 
         public static Thread Nozzle;
+
+        private static volatile bool IsClientConnectedNow = false;
 
         public static void Start(string addr, ushort port)
         {
@@ -74,7 +77,6 @@ namespace Mirror.Ignorance
 
             CurrentState = ThreadState.Stopping;
             CeaseOperation = true;
-
         }
 
         public static void WorkerLoop(object args)
@@ -119,8 +121,6 @@ namespace Mirror.Ignorance
                                 polled = true;
                             }
 
-                            Peer peer = netEvent.Peer;
-
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
@@ -131,14 +131,20 @@ namespace Mirror.Ignorance
                                 case EventType.Timeout:
                                     var connevent = new QueuedIncomingConnectionEvent {eventType = netEvent.Type};
                                     IncommingConnEvents.Enqueue(connevent);
+
+                                    IsClientConnectedNow = netEvent.Type == EventType.Connect;
                                     break;
                                 case EventType.Receive:
-                                    QueuedIncomingEvent evt = default;
+                                    var packet = netEvent.Packet;
+                                    var length = packet.Length;
+                                    var data = new byte[length];
+                                    Marshal.Copy(packet.Data, data, 0, length); //packet.CopyTo(data);
+                                    packet.Dispose();
 
-                                    Packet pkt = netEvent.Packet;
-                                    evt.databuff = new byte[pkt.Length];
-                                    pkt.CopyTo(evt.databuff);
-                                    pkt.Dispose();
+                                    var evt = new QueuedIncomingEvent
+                                    {
+                                        databuff = data
+                                    };
 
                                     // Enslave a new packet to the queue.
                                     Incoming.Enqueue(evt);
@@ -167,7 +173,7 @@ namespace Mirror.Ignorance
 
         public static bool IsClientConnected()
         {
-            return ClientPeer.IsSet && ClientPeer.State == PeerState.Connected;
+            return IsClientConnectedNow;//ClientPeer.IsSet && ClientPeer.State == PeerState.Connected;
         }
 
         internal static void Shutdown()

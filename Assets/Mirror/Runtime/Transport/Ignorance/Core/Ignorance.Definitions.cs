@@ -64,10 +64,11 @@ namespace Mirror.Ignorance
     [System.Serializable]
     public enum KnownChannelTypes
     {
-        Reliable,
-        Unreliable,
-        UnreliableFragmented,
-        UnreliableSequenced,
+        Reliable = PacketFlags.Reliable, // reliable Sequenced (in order), will auto fragment & reassemble if above MTU (1400 default but scales per peer)
+        Unreliable = PacketFlags.Unsequenced, // Unreliable and unsequenced, If package is above MTU it will be automatically converted to Reliable Fragmented packet.
+        UnreliableFragmented = PacketFlags.UnreliableFragment, // Unreliable and will fragment if above MTU but in an unreliable way.
+        UnreliableSequenced = PacketFlags.None, // Same behaviour as normal Unreliable but with sequencing (so above MTU becomes Reliable fragmented)
+        ReliableUnsequenced = (PacketFlags.Reliable | PacketFlags.Unsequenced), // Will be reliable but can be out-of-order arriving.
     }
 
     public enum ThreadState
