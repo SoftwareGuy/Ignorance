@@ -20,6 +20,8 @@ namespace Mirror.Ignorance
         public readonly static int ServerOutgoingRingBufferSize = 524288;   // 512 x 1024
         public readonly static int ServerIncomingRingBufferSize = 524288;   // 512 x 1024
         public readonly static int ServerCommandRingBufferSize = 50;        // Should be enough, this is used to signal things to the ENET Thread
+        public readonly static int ServerPollingTimeout = 15;               // ticks, or ms. Higher = more CPU burn. Lower = maybe lesser performance, but lower CPU usage.
+        public readonly static int ClientPollingTimeout = 1;                // Leave at 1 for maximum performance. Do not set to 0 as this might cause unpredicatible behaviour.
     }
 
     // Peer Info Struct

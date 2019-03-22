@@ -113,7 +113,7 @@ namespace Mirror.Ignorance
                         {
                             if (HostObject.CheckEvents(out netEvent) <= 0)
                             {
-                                if (HostObject.Service(1, out netEvent) <= 0)
+                                if (HostObject.Service(IgnoranceConstants.ClientPollingTimeout, out netEvent) <= 0)
                                 {
                                     break;
                                 }

@@ -8,7 +8,6 @@
 using ENet;
 using Mirror.Ignorance.Thirdparty;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 // using System.Linq;
@@ -42,7 +41,7 @@ namespace Mirror.Ignorance
 
         private static Host HostObject = new Host();    // ENET Host Object
         internal static int nextAvailableSlot = 1;
-        
+
         // We create new ringbuffers, but these will be overwritten when the Start() function is called.
         // This prevents nulls, thus saving null checks being heavy on performance.
         public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
@@ -118,12 +117,16 @@ namespace Mirror.Ignorance
                             switch (qCmd.Type)
                             {
                                 // Disconnect a peer.
-                                case '0':
+                                case 0:
                                     // Boot to the face.
                                     if (ConnectionIdToPeerMappings.TryGetValue(qCmd.ConnId, out Peer victim))
                                     {
                                         victim.DisconnectLater(0);
                                     }
+                                    break;
+
+                                case 1:
+
                                     break;
                             }
                         }
@@ -143,7 +146,7 @@ namespace Mirror.Ignorance
                         {
                             if (HostObject.CheckEvents(out netEvent) <= 0)
                             {
-                                if (HostObject.Service(15, out netEvent) <= 0)
+                                if (HostObject.Service(IgnoranceConstants.ServerPollingTimeout, out netEvent) <= 0)
                                 {
                                     break;
                                 }
@@ -159,28 +162,28 @@ namespace Mirror.Ignorance
                                     // Do I need to say more?
                                     break;
                                 case EventType.Connect:
-                                    var connevent = new QueuedIncomingConnectionEvent 
+                                    var connEvent = new QueuedIncomingConnectionEvent
                                     {
                                         connectionId = nextAvailableSlot,
                                         eventType = EventType.Connect,
                                         peerIp = peer.IP,
                                         peerPort = peer.Port
                                     };
-                                    
+
                                     // Update dictonaries
                                     ConnectionIdToPeerMappings.Add(nextAvailableSlot, peer);
                                     PeerIDsToConnectionIdMappings.Add(peer.ID, nextAvailableSlot);
 
                                     nextAvailableSlot++;
 
-                                    IncommingConnEvents.Enqueue(connevent);
+                                    IncommingConnEvents.Enqueue(connEvent);
                                     break;
                                 case EventType.Timeout:
                                 case EventType.Disconnect:
                                     var peerId = peer.ID;
                                     if (PeerIDsToConnectionIdMappings.TryGetValue(peerId, out var connectionId))
                                     {
-                                        var disconnevent = new QueuedIncomingConnectionEvent
+                                        var disconnEvent = new QueuedIncomingConnectionEvent
                                         {
                                             connectionId = connectionId,
                                             eventType = netEvent.Type
@@ -189,7 +192,7 @@ namespace Mirror.Ignorance
                                         ConnectionIdToPeerMappings.Remove(connectionId);
                                         PeerIDsToConnectionIdMappings.Remove(peerId);
 
-                                        IncommingConnEvents.Enqueue(disconnevent);
+                                        IncommingConnEvents.Enqueue(disconnEvent);
                                     }
                                     break;
                                 case EventType.Receive:
@@ -214,8 +217,16 @@ namespace Mirror.Ignorance
                         }
                     }
 
-                    HostObject.Flush();
                     Debug.Log("Server worker finished. Going home.");
+
+                    foreach (KeyValuePair<int, Peer> entry in ConnectionIdToPeerMappings)
+                    {
+                        entry.Value.DisconnectNow(0);
+                    }
+
+                    HostObject.Flush();
+                    HostObject.Dispose();
+
                     CurrentState = ThreadState.Stopping;
                 }
                 catch (Exception ex)
@@ -245,33 +256,9 @@ namespace Mirror.Ignorance
             CeaseOperation = true;
         }
 
-        /*
-        public static string GetClientAddress(int connectionId)
-        {
-            if (ConnectionIdToPeerIDMappings.TryGetValue(connectionId, out uint pid))
-            {
-                return PeerIDsToPeerMappings[pid].IP;
-            }
-
-            return "(invalid)";
-        }
-        */
-
-        /*
-        public static bool DoesThisConnectionHaveAPeer(int connectionId)
-        {
-            if (ConnectionIdToPeerIDMappings.ContainsKey(connectionId))
-            {
-                return true;
-            }
-
-            return false;
-        }
-        */
-
         public static bool DisconnectThatConnection(int connectionId)
         {
-            var qc = new QueuedCommand 
+            var qc = new QueuedCommand
             {
                 Type = 0,
                 ConnId = connectionId
@@ -280,47 +267,5 @@ namespace Mirror.Ignorance
             return true;
         }
 
-        // -- Hacks -- //
-        /*
-        private static void AddMappings(int connectionId, uint peerId, Peer peerObj)
-        {
-            // ConnID -> PeerID
-            if(!ConnectionIdToPeerIDMappings.ContainsKey(connectionId))
-            {
-                ConnectionIdToPeerIDMappings.Add(connectionId, peerId);
-            } else
-            {
-                Debug.LogWarning("WARNING: AddMappings ConnID -> PeerID double dip!!");
-            }
-            
-            // ConnID <- PeerID
-            if(!PeerIDsToConnectionIdMappings.ContainsKey(peerId))
-            {
-                PeerIDsToConnectionIdMappings.Add(peerId, connectionId);
-            }
-            else
-            {
-                Debug.LogWarning("WARNING: AddMappings PeerID -> ConnID double dip!!");
-            }
-
-            // PeerID -> Peer Object
-            if (PeerIDsToPeerMappings.ContainsKey(peerId))
-            {
-                PeerIDsToPeerMappings.TryAdd(peerId, peerObj);
-            }
-            else
-            {
-                Debug.LogWarning("WARNING: AddMappings PeerID -> Peer double dip!!");
-            }
-        }
-
-
-        private static void RemoveMappings(int connectionId, uint peerId, Peer peerObj)
-        {
-            ConnectionIdToPeerIDMappings.Remove(connectionId);
-            PeerIDsToConnectionIdMappings.Remove(peerId);
-            PeerIDsToPeerMappings.TryRemove(peerId, out Peer evictedPeer);
-        }
-                */
     }
 }
