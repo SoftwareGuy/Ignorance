@@ -14,8 +14,10 @@ using System.Runtime.InteropServices;
 // using System.Linq;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.Profiling;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+
 
 namespace Mirror.Ignorance
 {
@@ -34,21 +36,31 @@ namespace Mirror.Ignorance
 
         private static volatile ThreadState CurrentState = ThreadState.Stopped;
 
-        private static Dictionary<int, Peer> ConnectionIdToPeerMappings;
-        private static Dictionary<uint, int> PeerIDsToConnectionIdMappings;
+        private static Peer[] peers = new Peer[4096];
+
+        //private static Dictionary<int, Peer> ConnectionIdToPeerMappings;
+        //private static Dictionary<uint, int> PeerIDsToConnectionIdMappings;
 
         //private static Dictionary<int, uint> ConnectionIdToPeerIDMappings;
         //private static ConcurrentDictionary<uint, Peer> PeerIDsToPeerMappings;
 
         private static Host HostObject = new Host();    // ENET Host Object
-        internal static int nextAvailableSlot = 1;
-        
+      //  internal static int nextAvailableSlot = 1;
+
         // We create new ringbuffers, but these will be overwritten when the Start() function is called.
         // This prevents nulls, thus saving null checks being heavy on performance.
-        public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
-        public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
-        private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
-        public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(4096); // ENET World -> Mirror conn events.
+        // public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
+        public static ConcurrentQueue<QueuedIncomingEvent> Incoming = new ConcurrentQueue<QueuedIncomingEvent>();   // Client -> ENET World -> Mirror
+        // public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
+        public static ConcurrentQueue<QueuedOutgoingPacket> Outgoing = new ConcurrentQueue<QueuedOutgoingPacket>();  // Mirror -> ENET World -> Client
+        // private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
+        private static ConcurrentQueue<QueuedCommand> CommandQueue = new ConcurrentQueue<QueuedCommand>();    // ENET Command Queue.
+        // public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(4096); // ENET World -> Mirror conn events.
+        public static ConcurrentQueue<QueuedIncomingConnectionEvent> IncommingConnEvents = new ConcurrentQueue<QueuedIncomingConnectionEvent>(); // ENET World -> Mirror conn events.
+
+        private static CustomSampler pollSampler;
+        private static CustomSampler outgoingSampler;
+        private static CustomSampler eventSampler;
 
         public static bool IsServerActive()
         {
@@ -64,14 +76,27 @@ namespace Mirror.Ignorance
             CeaseOperation = false;
 
             // Refresh dictonaries
-            ConnectionIdToPeerMappings = new Dictionary<int, Peer>(); // Mirror CIDs. -> ENET Peers.
-            PeerIDsToConnectionIdMappings = new Dictionary<uint, int>();  // Reverse lookup, ENET Peer IDs -> Mirror CIDs.
+            //ConnectionIdToPeerMappings = new Dictionary<int, Peer>(); // Mirror CIDs. -> ENET Peers.
+            //PeerIDsToConnectionIdMappings = new Dictionary<uint, int>();  // Reverse lookup, ENET Peer IDs -> Mirror CIDs.
             // PeerIDsToPeerMappings = new ConcurrentDictionary<uint, Peer>(); // PeerID lookup.
 
             // Setup queues.
-            Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
-            CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
+            // Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
+            Incoming = new ConcurrentQueue<QueuedIncomingEvent>();
+            // Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
+            Outgoing = new ConcurrentQueue<QueuedOutgoingPacket>();
+            //CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
+            CommandQueue = new ConcurrentQueue<QueuedCommand>();
+
+            pollSampler = CustomSampler.Create("Incoming");
+            outgoingSampler = CustomSampler.Create("Outgoing");
+            eventSampler = CustomSampler.Create("Events");
+
+            // reset array
+            for (int peerIndex = 0; peerIndex < peers.Length; peerIndex++)
+            {
+                peers[peerIndex] = default;
+            }
 
             Nozzle = new Thread(WorkerLoop)
             {
@@ -90,6 +115,8 @@ namespace Mirror.Ignorance
 
         public static void WorkerLoop(object args)
         {
+            Profiler.BeginThreadProfiling("Server Threads", "Worker Thread (Server)");
+
             Debug.Log("Server worker has arrived!");
             CurrentState = ThreadState.Started;
 
@@ -104,46 +131,53 @@ namespace Mirror.Ignorance
 
                 // Hold the network event that's being emitted.
                 Event netEvent;
+                // Peer peer;
+
+                QueuedCommand qCmd;
+                QueuedOutgoingPacket opkt;
 
                 try
                 {
                     while (!CeaseOperation)
                     {
+                        pollSampler.Begin();
+
                         bool polled = false;
 
                         // Process any commands first.
-                        QueuedCommand qCmd;
                         while (CommandQueue.TryDequeue(out qCmd))
                         {
                             switch (qCmd.Type)
                             {
                                 // Disconnect a peer.
-                                case '0':
+                                case 0:
                                     // Boot to the face.
-                                    if (ConnectionIdToPeerMappings.TryGetValue(qCmd.ConnId, out Peer victim))
-                                    {
-                                        victim.DisconnectLater(0);
-                                    }
+                                    peers[qCmd.ConnId -1].DisconnectLater(0);
+                                    break;
+
+                                case 1:
+
                                     break;
                             }
                         }
-
+                        pollSampler.End();
+                        outgoingSampler.Begin();
                         // Send any pending packets out first.
-                        QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-                            if (ConnectionIdToPeerMappings.TryGetValue(opkt.targetConnectionId, out Peer p))
-                            {
-                                p.Send(opkt.channelId, ref opkt.contents);
-                            }
+                            peers[opkt.targetConnectionId - 1].Send(opkt.channelId, ref opkt.contents);
                         }
+                        outgoingSampler.End();
+
+                        HostObject.Flush();
 
                         // Now, we receive what's going on in the network chatter.
+                        eventSampler.Begin();
                         while (!polled)
                         {
                             if (HostObject.CheckEvents(out netEvent) <= 0)
                             {
-                                if (HostObject.Service(15, out netEvent) <= 0)
+                                if (HostObject.Service(IgnoranceConstants.ServerPollingTimeout, out netEvent) <= 0)
                                 {
                                     break;
                                 }
@@ -151,71 +185,74 @@ namespace Mirror.Ignorance
                                 polled = true;
                             }
 
-                            Peer peer = netEvent.Peer;
-
                             switch (netEvent.Type)
                             {
                                 case EventType.None:
                                     // Do I need to say more?
                                     break;
                                 case EventType.Connect:
-                                    var connevent = new QueuedIncomingConnectionEvent 
+                                    var peer = netEvent.Peer;
+                                    var peerIdcon = peer.ID;
+
+                                    peers[peerIdcon] = peer;
+
+                                    var connEvent = new QueuedIncomingConnectionEvent
                                     {
-                                        connectionId = nextAvailableSlot,
+                                        connectionId = (int)peerIdcon + 1,
                                         eventType = EventType.Connect,
                                         peerIp = peer.IP,
                                         peerPort = peer.Port
                                     };
                                     
-                                    // Update dictonaries
-                                    ConnectionIdToPeerMappings.Add(nextAvailableSlot, peer);
-                                    PeerIDsToConnectionIdMappings.Add(peer.ID, nextAvailableSlot);
-
-                                    nextAvailableSlot++;
-
-                                    IncommingConnEvents.Enqueue(connevent);
+                                    IncommingConnEvents.Enqueue(connEvent);
                                     break;
                                 case EventType.Timeout:
                                 case EventType.Disconnect:
-                                    var peerId = peer.ID;
-                                    if (PeerIDsToConnectionIdMappings.TryGetValue(peerId, out var connectionId))
+                                    var peerId = netEvent.Peer.ID;
+
+                                    peers[peerId] = default;
+
+                                    var disconnEvent = new QueuedIncomingConnectionEvent
                                     {
-                                        var disconnevent = new QueuedIncomingConnectionEvent
-                                        {
-                                            connectionId = connectionId,
-                                            eventType = netEvent.Type
-                                        };
-
-                                        ConnectionIdToPeerMappings.Remove(connectionId);
-                                        PeerIDsToConnectionIdMappings.Remove(peerId);
-
-                                        IncommingConnEvents.Enqueue(disconnevent);
-                                    }
+                                        connectionId = (int)peerId + 1,
+                                        eventType = netEvent.Type
+                                    };
+                                    IncommingConnEvents.Enqueue(disconnEvent);
                                     break;
+
                                 case EventType.Receive:
-                                    if (PeerIDsToConnectionIdMappings.TryGetValue(peer.ID, out var sender))
+                                    var packet = netEvent.Packet;
+                                    var length = packet.Length;
+                                    var data = new byte[length];
+                                    Marshal.Copy(packet.Data, data, 0, length);
+                                    packet.Dispose();
+
+                                    var evt = new QueuedIncomingEvent
                                     {
-                                        var packet = netEvent.Packet;
-                                        var length = packet.Length;
-                                        var data = new byte[length];
-                                        Marshal.Copy(packet.Data, data, 0, length); //packet.CopyTo(data);
-                                        packet.Dispose();
+                                        connectionId = (int)netEvent.Peer.ID + 1,
+                                        databuff = data
+                                    };
 
-                                        var evt = new QueuedIncomingEvent
-                                        {
-                                            connectionId = sender,
-                                            databuff = data
-                                        };
-
-                                        Incoming.Enqueue(evt);
-                                    }
+                                    Incoming.Enqueue(evt);
                                     break;
                             }
                         }
+                        eventSampler.End();
+                    }
+
+                    Debug.Log("Server worker finished. Going home.");
+
+                    // disconnect everyone
+                    for (int peerIndex = 0; peerIndex < peers.Length; peerIndex++) 
+                    {
+                        if(peers[peerIndex].IsSet)
+                            peers[peerIndex].DisconnectNow(0);
                     }
 
                     HostObject.Flush();
-                    Debug.Log("Server worker finished. Going home.");
+
+                    HostObject.Dispose();
+
                     CurrentState = ThreadState.Stopping;
                 }
                 catch (Exception ex)
@@ -224,50 +261,19 @@ namespace Mirror.Ignorance
                 }
                 finally
                 {
-                    // What if there's still clients waiting out there for things?
-                    /*
-                    for(int i = 0; i < ConnectionIdToPeerMappings.Count; i++)
-                    {
-                        // Disconnect all clients that might be still connected.
-                        ConnectionIdToPeerMappings[i].DisconnectNow(0);
-                    }
-
-                    Debug.Log("Disconnected all connected clients.");
-                    */
                     Debug.Log("Turned off the Nozzle. Good work out there.");
+                    if (HostObject.IsSet) HostObject.Dispose();
                     CurrentState = ThreadState.Stopped;
                 }
             }
+
+            Profiler.EndThreadProfiling();
         }
 
         public static void Shutdown()
         {
             CeaseOperation = true;
         }
-
-        /*
-        public static string GetClientAddress(int connectionId)
-        {
-            if (ConnectionIdToPeerIDMappings.TryGetValue(connectionId, out uint pid))
-            {
-                return PeerIDsToPeerMappings[pid].IP;
-            }
-
-            return "(invalid)";
-        }
-        */
-
-        /*
-        public static bool DoesThisConnectionHaveAPeer(int connectionId)
-        {
-            if (ConnectionIdToPeerIDMappings.ContainsKey(connectionId))
-            {
-                return true;
-            }
-
-            return false;
-        }
-        */
 
         public static bool DisconnectThatConnection(int connectionId)
         {
@@ -279,48 +285,5 @@ namespace Mirror.Ignorance
             CommandQueue.Enqueue(qc);
             return true;
         }
-
-        // -- Hacks -- //
-        /*
-        private static void AddMappings(int connectionId, uint peerId, Peer peerObj)
-        {
-            // ConnID -> PeerID
-            if(!ConnectionIdToPeerIDMappings.ContainsKey(connectionId))
-            {
-                ConnectionIdToPeerIDMappings.Add(connectionId, peerId);
-            } else
-            {
-                Debug.LogWarning("WARNING: AddMappings ConnID -> PeerID double dip!!");
-            }
-            
-            // ConnID <- PeerID
-            if(!PeerIDsToConnectionIdMappings.ContainsKey(peerId))
-            {
-                PeerIDsToConnectionIdMappings.Add(peerId, connectionId);
-            }
-            else
-            {
-                Debug.LogWarning("WARNING: AddMappings PeerID -> ConnID double dip!!");
-            }
-
-            // PeerID -> Peer Object
-            if (PeerIDsToPeerMappings.ContainsKey(peerId))
-            {
-                PeerIDsToPeerMappings.TryAdd(peerId, peerObj);
-            }
-            else
-            {
-                Debug.LogWarning("WARNING: AddMappings PeerID -> Peer double dip!!");
-            }
-        }
-
-
-        private static void RemoveMappings(int connectionId, uint peerId, Peer peerObj)
-        {
-            ConnectionIdToPeerIDMappings.Remove(connectionId);
-            PeerIDsToConnectionIdMappings.Remove(peerId);
-            PeerIDsToPeerMappings.TryRemove(peerId, out Peer evictedPeer);
-        }
-                */
     }
 }
