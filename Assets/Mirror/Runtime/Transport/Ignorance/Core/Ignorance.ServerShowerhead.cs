@@ -132,10 +132,7 @@ namespace Mirror.Ignorance
                 // Hold the network event that's being emitted.
                 Event netEvent;
                 // Peer peer;
-
-                QueuedCommand qCmd;
-                QueuedOutgoingPacket opkt;
-
+                
                 try
                 {
                     while (!CeaseOperation)
@@ -145,6 +142,7 @@ namespace Mirror.Ignorance
                         bool polled = false;
 
                         // Process any commands first.
+                        QueuedCommand qCmd;
                         while (CommandQueue.TryDequeue(out qCmd))
                         {
                             switch (qCmd.Type)
@@ -163,6 +161,7 @@ namespace Mirror.Ignorance
                         pollSampler.End();
                         outgoingSampler.Begin();
                         // Send any pending packets out first.
+                        QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
                             peers[opkt.targetConnectionId - 1].Send(opkt.channelId, ref opkt.contents);

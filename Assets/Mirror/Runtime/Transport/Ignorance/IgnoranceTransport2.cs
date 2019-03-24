@@ -323,13 +323,12 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ServerShowerhead.Incoming.TryDequeue(out evt))
             {
-                var packet = evt.EnetPacket;
-                var length = packet.Length;
+                var length = evt.EnetPacket.Length;
                 if (length < Library.maxPacketSize)
                 {
                     var data = new byte[length];
-                    Marshal.Copy(packet.Data, data, 0, length);
-                    packet.Dispose();
+                    Marshal.Copy(evt.EnetPacket.Data, data, 0, length);
+                    evt.EnetPacket.Dispose();
 
                     OnServerDataReceived.Invoke(evt.connectionId, data);
                 }
@@ -360,13 +359,12 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ClientShowerhead.Incoming.TryDequeue(out evt))
             {
-                var packet = evt.EnetPacket;
-                var length = packet.Length;
+                var length = evt.EnetPacket.Length;
                 if (length < Library.maxPacketSize)
                 {
                     var data = new byte[length];
-                    Marshal.Copy(packet.Data, data, 0, length);
-                    packet.Dispose();
+                    Marshal.Copy(evt.EnetPacket.Data, data, 0, length);
+                    evt.EnetPacket.Dispose();
 
                     OnClientDataReceived.Invoke(data);
                 }
