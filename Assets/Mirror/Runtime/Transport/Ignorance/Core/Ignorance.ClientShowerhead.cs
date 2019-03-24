@@ -154,7 +154,9 @@ namespace Mirror.Ignorance
                     ClientPeer.DisconnectNow(0);
 
                     HostObject.Flush();
-                    
+
+                    HostObject.Dispose();
+
                     Debug.Log("Client worker finished. Going home.");
                     CurrentState = ThreadState.Stopping;
                 }
@@ -164,9 +166,6 @@ namespace Mirror.Ignorance
                 }
                 finally
                 {
-                    ClientPeer.DisconnectNow(0);
-                    HostObject.Flush();
-                    HostObject.Dispose();
                     Debug.Log("Turned off the Nozzle. Good work out there.");
                     CurrentState = ThreadState.Stopped;
                 }
