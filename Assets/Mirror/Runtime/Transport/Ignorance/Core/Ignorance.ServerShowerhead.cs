@@ -161,7 +161,8 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-                            peers[opkt.targetConnectionId - 1].Send(opkt.channelId, ref opkt.contents);
+                            if (peers[opkt.targetConnectionId - 1].IsSet)
+                                peers[opkt.targetConnectionId - 1].Send(opkt.channelId, ref opkt.contents);
                         }
                         outgoingSampler.End();
 
