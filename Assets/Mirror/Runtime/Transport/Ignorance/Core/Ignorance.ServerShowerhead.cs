@@ -8,13 +8,16 @@
 using ENet;
 using Mirror.Ignorance.Thirdparty;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 // using System.Linq;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.Profiling;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+
 
 namespace Mirror.Ignorance
 {
@@ -44,10 +47,18 @@ namespace Mirror.Ignorance
 
         // We create new ringbuffers, but these will be overwritten when the Start() function is called.
         // This prevents nulls, thus saving null checks being heavy on performance.
-        public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
-        public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
-        private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
-        public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(4096); // ENET World -> Mirror conn events.
+        // public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);   // Client -> ENET World -> Mirror
+        public static ConcurrentQueue<QueuedIncomingEvent> Incoming = new ConcurrentQueue<QueuedIncomingEvent>();   // Client -> ENET World -> Mirror
+        // public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);  // Mirror -> ENET World -> Client
+        public static ConcurrentQueue<QueuedOutgoingPacket> Outgoing = new ConcurrentQueue<QueuedOutgoingPacket>();  // Mirror -> ENET World -> Client
+        // private static RingBuffer<QueuedCommand> CommandQueue = new RingBuffer<QueuedCommand>(50);    // ENET Command Queue.
+        private static ConcurrentQueue<QueuedCommand> CommandQueue = new ConcurrentQueue<QueuedCommand>();    // ENET Command Queue.
+        // public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(4096); // ENET World -> Mirror conn events.
+        public static ConcurrentQueue<QueuedIncomingConnectionEvent> IncommingConnEvents = new ConcurrentQueue<QueuedIncomingConnectionEvent>(); // ENET World -> Mirror conn events.
+
+        private static CustomSampler pollSampler;
+        private static CustomSampler outgoingSampler;
+        private static CustomSampler eventSampler;
 
         public static bool IsServerActive()
         {
@@ -68,9 +79,16 @@ namespace Mirror.Ignorance
             // PeerIDsToPeerMappings = new ConcurrentDictionary<uint, Peer>(); // PeerID lookup.
 
             // Setup queues.
-            Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
-            CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
+            // Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ServerIncomingRingBufferSize);
+            Incoming = new ConcurrentQueue<QueuedIncomingEvent>();
+            // Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ServerOutgoingRingBufferSize);
+            Outgoing = new ConcurrentQueue<QueuedOutgoingPacket>();
+            //CommandQueue = new RingBuffer<QueuedCommand>(IgnoranceConstants.ServerCommandRingBufferSize);
+            CommandQueue = new ConcurrentQueue<QueuedCommand>();
+
+            pollSampler = CustomSampler.Create("Incoming");
+            outgoingSampler = CustomSampler.Create("Outgoing");
+            eventSampler = CustomSampler.Create("Events");
 
             Nozzle = new Thread(WorkerLoop)
             {
@@ -89,6 +107,8 @@ namespace Mirror.Ignorance
 
         public static void WorkerLoop(object args)
         {
+            Profiler.BeginThreadProfiling("Server Threads", "Worker Thread (Server)");
+
             Debug.Log("Server worker has arrived!");
             CurrentState = ThreadState.Started;
 
@@ -103,15 +123,20 @@ namespace Mirror.Ignorance
 
                 // Hold the network event that's being emitted.
                 Event netEvent;
+                // Peer peer;
+
+                QueuedCommand qCmd;
+                QueuedOutgoingPacket opkt;
 
                 try
                 {
                     while (!CeaseOperation)
                     {
+                        pollSampler.Begin();
+
                         bool polled = false;
 
                         // Process any commands first.
-                        QueuedCommand qCmd;
                         while (CommandQueue.TryDequeue(out qCmd))
                         {
                             switch (qCmd.Type)
@@ -130,9 +155,9 @@ namespace Mirror.Ignorance
                                     break;
                             }
                         }
-
+                        pollSampler.End();
+                        outgoingSampler.Begin();
                         // Send any pending packets out first.
-                        QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
                             if (ConnectionIdToPeerMappings.TryGetValue(opkt.targetConnectionId, out Peer p))
@@ -140,10 +165,15 @@ namespace Mirror.Ignorance
                                 p.Send(opkt.channelId, ref opkt.contents);
                             }
                         }
+                        outgoingSampler.End();
+
+                        HostObject.Flush();
 
                         // Now, we receive what's going on in the network chatter.
+                        eventSampler.Begin();
                         while (!polled)
                         {
+
                             if (HostObject.CheckEvents(out netEvent) <= 0)
                             {
                                 if (HostObject.Service(IgnoranceConstants.ServerPollingTimeout, out netEvent) <= 0)
@@ -153,8 +183,6 @@ namespace Mirror.Ignorance
 
                                 polled = true;
                             }
-
-                            Peer peer = netEvent.Peer;
 
                             switch (netEvent.Type)
                             {
@@ -166,13 +194,13 @@ namespace Mirror.Ignorance
                                     {
                                         connectionId = nextAvailableSlot,
                                         eventType = EventType.Connect,
-                                        peerIp = peer.IP,
-                                        peerPort = peer.Port
+                                        peerIp = netEvent.Peer.IP,
+                                        peerPort = netEvent.Peer.Port
                                     };
 
                                     // Update dictonaries
-                                    ConnectionIdToPeerMappings.Add(nextAvailableSlot, peer);
-                                    PeerIDsToConnectionIdMappings.Add(peer.ID, nextAvailableSlot);
+                                    ConnectionIdToPeerMappings.Add(nextAvailableSlot, netEvent.Peer);
+                                    PeerIDsToConnectionIdMappings.Add(netEvent.Peer.ID, nextAvailableSlot);
 
                                     nextAvailableSlot++;
 
@@ -180,7 +208,7 @@ namespace Mirror.Ignorance
                                     break;
                                 case EventType.Timeout:
                                 case EventType.Disconnect:
-                                    var peerId = peer.ID;
+                                    var peerId = netEvent.Peer.ID;
                                     if (PeerIDsToConnectionIdMappings.TryGetValue(peerId, out var connectionId))
                                     {
                                         var disconnEvent = new QueuedIncomingConnectionEvent
@@ -196,7 +224,7 @@ namespace Mirror.Ignorance
                                     }
                                     break;
                                 case EventType.Receive:
-                                    if (PeerIDsToConnectionIdMappings.TryGetValue(peer.ID, out var sender))
+                                    if (PeerIDsToConnectionIdMappings.TryGetValue(netEvent.Peer.ID, out var sender))
                                     {
                                         var packet = netEvent.Packet;
                                         var length = packet.Length;
@@ -215,6 +243,7 @@ namespace Mirror.Ignorance
                                     break;
                             }
                         }
+                        eventSampler.End();
                     }
 
                     Debug.Log("Server worker finished. Going home.");
@@ -224,7 +253,6 @@ namespace Mirror.Ignorance
                         entry.Value.DisconnectNow(0);
                     }
 
-                    HostObject.Flush();
                     HostObject.Dispose();
 
                     CurrentState = ThreadState.Stopping;
@@ -235,20 +263,13 @@ namespace Mirror.Ignorance
                 }
                 finally
                 {
-                    // What if there's still clients waiting out there for things?
-                    /*
-                    for(int i = 0; i < ConnectionIdToPeerMappings.Count; i++)
-                    {
-                        // Disconnect all clients that might be still connected.
-                        ConnectionIdToPeerMappings[i].DisconnectNow(0);
-                    }
-
-                    Debug.Log("Disconnected all connected clients.");
-                    */
                     Debug.Log("Turned off the Nozzle. Good work out there.");
+                    if (HostObject.IsSet) HostObject.Dispose();
                     CurrentState = ThreadState.Stopped;
                 }
             }
+
+            Profiler.EndThreadProfiling();
         }
 
         public static void Shutdown()

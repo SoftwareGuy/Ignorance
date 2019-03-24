@@ -15,11 +15,14 @@ using Mirror.Ignorance;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 namespace Mirror
 {
     public class IgnoranceTransport2 : Transport, ISegmentTransport
     {
+        CustomSampler sampler;
+
         // Transport Port setting
         public string BindAddress = "";
         public ushort Port = 7778;
@@ -43,6 +46,11 @@ namespace Mirror
             Debug.LogWarning("MacOS Editor detected. Binding address workarounds engaged.");
 #endif
             Library.Initialize();
+        }
+
+        private void Start()
+        {
+            sampler = CustomSampler.Create("Ignorance Transport - Queued Server Event Processing");
         }
 
         private void OnDestroy()
@@ -262,6 +270,8 @@ namespace Mirror
         #region Server packet queue processors
         private void ProcessQueuedServerEvents()
         {
+            sampler.Begin();
+
             QueuedIncomingConnectionEvent connectionEvent;
 
             while (ServerShowerhead.IncommingConnEvents.TryDequeue(out connectionEvent))
@@ -314,6 +324,8 @@ namespace Mirror
             {
                 OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
             }
+
+            sampler.End();
         }
         #endregion
 

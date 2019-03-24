@@ -8,6 +8,7 @@
 using ENet;
 using Mirror.Ignorance.Thirdparty;
 using System;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
@@ -29,10 +30,12 @@ namespace Mirror.Ignorance
 
         // We create new ringbuffers, but these will be overwritten when the Start() function is called.
         // This prevents nulls, thus saving null checks being heavy on performance.
-        public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);    // Server -> Client
-        public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);    // Client -> Server
-        public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(16); // ENET World -> Mirror conn events.
-
+        // public static RingBuffer<QueuedIncomingEvent> Incoming = new RingBuffer<QueuedIncomingEvent>(1024);    // Server -> Client
+        // public static RingBuffer<QueuedOutgoingPacket> Outgoing = new RingBuffer<QueuedOutgoingPacket>(1024);    // Client -> Server
+        // public static RingBuffer<QueuedIncomingConnectionEvent> IncommingConnEvents = new RingBuffer<QueuedIncomingConnectionEvent>(16); // ENET World -> Mirror conn events.
+        public static ConcurrentQueue<QueuedIncomingEvent> Incoming = new ConcurrentQueue<QueuedIncomingEvent>();
+        public static ConcurrentQueue<QueuedIncomingConnectionEvent> IncommingConnEvents = new ConcurrentQueue<QueuedIncomingConnectionEvent>();
+        public static ConcurrentQueue<QueuedOutgoingPacket> Outgoing = new ConcurrentQueue<QueuedOutgoingPacket>();
         public static volatile bool CeaseOperation = false;     // Kills threads dead!
 
         private static volatile ThreadState CurrentState = ThreadState.Stopped;   // Goddamnit Mirror.
@@ -51,8 +54,10 @@ namespace Mirror.Ignorance
             ClientAddress = addr;
             ClientPort = port;
 
-            Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ClientIncomingRingBufferSize);
-            Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ClientOutgoingRingBufferSize);
+            //Incoming = new RingBuffer<QueuedIncomingEvent>(IgnoranceConstants.ClientIncomingRingBufferSize);
+            //Outgoing = new RingBuffer<QueuedOutgoingPacket>(IgnoranceConstants.ClientOutgoingRingBufferSize);
+            Incoming = new ConcurrentQueue<QueuedIncomingEvent>();
+            Outgoing = new ConcurrentQueue<QueuedOutgoingPacket>();
 
             Nozzle = new Thread(WorkerLoop)
             {
