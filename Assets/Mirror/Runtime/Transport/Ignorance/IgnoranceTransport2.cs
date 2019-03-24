@@ -230,7 +230,7 @@ namespace Mirror
 
 #if UNITY_EDITOR_OSX
             Debug.Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
-            m_ServerAddress.SetHost("::0");
+            ServerShowerhead.Address = "::0";
 #else
             if (string.IsNullOrEmpty(BindAddress))
             {

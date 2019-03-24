@@ -136,8 +136,6 @@ namespace Mirror.Ignorance
                 {
                     while (!CeaseOperation)
                     {
-                        bool polled = false;
-
                         pollSampler.Begin();
                         // Process any commands first.
                         QueuedCommand qCmd;
@@ -170,6 +168,8 @@ namespace Mirror.Ignorance
 
                         // Now, we receive what's going on in the network chatter.
                         eventSampler.Begin();
+
+                        bool polled = false;
                         while (!polled)
                         {
                             if (HostObject.CheckEvents(out netEvent) <= 0)
