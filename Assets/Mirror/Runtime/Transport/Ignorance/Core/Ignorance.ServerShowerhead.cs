@@ -221,16 +221,10 @@ namespace Mirror.Ignorance
                                     break;
 
                                 case EventType.Receive:
-                                    var packet = netEvent.Packet;
-                                    var length = packet.Length;
-                                    var data = new byte[length];
-                                    Marshal.Copy(packet.Data, data, 0, length);
-                                    packet.Dispose();
-
                                     var evt = new QueuedIncomingEvent
                                     {
                                         connectionId = (int)netEvent.Peer.ID + 1,
-                                        databuff = data
+                                        EnetPacket = netEvent.Packet
                                     };
 
                                     Incoming.Enqueue(evt);

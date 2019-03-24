@@ -36,7 +36,7 @@ namespace Mirror.Ignorance
     public struct QueuedIncomingEvent 
     {
         public int connectionId;
-        public byte[] databuff;
+        public Packet EnetPacket;
     }
 
     // Incoming Connection Event Class

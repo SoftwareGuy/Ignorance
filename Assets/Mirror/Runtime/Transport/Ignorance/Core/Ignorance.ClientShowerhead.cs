@@ -140,18 +140,11 @@ namespace Mirror.Ignorance
                                     IsClientConnectedNow = netEvent.Type == EventType.Connect;
                                     break;
                                 case EventType.Receive:
-                                    var packet = netEvent.Packet;
-                                    var length = packet.Length;
-                                    var data = new byte[length];
-                                    Marshal.Copy(packet.Data, data, 0, length); //packet.CopyTo(data);
-                                    packet.Dispose();
-
                                     var evt = new QueuedIncomingEvent
                                     {
-                                        databuff = data
+                                        EnetPacket = netEvent.Packet
                                     };
-
-                                    // Enslave a new packet to the queue.
+                                    
                                     Incoming.Enqueue(evt);
                                     break;
                             }

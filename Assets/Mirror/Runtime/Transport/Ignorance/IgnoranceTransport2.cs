@@ -14,6 +14,7 @@ using ENet;
 using Mirror.Ignorance;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Profiling;
 
@@ -322,13 +323,22 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ServerShowerhead.Incoming.TryDequeue(out evt))
             {
-                OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
+                var packet = evt.EnetPacket;
+                var length = packet.Length;
+                if (length < Library.maxPacketSize)
+                {
+                    var data = new byte[length];
+                    Marshal.Copy(packet.Data, data, 0, length);
+                    packet.Dispose();
+
+                    OnServerDataReceived.Invoke(evt.connectionId, data);
+                }
             }
 
             sampler.End();
         }
         #endregion
-
+       
         #region Client packet queue processors 
         private void ProcessQueuedClientEvents()
         {
@@ -350,7 +360,16 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ClientShowerhead.Incoming.TryDequeue(out evt))
             {
-                OnClientDataReceived.Invoke(evt.databuff);
+                var packet = evt.EnetPacket;
+                var length = packet.Length;
+                if (length < Library.maxPacketSize)
+                {
+                    var data = new byte[length];
+                    Marshal.Copy(packet.Data, data, 0, length);
+                    packet.Dispose();
+
+                    OnClientDataReceived.Invoke(data);
+                }
             }
         }
         #endregion
