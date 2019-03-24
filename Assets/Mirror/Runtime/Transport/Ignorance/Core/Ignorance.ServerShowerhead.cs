@@ -146,7 +146,8 @@ namespace Mirror.Ignorance
                                 // Disconnect a peer.
                                 case 0:
                                     // Boot to the face.
-                                    peers[qCmd.ConnId -1].DisconnectLater(0);
+                                    if(peers[qCmd.ConnId - 1].IsSet)
+                                      peers[qCmd.ConnId -1].DisconnectLater(0);
                                     break;
 
                                 case 1:
