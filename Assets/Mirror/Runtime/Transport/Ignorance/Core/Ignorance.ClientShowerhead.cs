@@ -110,7 +110,8 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-                            ClientPeer.Send(opkt.channelId, ref opkt.contents);
+                            if(ClientPeer.IsSet)
+                              ClientPeer.Send(opkt.channelId, ref opkt.contents);
                         }
 
                         // Now, we receive what's going on in the network chatter.

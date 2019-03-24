@@ -240,6 +240,8 @@ namespace Mirror.Ignorance
                     {
                         if(peers[peerIndex].IsSet)
                             peers[peerIndex].DisconnectNow(0);
+
+                        peers[peerIndex] = default;
                     }
 
                     HostObject.Flush();
