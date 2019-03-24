@@ -12,7 +12,7 @@ using System.Collections.Generic;
 
 namespace Mirror.Ignorance
 {
-    public class IgnoranceConstants
+    public static class IgnoranceConstants
     {
         public readonly static string TransportVersion = "2.0 EXPERIMENTAL";
         public readonly static int ClientIncomingRingBufferSize = 524288;
