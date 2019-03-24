@@ -131,16 +131,14 @@ namespace Mirror.Ignorance
 
                 // Hold the network event that's being emitted.
                 Event netEvent;
-                // Peer peer;
                 
                 try
                 {
                     while (!CeaseOperation)
                     {
-                        pollSampler.Begin();
-
                         bool polled = false;
 
+                        pollSampler.Begin();
                         // Process any commands first.
                         QueuedCommand qCmd;
                         while (CommandQueue.TryDequeue(out qCmd))
@@ -168,7 +166,7 @@ namespace Mirror.Ignorance
                         }
                         outgoingSampler.End();
 
-                        HostObject.Flush();
+                     //   HostObject.Flush();
 
                         // Now, we receive what's going on in the network chatter.
                         eventSampler.Begin();
