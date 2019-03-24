@@ -166,6 +166,7 @@ namespace Mirror.Ignorance
                 }
                 finally
                 {
+                    if (HostObject.IsSet) HostObject.Dispose();
                     Debug.Log("Turned off the Nozzle. Good work out there.");
                     CurrentState = ThreadState.Stopped;
                 }
