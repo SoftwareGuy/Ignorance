@@ -14,6 +14,7 @@ using ENet;
 using Mirror.Ignorance;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Profiling;
 
@@ -229,7 +230,7 @@ namespace Mirror
 
 #if UNITY_EDITOR_OSX
             Debug.Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
-            m_ServerAddress.SetHost("::0");
+            ServerShowerhead.Address = "::0";
 #else
             if (string.IsNullOrEmpty(BindAddress))
             {
@@ -322,13 +323,21 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ServerShowerhead.Incoming.TryDequeue(out evt))
             {
-                OnServerDataReceived.Invoke(evt.connectionId, evt.databuff);
+                var length = evt.EnetPacket.Length;
+                if (length < Library.maxPacketSize)
+                {
+                    var data = new byte[length];
+                    Marshal.Copy(evt.EnetPacket.Data, data, 0, length);
+                    evt.EnetPacket.Dispose();
+
+                    OnServerDataReceived.Invoke(evt.connectionId, data);
+                }
             }
 
             sampler.End();
         }
         #endregion
-
+       
         #region Client packet queue processors 
         private void ProcessQueuedClientEvents()
         {
@@ -350,7 +359,15 @@ namespace Mirror
             QueuedIncomingEvent evt;
             while (ClientShowerhead.Incoming.TryDequeue(out evt))
             {
-                OnClientDataReceived.Invoke(evt.databuff);
+                var length = evt.EnetPacket.Length;
+                if (length < Library.maxPacketSize)
+                {
+                    var data = new byte[length];
+                    Marshal.Copy(evt.EnetPacket.Data, data, 0, length);
+                    evt.EnetPacket.Dispose();
+
+                    OnClientDataReceived.Invoke(data);
+                }
             }
         }
         #endregion

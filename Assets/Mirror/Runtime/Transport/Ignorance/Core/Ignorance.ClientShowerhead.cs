@@ -110,7 +110,8 @@ namespace Mirror.Ignorance
                         QueuedOutgoingPacket opkt;
                         while (Outgoing.TryDequeue(out opkt))
                         {
-                            ClientPeer.Send(opkt.channelId, ref opkt.contents);
+                            if(ClientPeer.IsSet)
+                              ClientPeer.Send(opkt.channelId, ref opkt.contents);
                         }
 
                         // Now, we receive what's going on in the network chatter.
@@ -140,26 +141,23 @@ namespace Mirror.Ignorance
                                     IsClientConnectedNow = netEvent.Type == EventType.Connect;
                                     break;
                                 case EventType.Receive:
-                                    var packet = netEvent.Packet;
-                                    var length = packet.Length;
-                                    var data = new byte[length];
-                                    Marshal.Copy(packet.Data, data, 0, length); //packet.CopyTo(data);
-                                    packet.Dispose();
-
                                     var evt = new QueuedIncomingEvent
                                     {
-                                        databuff = data
+                                        EnetPacket = netEvent.Packet
                                     };
-
-                                    // Enslave a new packet to the queue.
+                                    
                                     Incoming.Enqueue(evt);
                                     break;
                             }
                         }
                     }
 
-                    HostObject.Flush();
                     ClientPeer.DisconnectNow(0);
+
+                    HostObject.Flush();
+
+                    HostObject.Dispose();
+
                     Debug.Log("Client worker finished. Going home.");
                     CurrentState = ThreadState.Stopping;
                 }
@@ -169,7 +167,7 @@ namespace Mirror.Ignorance
                 }
                 finally
                 {
-                    ClientPeer.DisconnectNow(0);
+                    if (HostObject.IsSet) HostObject.Dispose();
                     Debug.Log("Turned off the Nozzle. Good work out there.");
                     CurrentState = ThreadState.Stopped;
                 }

@@ -24,6 +24,7 @@
  */
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
@@ -276,7 +277,8 @@ namespace ENet {
 			}
 		}
 
-		internal void CheckCreated() {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void CheckCreated() {
 			if (nativePacket == IntPtr.Zero)
 				throw new InvalidOperationException("Packet not created");
 		}
@@ -744,6 +746,7 @@ namespace ENet {
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal void CheckCreated() {
 			if (nativePeer == IntPtr.Zero)
 				throw new InvalidOperationException("Peer not created");
