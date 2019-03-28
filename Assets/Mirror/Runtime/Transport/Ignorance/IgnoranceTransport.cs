@@ -415,7 +415,7 @@ namespace Mirror
 
             // This should fix that bloody AccessViolation
             // Issue reference: https://github.com/nxrighthere/ENet-CSharp/issues/28#issuecomment-436100923
-            mailingPigeon.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(m_ChannelDefinitions[channelId]));
+            mailingPigeon.Create(data.Array, data.Offset, data.Count + data.Offset, MapKnownChannelTypeToENETPacketFlag(m_ChannelDefinitions[channelId]));
 
             // More haxx. see https://github.com/nxrighthere/ENet-CSharp/issues/21 for some background info-ish.
             Peer target;
@@ -590,7 +590,7 @@ namespace Mirror
                 Log($"DEBUG: m_ChannelDefinitions[{channelId}] => { m_ChannelDefinitions[channelId] }");
             }
 
-            mailingPigeon.Create(data.Array, data.Offset, data.Count, MapKnownChannelTypeToENETPacketFlag(m_ChannelDefinitions[channelId]));
+            mailingPigeon.Create(data.Array, data.Offset, data.Count + data.Offset, MapKnownChannelTypeToENETPacketFlag(m_ChannelDefinitions[channelId]));
 
             if (m_TransportVerbosity > TransportVerbosity.Chatty)
             {
