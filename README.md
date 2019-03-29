@@ -29,7 +29,7 @@ Ignorance aims to replace it with a stable, high performance transport system th
 
 ## Dependencies
 - [Mirror](https://github.com/vis2k/Mirror)
-- [ENutz](https://github.com/SoftwareGuy/ENet-CSharp), a wrapper + customized version of ENET. Blobs are included in the repository, no manual compile required.
+- [ENutz](https://github.com/c6burns/ENutz), a wrapper + customized version of ENET. Blobs are included in the repository, no manual compile required.
 
 ## Mirror Compatibility
 Use a recent Mirror Asset Store snapshot for best results.
