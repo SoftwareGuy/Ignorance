@@ -340,6 +340,28 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 50, y: 1}
   m_EdgeRadius: 0
+--- !u!1 &817328958 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1080679924113744, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+    type: 3}
+  m_PrefabInstance: {fileID: 1140775523}
+  m_PrefabAsset: {fileID: 0}
+--- !u!58 &817328959
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 817328958}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  serializedVersion: 2
+  m_Radius: 0.64
 --- !u!1001 &1140775523
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -379,11 +401,33 @@ PrefabInstance:
       propertyPath: m_RootOrder
       value: 3
       objectReference: {fileID: 0}
+    - target: {fileID: 4700925592147096, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4700925592147096, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4700925592147096, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 50354248948880112, guid: 5f7a7f34494ed40268eff49dbf9168bf,
         type: 3}
       propertyPath: m_AngularDrag
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 50354248948880112, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_CollisionDetection
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 50354248948880112, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 6200000, guid: 97a3e4cddb8635c4eba1265f44d106bf, type: 2}
     - target: {fileID: 114692463781779748, guid: 5f7a7f34494ed40268eff49dbf9168bf,
         type: 3}
       propertyPath: speed
@@ -393,14 +437,30 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 160d53f9f2b149c418d6d07e95438e53,
+      objectReference: {fileID: 21300000, guid: fe79859d3d634894a83b7d35313f99a0,
         type: 3}
     - target: {fileID: 114290021321007948, guid: 5f7a7f34494ed40268eff49dbf9168bf,
         type: 3}
       propertyPath: m_SceneId
-      value: 1477191392
+      value: 526119500
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    - target: {fileID: 61279514624852186, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_SpriteTilingProperty.oldSize.x
+      value: 3.24
+      objectReference: {fileID: 0}
+    - target: {fileID: 61279514624852186, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_SpriteTilingProperty.oldSize.y
+      value: 4.29
+      objectReference: {fileID: 0}
+    - target: {fileID: 114121325390084138, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: compressRotation
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents:
+    - {fileID: 61279514624852186, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
 --- !u!1 &1346799726
 GameObject:
@@ -982,7 +1042,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1886246549}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe40a36772f76c24fa56aedc79cd51c7, type: 3}
+  m_Script: {fileID: 11500000, guid: 55455cfb6d61ca14c94076fbcf263fcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   OnClientConnected:
@@ -1025,5 +1085,5 @@ MonoBehaviour:
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   BindAddress: 
   Port: 7778
-  DebugEnabled: 1
-  ChannelDefinitions: 0000000001000000
+  DebugEnabled: 0
+  ChannelDefinitions: 0100000002000000
