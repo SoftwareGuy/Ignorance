@@ -57,7 +57,7 @@ When using Ignorance inside the MacOS environment, it will run in a compatibilit
 - **Coffee Donators**: Thank you so much.
 - **[vis2k](https://github.com/vis2k)** and **[Paul](https://github.com/paulpach)**: Mirror lead developers.
 - **[Katori](https://github.com/katori)**: Helped kickstart the threaded version that evolved into Ignorance 2.
-- **[c6burns](https://github.com/c6burns)**: 
+- **[c6burns](https://github.com/c6burns)**: Words cannot describe how much help he's been. Bloody oath mate.
 - **[FSE_Vincenzo]()**: Providing insight into proper usage of ENET, rebuttal, improvements, etc.
 - **[BigBoxVR](https://github.com/GabeBigBoxVR)** and **[Martin](https://github.com/martindevans)**: Pull requests.
 - To all the others who I have missed. Thanks a lot, you know who you are.
