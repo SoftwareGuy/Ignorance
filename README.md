@@ -1,10 +1,15 @@
-# Ignorance 2 (EXPERIMENTAL BRANCH)
+<p align="center"> 
+  <img src="https://drive.google.com/uc?id=1LjDcqaOvRThHm3KBaPRhpl31pP2Gs6wP" alt="alt logo">
+</p>
+
+# Ignorance 2.1 Experimental
+[![PayPal](https://drive.google.com/uc?id=1OQrtNBVJehNVxgPf6T6yX1wIysz1ElLR)](https://www.paypal.me/coburn64)
+
 If you feel so inclined, I'd appreciate [a coffee to keep me caffeinated](https://ko-fi.com/coburn) if you use this transport.
 
-Rewritten to utilize threads, Ignorance Transport allows you to harness reliable UDP communications over the vast seas that is the internet.
+Ignorance Transport allows you to harness reliable UDP communications over the vast seas that is the internet. Simply plug this transport into [Mirror Networking](https://github.com/vis2k/Mirror) and you've got the power of reliable UDP in your project.
 
-Simply plug this transport into [Mirror Networking](https://github.com/vis2k/Mirror) and you've got the power of reliable UDP in your project.
-
+This branch removes ENet-CSharp as the ENET wrapper for the ENutz since the Mirror team was blocked by nxrighthere ([my analysis of the situation here, on my blog](https://www.coburnsdomain.com/2019/03/getting-blocked-from-an-upstream-github-repo-nx-edition/)).
 ## Why should I use Ignorance 2 over Unity LLAPI?
 Unity LLAPI is old, obsolete and no longer mantained by Unity Technologies. Plus, it was held together by bandaids and bubble-gum.
 
@@ -24,12 +29,12 @@ Ignorance aims to replace it with a stable, high performance transport system th
 
 ## Dependencies
 - [Mirror](https://github.com/vis2k/Mirror)
-- RingBuffer from Distruptor3D (insert link here)
-- [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp)
-- ENET C Library (included as prebaked DLLs)
+- [ENutz](https://github.com/SoftwareGuy/ENet-CSharp), a wrapper + customized version of ENET. Blobs are included in the repository, no manual compile required.
 
 ## Mirror Compatibility
-Use a recent Mirror Asset Store snapshot for best results. Mirror's master branch is fine too, but that's an melting pot and lots of things can break in a blink of an eye.
+Use a recent Mirror Asset Store snapshot for best results.
+
+Mirror's master branch is fine too, but that's an melting pot and lots of things can break in a blink of an eye.
 
 ## Installation
 ### TODO when RC is released
@@ -52,6 +57,7 @@ When using Ignorance inside the MacOS environment, it will run in a compatibilit
 - **Coffee Donators**: Thank you so much.
 - **[vis2k](https://github.com/vis2k)** and **[Paul](https://github.com/paulpach)**: Mirror lead developers.
 - **[Katori](https://github.com/katori)**: Helped kickstart the threaded version that evolved into Ignorance 2.
+- **[c6burns](https://github.com/c6burns)**: 
 - **[FSE_Vincenzo]()**: Providing insight into proper usage of ENET, rebuttal, improvements, etc.
 - **[BigBoxVR](https://github.com/GabeBigBoxVR)** and **[Martin](https://github.com/martindevans)**: Pull requests.
 - To all the others who I have missed. Thanks a lot, you know who you are.
