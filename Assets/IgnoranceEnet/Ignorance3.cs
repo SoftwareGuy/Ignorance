@@ -24,6 +24,9 @@ namespace Ignorance
         protected bool ClientInitialized = false;
         protected bool ClientIsConnected = false;
 
+        protected bool ServerCleanupRequired = false;
+        protected bool ClientCleanupRequired = false;
+
         protected int MaximumClients = 1000;
 
         protected Dictionary<int, string> ConnectionAddresses = new Dictionary<int, string>();
@@ -35,6 +38,32 @@ namespace Ignorance
             {
                 Native.ServiceUpdate(this);
                 Native.ClientUpdate(this);
+            }
+
+            if(ServerCleanupRequired)
+            {
+                ServerCleanupRequired = false;
+
+                if (!Native.ServiceCleanup())
+                {
+                    Debug.LogError("Failed to cleanup service, unexpected behaviour may happen");
+                    return;
+                }
+
+                ServerInitialized = false;
+            }
+
+            if(ClientCleanupRequired)
+            {
+                ClientCleanupRequired = false;
+
+                if (!Native.ClientCleanup())
+                {
+                    Debug.LogError("Failed to cleanup client, unexpected behaviour may happen");
+                    return;
+                }
+
+                ClientInitialized = false;
             }
         }
         #endregion
@@ -71,7 +100,7 @@ namespace Ignorance
             }
 
             ClientIsConnected = false;
-            ClientInitialized = false;
+            ClientCleanupRequired = true;
         }
 
         public override bool ClientSend(int channelId, byte[] data)
@@ -176,7 +205,6 @@ namespace Ignorance
             }
 
             Debug.Log($"Started the service with IP = {BindAddress}, Port = {Port}");
-            ServerStarted = true;
         }
 
         public override void ServerStop()
@@ -187,15 +215,8 @@ namespace Ignorance
                 return;
             }
 
-            ServerStarted = false;
-
-            if (!Native.ServiceCleanup())
-            {
-                Debug.LogError("Failed to cleanup, unexpected behaviour may happen");
-                return;
-            }
-
-            ServerInitialized = false;
+            ServerCleanupRequired = true;
+            // ServerStarted = false;
         }
 
         public override void Shutdown()
@@ -246,6 +267,7 @@ namespace Ignorance
         {
             Debug.Log("Server started");
             ServerStarted = true;
+            ServerInitialized = true;
         }
 
         // Stopped.
@@ -253,6 +275,7 @@ namespace Ignorance
         {
             Debug.Log("Server stopped");
             ServerStarted = false;
+            ServerInitialized = false;
         }
 
         // Server incoming connection.

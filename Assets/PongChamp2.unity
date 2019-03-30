@@ -1085,5 +1085,5 @@ MonoBehaviour:
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   BindAddress: 
   Port: 7778
-  DebugEnabled: 0
+  DebugEnabled: 1
   ChannelDefinitions: 0100000002000000
