@@ -142,9 +142,6 @@ namespace Mirror
         private int serverConnectionCnt = 1;
         #endregion
 
-        // -- Packet buffer -- //
-        // Reverted in v1.2.0 RC3. To be investigated and improved at a (unknown) later date.
-        // private byte[] m_PacketDataBuffer;
         #region Transport World Functions - Initialization & Deinitialization
         public IgnoranceTransport()
         {
@@ -1220,6 +1217,8 @@ namespace Mirror
             {
                 case KnownChannelTypes.Reliable:
                     return PacketFlags.Reliable;            // reliable (tcp-like).
+                case KnownChannelTypes.ReliableUnsequenced:
+                    return (PacketFlags.Reliable | PacketFlags.Unsequenced);    //reliable, but unsequenced
                 case KnownChannelTypes.Unreliable:
                     return PacketFlags.Unsequenced;         // completely unreliable.
                 case KnownChannelTypes.UnreliableFragmented:
@@ -1243,7 +1242,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.1 Patch Release 2";
+            public const string Version = "1.2.2";
         }
         #endregion
 
@@ -1251,20 +1250,10 @@ namespace Mirror
         public enum KnownChannelTypes
         {
             Reliable,
+            ReliableUnsequenced,
             Unreliable,
             UnreliableFragmented,
             UnreliableSequenced,
         }
-    }
-
-    public static class IgnoranceExtensions
-    {
-        public static T[] SubArray<T>(this T[] data, int index, int length)
-        {
-            T[] result = new T[length];
-            Array.Copy(data, index, result, 0, length);
-            return result;
-        }
-
     }
 }
