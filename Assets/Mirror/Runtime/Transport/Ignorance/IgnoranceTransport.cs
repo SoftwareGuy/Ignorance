@@ -320,6 +320,9 @@ namespace Mirror
             if (m_UseNewPacketEngine)
             {
                 Log("Ignorance Transport: Server instance will use the new multi-event-per-frame packet engine.");
+            } else
+            {
+                LogWarning("Ignorance Transport: Server instance is using old packet engine. This is DEPRECATED and WILL BE REMOVED in 1.2.3. Please use the new packet engine instead.");
             }
 
             // Log our best effort attempts
@@ -642,7 +645,7 @@ namespace Mirror
         {
             if (!ServerActive())
             {
-                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
+                if (m_TransportVerbosity == TransportVerbosity.LogSpam)
                 {
                     LogError("Ignorance Transport: ProcessServerMessage was caught red-handed running when the server wasn't active.");
                 }

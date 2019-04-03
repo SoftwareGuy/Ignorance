@@ -410,6 +410,16 @@ PrefabInstance:
       propertyPath: syncInterval
       value: 0.05
       objectReference: {fileID: 0}
+    - target: {fileID: 61279514624852186, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_SpriteTilingProperty.oldSize.x
+      value: 3.24
+      objectReference: {fileID: 0}
+    - target: {fileID: 61279514624852186, guid: 5f7a7f34494ed40268eff49dbf9168bf,
+        type: 3}
+      propertyPath: m_SpriteTilingProperty.oldSize.y
+      value: 4.29
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5f7a7f34494ed40268eff49dbf9168bf, type: 3}
 --- !u!1 &1346799726
@@ -1024,9 +1034,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  m_ChannelDefinitions: 0000000001000000
+  m_ChannelDefinitions: 0000000002000000
   m_TransportVerbosity: 1
-  m_UseNewPacketEngine: 1
+  m_UseNewPacketEngine: 0
   m_UseLZ4Compression: 0
   m_BindToAllInterfaces: 1
   m_BindToAddress: 127.0.0.1
