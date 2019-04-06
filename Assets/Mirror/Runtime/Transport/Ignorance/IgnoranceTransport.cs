@@ -1245,7 +1245,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.2";
+            public const string Version = "1.2.3 Development Version";
         }
         #endregion
 

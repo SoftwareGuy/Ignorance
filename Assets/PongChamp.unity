@@ -1036,7 +1036,7 @@ MonoBehaviour:
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   m_ChannelDefinitions: 0000000002000000
   m_TransportVerbosity: 1
-  m_UseNewPacketEngine: 0
+  m_UseNewPacketEngine: 1
   m_UseLZ4Compression: 0
   m_BindToAllInterfaces: 1
   m_BindToAddress: 127.0.0.1
