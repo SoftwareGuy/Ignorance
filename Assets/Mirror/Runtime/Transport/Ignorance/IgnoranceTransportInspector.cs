@@ -23,7 +23,7 @@ namespace Mirror
     {
         bool showGeneralSettings = true;
         bool showServerSettings = true;
-        bool showExperimentalSettings = false;
+        // bool showExperimentalSettings = false;
         bool showTimeoutSettings = false;
 
         public override void OnInspectorGUI()
@@ -74,15 +74,15 @@ namespace Mirror
             }
 
             // Experimental Settings
+            /*
             showExperimentalSettings = EditorGUILayout.Foldout(showExperimentalSettings, "Experimental Settings");
             if (showExperimentalSettings)
             {
                 EditorGUI.indentLevel += 1;
 
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_UseNewPacketEngine"));
-
                 EditorGUI.indentLevel -= 1;
             }
+            */
 
             // Apply.
             serializedObject.ApplyModifiedProperties();
