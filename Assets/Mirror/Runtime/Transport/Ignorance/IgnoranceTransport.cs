@@ -524,7 +524,12 @@ namespace Mirror
         /// </summary>
         public override void ClientDisconnect()
         {
-            if (m_TransportVerbosity >= TransportVerbosity.Paranoid)
+            // Bug fix by c6burns as per the Discord server
+            // ENET-CSharp doesn't track peers and does not guard against calls to Peer.Disconnect even if the array
+            // has been freed using enet_host_destroy
+            if (!IsValid(m_Client)) return; // c6: don't reference into peer without host
+            
+            if (m_TransportVerbosity == TransportVerbosity.Paranoid)
             {
                 Log($"Ignorance Transport: Client peer state before disconnect request fires: {m_ClientPeer.State}");
             }
