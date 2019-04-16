@@ -23,7 +23,7 @@ namespace Mirror
     {
         bool showGeneralSettings = true;
         bool showServerSettings = true;
-        // bool showExperimentalSettings = false;
+        bool showUPnPSettings = false;
         bool showTimeoutSettings = false;
 
         public override void OnInspectorGUI()
@@ -74,15 +74,21 @@ namespace Mirror
             }
 
             // Experimental Settings
-            /*
-            showExperimentalSettings = EditorGUILayout.Foldout(showExperimentalSettings, "Experimental Settings");
-            if (showExperimentalSettings)
+            showUPnPSettings = EditorGUILayout.Foldout(showUPnPSettings, "Universal PnP (Port Forwarding) Settings");
+            if (showUPnPSettings)
             {
                 EditorGUI.indentLevel += 1;
-
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_ServerUPNPEnabled"));
+                EditorGUILayout.HelpBox("Some routers are annoying and require an IP Address of the system requesting the UPnP rule to be added. " +
+                    "Majority of the time though, leave it blank and see what happens. If you get an error, you'll have to fill the IP address in. And if you still get an error after that, your router sucks. " +
+                    "Try opening a Ignorance bug ticket and report its make and model.", MessageType.Warning);
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_ServerUPNPIpAddress"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_ServerUPNPMappingDescription"));
+                EditorGUILayout.HelpBox("Keep the description short. Depending on your router, it might chop off text after so many characters. Avoid non-english characters for best results.", MessageType.Info);
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_ServerUPNPTimeout"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_ServerUPNPRuleLifetime"));
                 EditorGUI.indentLevel -= 1;
             }
-            */
 
             // Apply.
             serializedObject.ApplyModifiedProperties();

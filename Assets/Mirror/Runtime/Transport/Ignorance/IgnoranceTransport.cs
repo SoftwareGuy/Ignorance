@@ -1,9 +1,9 @@
 ﻿// ----------------------------------------
-// Ignorance Transport by Matt Coburn, 2018 - 2019
+// Ignorance by Matt Coburn, 2018 - 2019
 // This Transport uses other dependencies that you can
 // find references to in the README.md of this package.
 // ----------------------------------------
-// Ignorance Transport is MIT Licensed. It would be however
+// Ignorance is MIT Licensed. It would be however
 // nice to get some acknowledgement in your program/game's credits
 // that Ignorance was used to build your network code. It would be 
 // greatly appreciated if you reported bugs and donated coffee
@@ -19,6 +19,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+#if !IGNORANCE_NO_UPNP
+using Open.Nat;
+using System.Threading;
+#endif
 
 namespace Mirror
 {
@@ -73,9 +77,6 @@ namespace Mirror
 #endif
         public ushort m_Port = 7777;
 
-        // Backwards compatibility.
-        public ushort port { get { return m_Port; } set { m_Port = value; } }
-
         /// <summary>
         /// Use custom peer timeouts?
         /// </summary>
@@ -108,7 +109,39 @@ namespace Mirror
 #endif
         public int m_MaximumTotalConnections = 1000;
 
-        public string Version { get { return TransportInfo.Version; } }
+#if !IGNORANCE_NO_UPNP
+#if UNITY_EDITOR
+        [Rename("UPnP Enabled")]
+        [Tooltip("Should the client attempt to port forward automatically?")]
+#endif
+        public bool m_ServerUPNPEnabled = false;
+#if UNITY_EDITOR
+        [Rename("UPnP Detection Timeout")]
+        [Tooltip("How long should the server attempt to look for a NAT device for? (milliseconds)")]
+#endif
+        public int m_ServerUPNPTimeout = 10000;
+
+#if UNITY_EDITOR
+        [Rename("UPnP Rule Description")]
+        [Tooltip("Keep this short and sweet, some routers have limited UPnP memory.")]
+#endif
+        public string m_ServerUPNPMappingDescription = "Ignorance";
+#if UNITY_EDITOR
+        [Rename("UPnP Requestor IP Address")]
+        [Tooltip("This will need to be the server's IP.")]
+#endif
+        public string m_ServerUPNPIpAddress = "";
+#if UNITY_EDITOR
+        [Rename("UPnP Rule Lifetime")]
+        [Tooltip("How long will this rule last? (seconds?)")]
+#endif
+        public int m_ServerUPNPRuleLifetime = 600;   // 1 hour?
+
+        private bool m_HasAlreadyConfiguredNat = false;
+        private NatDiscoverer m_NATDiscoverer = null;
+        private NatDevice m_NATDevice = null;
+        private Mapping m_NewRuleMapping = null;
+#endif
         #endregion
 
         #region Transport-level references, dictonaries, etc.
@@ -149,7 +182,7 @@ namespace Mirror
         /// </summary>
         private void GreetEveryone()
         {
-            Log($"Thank you for using Ignorance Transport v{TransportInfo.Version} for Mirror! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance. ENET Library Version: {Library.version}");
+            Log($"Thank you for using Ignorance v{TransportInfo.Version} for Mirror! Report bugs and donate coffee at https://github.com/SoftwareGuy/Ignorance. ENET Library Version: {Library.version}");
         }
 
         private void Awake()
@@ -233,14 +266,14 @@ namespace Mirror
             // This should be classified as a dirty hack and if it doesn't work then well, shit.
             if (ServerActive())
             {
-                LogError("Ignorance Transport: Refusing to start another server instance! There's already one running.");
+                LogError("Ignorance: Refusing to start another server instance! There's already one running.");
                 return;
             }
 
             // Make sure we're not trying to overflow the channel counts.
             if ((m_ChannelDefinitions.Count - 1) >= 255)
             {
-                LogError("Ignorance Transport: Too many channels. ENET-senpai can't handle them!");
+                LogError("Ignorance: Too many channels. ENET-senpai can't handle them!");
                 return;
             }
 
@@ -252,21 +285,21 @@ namespace Mirror
 
 #if UNITY_EDITOR_OSX
             if(m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) {
-                Log($"Ignorance Transport: Server startup in MacOS Editor workaround mode on port {m_Port}");
+                Log($"Ignorance: Server startup in MacOS Editor workaround mode on port {m_Port}");
             }
 
-            LogWarning("Ignorance Transport: Binding to a specific address is disabled on MacOS Editor due to some bugs. Please refer to https://github.com/nxrighthere/ENet-CSharp/issues/46 " +
+            LogWarning("Ignorance: Binding to a specific address is disabled on MacOS Editor due to some bugs. Please refer to https://github.com/nxrighthere/ENet-CSharp/issues/46 " +
                 "for technical details. While you can disable this check, it will most likely bug out and mess connectivity up. You've been warned.");
-            Log("Ignorance Transport: Binding to ::0 as a workaround for Mac OS LAN Host");
+            Log("Ignorance: Binding to ::0 as a workaround for Mac OS LAN Host");
             m_ServerAddress.SetHost("::0");
 #else
             if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
             {
-                Log($"Ignorance Transport: Server startup on port {m_Port}");
+                Log($"Ignorance: Server startup on port {m_Port}");
             }
             if (m_BindToAllInterfaces)
             {
-                Log("Ignorance Transport: Binding to all available interfaces.");
+                Log("Ignorance: Binding to all available interfaces.");
                 if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
                 {
                     m_ServerAddress.SetHost("::0");
@@ -283,19 +316,19 @@ namespace Mirror
                 // If one is specified, that takes priority.
                 if (!string.IsNullOrEmpty(networkAddress))
                 {
-                    Log($"Ignorance Transport: Using {networkAddress} as our specific bind address");
+                    Log($"Ignorance: Using {networkAddress} as our specific bind address");
                     m_ServerAddress.SetHost(networkAddress);
                     m_MyServerAddress = networkAddress;
                 }
                 else if (!string.IsNullOrEmpty(m_BindToAddress))
                 {
-                    Log($"Ignorance Transport: Using {m_BindToAddress} as our specific bind address");
+                    Log($"Ignorance: Using {m_BindToAddress} as our specific bind address");
                     m_ServerAddress.SetHost(m_BindToAddress);
                 }
                 else
                 {
                     // No. Just no. Go back and try again, do not pass Go, do not collect $200.
-                    LogError($"Ignorance Transport: No bind address specified and you have disabled bind to all interfaces. Please go back and fix this, then start the server again.");
+                    LogError($"Ignorance: No bind address specified and you have disabled bind to all interfaces. Please go back and fix this, then start the server again.");
                     return;
                 }
             }
@@ -313,7 +346,15 @@ namespace Mirror
             }
 
             // Log our best effort attempts
-            Log($"Ignorance Transport: Attempted to create server on UDP port {m_Port}. If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
+            Log($"Ignorance: Attempted to create server on UDP port {m_Port}. If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
+
+#if !IGNORANCE_NO_UPNP
+            if (m_ServerUPNPEnabled && !m_HasAlreadyConfiguredNat)
+            {
+                Log("Ignorance: Dispatching the UPnP Port Forwarder.");
+                DoServerPortForwarding();
+            }
+#endif
         }
 
         // Custom ServerStart() calls for Insight compatibility.
@@ -341,7 +382,7 @@ namespace Mirror
         {
             if (m_TransportVerbosity > TransportVerbosity.Chatty)
             {
-                Log("Ignorance Transport: ServerStop()");
+                Log("Ignorance: ServerStop()");
             }
 
             // This might be slow if we have lots of CCU.
@@ -355,7 +396,7 @@ namespace Mirror
 
             m_Server = null;
 
-            Log("Ignorance Transport: Server stopped.");
+            Log("Ignorance: Server stopped.");
         }
 
         /// <summary>
@@ -410,10 +451,10 @@ namespace Mirror
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty)
                 {
-                    Log($"Ignorance Transport: Server sending {data.Count} byte data on channel {channelId} to connection ID {connectionId}");
+                    Log($"Ignorance: Server sending {data.Count} byte data on channel {channelId} to connection ID {connectionId}");
                     if (m_TransportVerbosity == TransportVerbosity.LogSpam)
                     {
-                        Log($"Ignorance Transport: Outgoing payload to connection {connectionId} on channel {channelId}\n{BitConverter.ToString(data.Array, data.Offset, data.Count)}");
+                        Log($"Ignorance: Outgoing payload to connection {connectionId} on channel {channelId}\n{BitConverter.ToString(data.Array, data.Offset, data.Count)}");
                     }
                 }
 
@@ -425,7 +466,7 @@ namespace Mirror
                 {
                     if (m_TransportVerbosity > TransportVerbosity.Chatty)
                     {
-                        LogWarning($"Ignorance Transport: Send failure to connection ID {connectionId} on channel {channelId} ({(byte)channelId})");
+                        LogWarning($"Ignorance: Send failure to connection ID {connectionId} on channel {channelId} ({(byte)channelId})");
                     }
                     return false;
                 }
@@ -434,7 +475,7 @@ namespace Mirror
             {
                 if (m_TransportVerbosity > TransportVerbosity.Chatty)
                 {
-                    LogWarning($"Ignorance Transport: Send failure to connection ID {connectionId} on channel {channelId} ({(byte)channelId}). This could happen randomly due to the nature of UDP.");
+                    LogWarning($"Ignorance: Send failure to connection ID {connectionId} on channel {channelId} ({(byte)channelId}). This could happen randomly due to the nature of UDP.");
                 }
                 return false;
             }
@@ -452,11 +493,11 @@ namespace Mirror
             // Make sure we're not trying to overflow the channel counts.
             if ((m_ChannelDefinitions.Count - 1) >= 255)
             {
-                LogError("Ignorance Transport: Too many channels. ENET-senpai can't handle them!");
+                LogError("Ignorance: Too many channels. ENET-senpai can't handle them!");
                 return;
             }
 
-            Log($"Ignorance Transport: Acknowledging connection request to {address}:{m_Port}");
+            Log($"Ignorance: Acknowledging connection request to {address}:{m_Port}");
 
             if (m_Client == null) m_Client = new Host();
             if (!m_Client.IsSet) m_Client.Create(null, 1, m_ChannelDefinitions.Count);
@@ -480,7 +521,7 @@ namespace Mirror
             // Debugging only
             if (m_TransportVerbosity >= TransportVerbosity.Paranoid)
             {
-                Log($"Ignorance Transport: Hey ENET, is our client peer is setup? ENET: {m_ClientPeer.IsSet}.");
+                Log($"Ignorance: Hey ENET, is our client peer is setup? ENET: {m_ClientPeer.IsSet}.");
             }
         }
 
@@ -492,7 +533,7 @@ namespace Mirror
         {
             if (m_TransportVerbosity >= TransportVerbosity.Paranoid)
             {
-                Log($"Ignorance Transport: Mirror asks if I'm connected. The answer to that is { ((m_ClientPeer.State == PeerState.Connected) ? true : false) }. Note that if this a local client on the server instance, false may be a acceptable reply.");
+                Log($"Ignorance: Mirror asks if I'm connected. The answer to that is { ((m_ClientPeer.State == PeerState.Connected) ? true : false) }. Note that if this a local client on the server instance, false may be a acceptable reply.");
             }
             return m_ClientPeer.IsSet && m_ClientPeer.State == PeerState.Connected;
         }
@@ -509,7 +550,7 @@ namespace Mirror
 
             if (m_TransportVerbosity == TransportVerbosity.Paranoid)
             {
-                Log($"Ignorance Transport: Client peer state before disconnect request fires: {m_ClientPeer.State}");
+                Log($"Ignorance: Client peer state before disconnect request fires: {m_ClientPeer.State}");
             }
 
             if (m_ClientPeer.State == PeerState.Disconnected)
@@ -518,19 +559,19 @@ namespace Mirror
                 return;
             }
 
-            Log("Ignorance Transport: Received disconnection request from Mirror. Acknowledged!");
+            Log("Ignorance: Received disconnection request from Mirror. Acknowledged!");
 
             // Disconnect the client's peer object, only if it's not disconnected. This might fix a bad pointer or something.
             // Reference: https://github.com/SoftwareGuy/Ignorance/issues/20
             if (m_ClientPeer.IsSet)
             {
-                if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance Transport: Disconnecting the client's peer...");
+                if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance: Disconnecting the client's peer...");
                 if (m_ClientPeer.State != PeerState.Disconnected) m_ClientPeer.DisconnectNow(0);
             }
 
             if (IsValid(m_Client))
             {
-                if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance Transport: Flushing and disposing of the client...");
+                if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance: Flushing and disposing of the client...");
                 m_Client.Flush();
                 m_Client.Dispose();
             }
@@ -557,7 +598,7 @@ namespace Mirror
 
             if (!m_Client.IsSet)
             {
-                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning("Ignorance Transport: Hold on, the client is not ready yet.");
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning("Ignorance: Hold on, the client is not ready yet.");
                 return false;
             }
 
@@ -577,10 +618,10 @@ namespace Mirror
 
             if (m_TransportVerbosity > TransportVerbosity.Chatty)
             {
-                Log($"Ignorance Transport: Client sending byte {data.Count} payload on channel {channelId} to server...");
+                Log($"Ignorance: Client sending byte {data.Count} payload on channel {channelId} to server...");
                 if (m_TransportVerbosity == TransportVerbosity.Paranoid)
                 {
-                    Log($"Ignorance Transport: Outgoing payload to server:\n{BitConverter.ToString(data.Array, data.Offset, data.Count)}");
+                    Log($"Ignorance: Outgoing payload to server:\n{BitConverter.ToString(data.Array, data.Offset, data.Count)}");
                 }
             }
 
@@ -590,7 +631,7 @@ namespace Mirror
             }
             else
             {
-                LogWarning("Ignorance Transport: Outgoing packet sending wasn't successful. We might have disconnected or we're experiencing weirdness.");
+                LogWarning("Ignorance: Outgoing packet sending wasn't successful. We might have disconnected or we're experiencing weirdness.");
                 return false;
             }
         }
@@ -664,13 +705,13 @@ namespace Mirror
                         break;
                     case EventType.Connect:
                         // A client connected to the server. Assign a new ID to them.
-                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: New client connection to server. Peer ID: {networkEvent.Peer.ID}, IP: {networkEvent.Peer.IP}");
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: New client connection to server. Peer ID: {networkEvent.Peer.ID}, IP: {networkEvent.Peer.IP}");
 
                         // Map them into our dictonaries.
                         knownPeersToConnIDs.Add(networkEvent.Peer, newConnectionID);
                         knownConnIDToPeers.Add(serverConnectionCnt, networkEvent.Peer);
 
-                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
                         OnServerConnected.Invoke(serverConnectionCnt);
 
                         // Increment the connection counter.
@@ -681,17 +722,17 @@ namespace Mirror
 
                         if (knownPeersToConnIDs.TryGetValue(networkEvent.Peer, out deadPeerConnID))
                         {
-                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has disconnected.");
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has disconnected.");
                             OnServerDisconnected.Invoke(deadPeerConnID);
                             PeerDisconnectedInternal(networkEvent.Peer);
                         }
                         else
                         {
-                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance Transport: Unknown Peer with ID {networkEvent.Peer.ID} has disconnected. Hmm...");
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance: Unknown Peer with ID {networkEvent.Peer.ID} has disconnected. Hmm...");
                         }
                         break;
                     case EventType.Receive:
-                        if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance Transport: Server data channel {networkEvent.ChannelID} receiving a {networkEvent.Packet.Length} byte payload");
+                        if (m_TransportVerbosity > TransportVerbosity.Chatty) Log($"Ignorance: Server data channel {networkEvent.ChannelID} receiving a {networkEvent.Packet.Length} byte payload");
 
                         // Only process data from known peers.
                         if (knownPeersToConnIDs.TryGetValue(networkEvent.Peer, out knownConnectionID))
@@ -703,7 +744,7 @@ namespace Mirror
                             // Emit a warning and clean the packet. We don't want it in memory.
                             networkEvent.Packet.Dispose();
 
-                            if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport WARNING: Discarded a packet because it was from a unknown peer. " +
+                            if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance WARNING: Discarded a packet because it was from a unknown peer. " +
                                 "If you see this message way too many times then you are likely a victim of a DoS or DDoS attack that is targeting your server's connection port." +
                                 " Ignorance will keep discarding packets but please do look into this. Failing to do so is risky and could potentially crash the server instance!");
                         }
@@ -712,13 +753,13 @@ namespace Mirror
                         // A client timed out. Note that this could be the same as the disconnected, but for now I'm going to seperate them for debugging reasons
                         if (knownPeersToConnIDs.TryGetValue(networkEvent.Peer, out timedOutConnID))
                         {
-                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance Transport: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has timed out.");
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has timed out.");
                             OnServerDisconnected.Invoke(timedOutConnID);
                             PeerDisconnectedInternal(networkEvent.Peer);
                         }
                         else
                         {
-                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance Transport: Unknown Peer with ID {networkEvent.Peer.ID} has timed out. Hmm...");
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance: Unknown Peer with ID {networkEvent.Peer.ID} has timed out. Hmm...");
                         }
                         break;
                     default:
@@ -739,15 +780,15 @@ namespace Mirror
         /// <param name="connectionID">If it is intended to be invoked on the server, what connection ID to pass to Mirror?</param>
         public void NewMessageDataProcessor(Packet sourcePacket, bool serverInvoke = false, int connectionID = 0)
         {
-            if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance Transport: Processing a {sourcePacket.Length} byte payload.");
+            if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance: Processing a {sourcePacket.Length} byte payload.");
 
             // This will be improved on at a later date.
             byte[] dataBuf = new byte[sourcePacket.Length];
-            // Copy our data into our buffers from ENET Native -> Ignorance Transport Managed world.
+            // Copy our data into our buffers from ENET Native -> Ignorance Managed world.
             sourcePacket.CopyTo(dataBuf);
             sourcePacket.Dispose();
 
-            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance Transport: Packet payload:\n{ BitConverter.ToString(dataBuf) }");
+            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(dataBuf) }");
 
             // Invoke the server if we're supposed to.
             if (serverInvoke)
@@ -792,7 +833,7 @@ namespace Mirror
             {
                 if (!IsValid(m_Client))
                 {
-                    if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance Transport: NewClientMessageProcessor() loop: client not valid.");
+                    if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance: NewClientMessageProcessor() loop: client not valid.");
                     return false;
                 }
 
@@ -803,7 +844,7 @@ namespace Mirror
                 }
 
                 // Spam the logs if we're over paranoid levels.
-                if (m_TransportVerbosity == TransportVerbosity.Paranoid) LogWarning($"Ignorance Transport: NewClientMessageProcessor() processing {networkEvent.Type} event...");
+                if (m_TransportVerbosity == TransportVerbosity.Paranoid) LogWarning($"Ignorance: NewClientMessageProcessor() processing {networkEvent.Type} event...");
 
                 switch (networkEvent.Type)
                 {
@@ -815,28 +856,28 @@ namespace Mirror
                         // Connected to a host/server.
                         if (m_TransportVerbosity > TransportVerbosity.Chatty)
                         {
-                            Log($"Ignorance Transport: Connected to peer {networkEvent.Peer.IP} with our ENET Peer ID {networkEvent.Peer.ID}");
+                            Log($"Ignorance: Connected to peer {networkEvent.Peer.IP} with our ENET Peer ID {networkEvent.Peer.ID}");
                         }
                         else
                         {
-                            Log($"Ignorance Transport: Connection established! Host Peer IP: {networkEvent.Peer.IP}");
+                            Log($"Ignorance: Connection established! Host Peer IP: {networkEvent.Peer.IP}");
                         }
 
                         OnClientConnected.Invoke();
                         break;
                     case EventType.Disconnect:
                         // Client disconnected.
-                        Log($"Ignorance Transport: Connection disconnected from Host Peer IP: {networkEvent.Peer.IP}");
+                        Log($"Ignorance: Connection disconnected from Host Peer IP: {networkEvent.Peer.IP}");
                         OnClientDisconnected.Invoke();
                         break;
                     case EventType.Receive:
                         // Client recieving some data.
-                        if (m_TransportVerbosity >= TransportVerbosity.Paranoid) Log($"Ignorance Transport: Client data channel {networkEvent.ChannelID} is receiving {networkEvent.Packet.Length} byte payload.");
+                        if (m_TransportVerbosity >= TransportVerbosity.Paranoid) Log($"Ignorance: Client data channel {networkEvent.ChannelID} is receiving {networkEvent.Packet.Length} byte payload.");
                         // Don't panic, data processing and invoking is done in a new function.
                         NewMessageDataProcessor(networkEvent.Packet);
                         break;
                     case EventType.Timeout:
-                        Log($"Ignorance Transport: Connection timeout while communicating with Host Peer IP {networkEvent.Peer.IP}");
+                        Log($"Ignorance: Connection timeout while communicating with Host Peer IP {networkEvent.Peer.IP}");
                         OnClientDisconnected.Invoke();
                         break;
                 }
@@ -852,7 +893,22 @@ namespace Mirror
         /// </summary>
         public override void Shutdown()
         {
-            Log("Ignorance Transport: Going down for shutdown NOW!");
+            Log("Ignorance: Going down for shutdown NOW!");
+
+            if(m_HasAlreadyConfiguredNat)
+            {
+                if(m_NATDevice != null)
+                {
+                    try
+                    {
+                        m_NATDevice.DeletePortMapAsync(m_NewRuleMapping);
+                        Log("Ignorance: Deleted port mapping from UPnP device");
+                    } catch (Exception ex)
+                    {
+                        LogError($"Ignorance: Unable to delete port mapping, exception returned was: {ex.ToString()}");
+                    }                    
+                }
+            }
 
             // Shutdown the client first.
             if (IsValid(m_Client))
@@ -880,7 +936,7 @@ namespace Mirror
             }
 
             Library.Deinitialize();
-            Log("Ignorance Transport shutdown complete. Have a good one.");
+            Log("Ignorance shutdown complete. Have a good one.");
         }
         #endregion
 
@@ -909,19 +965,19 @@ namespace Mirror
                 // Check to make sure that Channel 0 and 1 are correct.
                 if (m_ChannelDefinitions[0] != KnownChannelTypes.Reliable)
                 {
-                    LogWarning("Ignorance Transport detected that channel 0 is not set to Reliable. This has been corrected.");
+                    LogWarning("Ignorance detected that channel 0 is not set to Reliable. This has been corrected.");
                     m_ChannelDefinitions[0] = KnownChannelTypes.Reliable;
                 }
 
                 if (m_ChannelDefinitions[1] != KnownChannelTypes.Unreliable)
                 {
-                    LogWarning("Ignorance Transport detected that channel 1 is not set to Unreliable. This has been corrected.");
+                    LogWarning("Ignorance detected that channel 1 is not set to Unreliable. This has been corrected.");
                     m_ChannelDefinitions[1] = KnownChannelTypes.Unreliable;
                 }
             }
             else
             {
-                LogWarning("Ignorance Transport detected a configuration problem and will fix it for you. There needs to be at least 2 channels" +
+                LogWarning("Ignorance detected a configuration problem and will fix it for you. There needs to be at least 2 channels" +
                     " added at any time, and they must be Reliable and Unreliable.");
 
                 m_ChannelDefinitions = new List<KnownChannelTypes>()
@@ -1042,7 +1098,7 @@ namespace Mirror
         }
         #endregion
 
-        #region Transport - Custom Classes
+        #region Transport - Custom
         public enum TransportVerbosity
         {
             SilenceIsGolden,
@@ -1053,9 +1109,8 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.3";
+            public const string Version = "1.2.4";
         }
-        #endregion
 
         [Serializable]
         public enum KnownChannelTypes
@@ -1066,5 +1121,78 @@ namespace Mirror
             UnreliableFragmented,
             UnreliableSequenced,
         }
+        #endregion
+
+        #region UPnP - Automatic port forwarding
+#if !IGNORANCE_NO_UPNP
+        public async void DoServerPortForwarding()
+        {
+            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
+            {
+                Log("Ignorance: Server Mode will attempt to automatically port forward.");
+            }
+
+            try
+            {
+                // Setup the NAT Discovery system...
+                m_NATDiscoverer = new NatDiscoverer();
+                CancellationTokenSource cts = new CancellationTokenSource(m_ServerUPNPTimeout);
+                // Hello, router? It's-a me, Ignorance!
+                m_NATDevice = await m_NATDiscoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts);
+                // Get the external IP address...
+                System.Net.IPAddress externalIP = await m_NATDevice.GetExternalIPAsync();
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Seems our external IP is {externalIP.ToString()}. Asking router to map local port {m_Port} to {externalIP.ToString()}:{m_Port}");
+                // Ask router-senpai very nicely for her to port map. Gotta be nice, or she may crash.
+                // Crappy devices require somewhat crappy workarounds.
+                if (!string.IsNullOrEmpty(m_ServerUPNPIpAddress))
+                {
+                    // This is used on OpenWRT devices with miniUPnPd, since it will throw Bad Args if you don't give the requesting IP address.
+                    if (System.Net.IPAddress.TryParse(m_ServerUPNPIpAddress, out System.Net.IPAddress requestIP))
+                    {
+                        m_NewRuleMapping = new Mapping(Protocol.Udp, requestIP, m_Port, m_Port, m_ServerUPNPRuleLifetime, m_ServerUPNPMappingDescription);
+                        await m_NATDevice.CreatePortMapAsync(m_NewRuleMapping);
+                    }
+                    else
+                    {
+                        throw new System.FormatException("Server UPnP IP Address is invalid. Can't continue.");
+                    }
+                }
+                else
+                {
+                    m_NewRuleMapping = new Mapping(Protocol.Udp, m_Port, m_Port, m_ServerUPNPRuleLifetime, m_ServerUPNPMappingDescription);
+                    await m_NATDevice.CreatePortMapAsync(m_NewRuleMapping);
+                }
+
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Seems that went according to plan... unless you got an exception. Which in that case, I can't do anything about that.");
+                // Don't bother trying to do it again this server session.
+                m_HasAlreadyConfiguredNat = true;
+            }
+            catch (Exception ex)
+            {
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
+                {
+                    string error = string.Empty;
+                    if (ex.GetType() == typeof(Open.Nat.NatDeviceNotFoundException))
+                    {
+                        error = "NAT Device Not Found (do you have a router with UPnP disabled?)";
+                    }
+                    else if (ex.GetType() == typeof(Open.Nat.MappingException))
+                    {
+                        error = $"NAT Device rejected the UPnP request. {ex.ToString()}";
+                    }
+                    else
+                    {
+                        error = $"Unknown Exception: {ex.ToString()}";
+                    }
+
+                    LogError($"Ignorance: Sorry, automatic port fowarding has failed. The exception returned was: {error}");
+                }
+            }
+        }
+#endif
+        #endregion
+
+        public ushort port { get { return m_Port; } set { m_Port = value; } }   // Backwards compatibility.
+        public string Version { get { return TransportInfo.Version; } }
     }
 }
