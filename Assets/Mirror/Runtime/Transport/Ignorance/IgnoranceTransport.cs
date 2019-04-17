@@ -130,7 +130,7 @@ namespace Mirror
         [Rename("UPnP Requestor IP Address")]
         [Tooltip("This will need to be the server's IP.")]
 #endif
-        public string m_ServerUPNPIpAddress = "";
+        public string m_ServerUPNPIpAddress = string.Empty;
 #if UNITY_EDITOR
         [Rename("UPnP Rule Lifetime")]
         [Tooltip("How long will this rule last? (seconds?)")]
@@ -662,16 +662,6 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Deprecated, old "classic" server-side message processor. One message per LateUpdate tick.
-        /// </summary>
-        /// <returns>True if successful, False if unsuccessful.</returns>
-        [Obsolete("This will throw exceptions because it's no longer part of Ignorance. Update your code to use NewServerMessageProcessor instead.")]
-        public bool OldServerMessageProcessor()
-        {
-            throw new Exception("OldServerMessageProcessor has been removed in Ignorance 1.2.3.");
-        }
-
-        /// <summary>
         /// New, "improved" server-side message processor. Multi messages per LateUpdate tick.
         /// </summary>
         /// <returns></returns>
@@ -745,7 +735,7 @@ namespace Mirror
                             networkEvent.Packet.Dispose();
 
                             if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance WARNING: Discarded a packet because it was from a unknown peer. " +
-                                "If you see this message way too many times then you are likely a victim of a DoS or DDoS attack that is targeting your server's connection port." +
+                                "If you see this message way too many times then you are likely a victim of a (D)DoS attack that is targeting your server connection port." +
                                 " Ignorance will keep discarding packets but please do look into this. Failing to do so is risky and could potentially crash the server instance!");
                         }
                         break;
@@ -797,21 +787,9 @@ namespace Mirror
             }
             else
             {
-                // Poke Mirror instead.
+                // Poke Mirror client instead.
                 OnClientDataReceived.Invoke(dataBuf);
             }
-        }
-
-        /// <summary>
-        /// Deprecated, old "classic" server-side message processor. One message per LateUpdate tick.
-        /// </summary>
-        /// <param name="transportEvent">The transport event to report back to Mirror.</param>
-        /// <param name="data">The byte array of the data.</param>
-        /// <returns></returns>
-        [Obsolete("This will throw exceptions because it's no longer part of Ignorance. Update your code to use NewServerMessageProcessor instead.")]
-        public bool OldClientMessageProcessor()
-        {
-            throw new Exception("OldClientMessageProcessor has been removed in Ignorance 1.2.3.");
         }
 
         /// <summary>
@@ -833,7 +811,7 @@ namespace Mirror
             {
                 if (!IsValid(m_Client))
                 {
-                    if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance: NewClientMessageProcessor() loop: client not valid.");
+                    if (m_TransportVerbosity >= TransportVerbosity.Paranoid) LogWarning("Ignorance: NewClientMessageProcessor() loop: client not valid.");
                     return false;
                 }
 
@@ -894,22 +872,28 @@ namespace Mirror
         public override void Shutdown()
         {
             Log("Ignorance: Going down for shutdown NOW!");
-
-            if(m_HasAlreadyConfiguredNat)
+#if !IGNORANCE_NO_UPNP
+            // If NAT is configured, delete the port forwarding rule.
+            if (m_HasAlreadyConfiguredNat)
             {
-                if(m_NATDevice != null)
+                if (m_NATDevice != null)
                 {
-                    try
+                    if (m_NewRuleMapping != null)
                     {
-                        m_NATDevice.DeletePortMapAsync(m_NewRuleMapping);
-                        Log("Ignorance: Deleted port mapping from UPnP device");
-                    } catch (Exception ex)
-                    {
-                        LogError($"Ignorance: Unable to delete port mapping, exception returned was: {ex.ToString()}");
-                    }                    
+                        try
+                        {
+                            Log("Ignorance: Deleting automatic port mapping from UPnP device");
+                            m_NATDevice.DeletePortMapAsync(m_NewRuleMapping);
+                        }
+                        catch (Exception ex)
+                        {
+                            LogError($"Ignorance: Unable to delete port mapping, exception returned was: {ex.ToString()}");
+                        }
+
+                    }
                 }
             }
-
+#endif
             // Shutdown the client first.
             if (IsValid(m_Client))
             {
@@ -917,6 +901,7 @@ namespace Mirror
                 {
                     Log("Sending the client process to the dumpster fire...");
                 }
+
                 if (m_ClientPeer.IsSet)
                 {
                     m_ClientPeer.DisconnectNow(0);
@@ -938,9 +923,9 @@ namespace Mirror
             Library.Deinitialize();
             Log("Ignorance shutdown complete. Have a good one.");
         }
-        #endregion
+#endregion
 
-        #region Transport - Inherited functions from Mirror
+#region Transport - Inherited functions from Mirror
         // Prettify the output string, rather than IgnoranceTransport (Mirror.IgnoranceTransport)
         public override string ToString()
         {
@@ -978,7 +963,7 @@ namespace Mirror
             else
             {
                 LogWarning("Ignorance detected a configuration problem and will fix it for you. There needs to be at least 2 channels" +
-                    " added at any time, and they must be Reliable and Unreliable.");
+                    " added at any time, and they must be Reliable and Unreliable channel types respectively.");
 
                 m_ChannelDefinitions = new List<KnownChannelTypes>()
                 {
@@ -988,9 +973,9 @@ namespace Mirror
             }
         }
 
-        #endregion
+#endregion
 
-        #region Transport - Statistics
+#region Transport - Statistics
         /// <summary>
         /// Server-world Packets Sent Counter, directly from ENET.
         /// </summary>
@@ -1045,9 +1030,9 @@ namespace Mirror
         {
             return m_ClientPeer.IsSet ? m_ClientPeer.PacketsLost : 0;
         }
-        #endregion
+#endregion
 
-        #region Transport - Message Loggers
+#region Transport - Message Loggers
         // Static helpers
         private void Log(object text)
         {
@@ -1063,9 +1048,9 @@ namespace Mirror
         {
             Debug.LogWarning(text);
         }
-        #endregion
+#endregion
 
-        #region Transport - Toolbox
+#region Transport - Toolbox
         /// <summary>
         /// Checks if a host object is valid.
         /// </summary>
@@ -1096,9 +1081,9 @@ namespace Mirror
                     return PacketFlags.Unsequenced;
             }
         }
-        #endregion
+#endregion
 
-        #region Transport - Custom
+#region Transport - Custom
         public enum TransportVerbosity
         {
             SilenceIsGolden,
@@ -1121,9 +1106,9 @@ namespace Mirror
             UnreliableFragmented,
             UnreliableSequenced,
         }
-        #endregion
+#endregion
 
-        #region UPnP - Automatic port forwarding
+#region UPnP - Automatic port forwarding
 #if !IGNORANCE_NO_UPNP
         public async void DoServerPortForwarding()
         {
@@ -1154,16 +1139,18 @@ namespace Mirror
                     }
                     else
                     {
-                        throw new System.FormatException("Server UPnP IP Address is invalid. Can't continue.");
+                        throw new System.FormatException("Server UPnP IP Address is invalid. Can't continue with UPnP Port Mapping.");
                     }
                 }
                 else
                 {
+                    // This might work for some el cheapo chinese router-senpais.
+                    // They may not be as up to date with open source implementations.
                     m_NewRuleMapping = new Mapping(Protocol.Udp, m_Port, m_Port, m_ServerUPNPRuleLifetime, m_ServerUPNPMappingDescription);
                     await m_NATDevice.CreatePortMapAsync(m_NewRuleMapping);
                 }
 
-                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Seems that went according to plan... unless you got an exception. Which in that case, I can't do anything about that.");
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Seems that UPnP mapping went all according to plan... unless you got an exception. Which in that case, I can't do anything about that.");
                 // Don't bother trying to do it again this server session.
                 m_HasAlreadyConfiguredNat = true;
             }
@@ -1190,7 +1177,7 @@ namespace Mirror
             }
         }
 #endif
-        #endregion
+#endregion
 
         public ushort port { get { return m_Port; } set { m_Port = value; } }   // Backwards compatibility.
         public string Version { get { return TransportInfo.Version; } }

@@ -75,6 +75,14 @@ namespace Mirror
 
             // Experimental Settings
             showUPnPSettings = EditorGUILayout.Foldout(showUPnPSettings, "Universal PnP (Port Forwarding) Settings");
+#if IGNORANCE_NO_UPNP
+            if (showUPnPSettings)
+            {
+                EditorGUI.indentLevel += 1;
+                EditorGUILayout.HelpBox("Ignorance UPnP Code has been disabled due a symbol definition. Remove IGNORANCE_NO_UPNP from Build Settings to enable UPnP code.", MessageType.Info);
+                EditorGUI.indentLevel -= 1;
+            }
+#else
             if (showUPnPSettings)
             {
                 EditorGUI.indentLevel += 1;
@@ -89,7 +97,7 @@ namespace Mirror
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("m_ServerUPNPRuleLifetime"));
                 EditorGUI.indentLevel -= 1;
             }
-
+#endif
             // Apply.
             serializedObject.ApplyModifiedProperties();
         }
@@ -111,8 +119,8 @@ namespace Mirror
                 }
                 else
                 {
-                    EditorGUILayout.HelpBox("It is recommended to leave the first two channels as Reliable and Unreliable, as this matches what Unity LLAPI was originally. " +
-                        "You can add up to 255 channels in total.", MessageType.Info);
+                    EditorGUILayout.HelpBox("You must leave the first two channels as Reliable and Unreliable, as this matches what Unity LLAPI was originally. " +
+                        "You can add up to 255 channels.", MessageType.Info);
                     for (int i = 0; i < victim.arraySize; i++)
                     {
                         EditorGUILayout.BeginHorizontal();
