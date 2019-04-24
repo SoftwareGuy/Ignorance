@@ -701,7 +701,9 @@ namespace Mirror
                         knownPeersToConnIDs.Add(networkEvent.Peer, newConnectionID);
                         knownConnIDToPeers.Add(serverConnectionCnt, networkEvent.Peer);
 
-                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
+						if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
+                        if (m_UseCustomTimeout) networkEvent.Peer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
+
                         OnServerConnected.Invoke(serverConnectionCnt);
 
                         // Increment the connection counter.
@@ -1181,5 +1183,15 @@ namespace Mirror
 
         public ushort port { get { return m_Port; } set { m_Port = value; } }   // Backwards compatibility.
         public string Version { get { return TransportInfo.Version; } }
+
+        public ulong ClientGetBytesSentCount()
+        {
+            return m_ClientPeer.IsSet ? m_ClientPeer.BytesSent : 0;
+        }
+
+        public ulong ClientGetBytesReceivedCount()
+        {
+            return m_ClientPeer.IsSet ? m_ClientPeer.BytesReceived : 0;
+        }
     }
 }
