@@ -33,6 +33,8 @@ namespace Mirror
     public class IgnoranceTransport : Transport, ISegmentTransport
     {
         #region Configuration Settings
+		const int BufferSize = 1500;
+
         public List<KnownChannelTypes> m_ChannelDefinitions = new List<KnownChannelTypes>()
         {
             KnownChannelTypes.Reliable,     // Default channel 0, reliable
@@ -151,8 +153,9 @@ namespace Mirror
 
         private Address m_ServerAddress = new Address();
         private Peer m_ClientPeer = new Peer();
+		private byte[] m_Buffer = new byte[BufferSize];
 
-        private string m_MyServerAddress = string.Empty;
+		private string m_MyServerAddress = string.Empty;
 
         /// <summary>
         /// Known connections dictonary since ENET is a little weird.
@@ -773,25 +776,47 @@ namespace Mirror
         public void NewMessageDataProcessor(Packet sourcePacket, bool serverInvoke = false, int connectionID = 0)
         {
             if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance: Processing a {sourcePacket.Length} byte payload.");
+			int count = sourcePacket.Length;
+			if (count < BufferSize)
+			{
+				// Copy our data into our buffers from ENET Native -> Ignorance Managed world.
+				sourcePacket.CopyTo(m_Buffer);
+				sourcePacket.Dispose();
+				ArraySegment<byte> data = new ArraySegment<byte>(m_Buffer, 0, count);
 
-            // This will be improved on at a later date.
-            byte[] dataBuf = new byte[sourcePacket.Length];
-            // Copy our data into our buffers from ENET Native -> Ignorance Managed world.
-            sourcePacket.CopyTo(dataBuf);
-            sourcePacket.Dispose();
+				if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(data.Array, data.Offset, data.Count) }");
 
-            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(dataBuf) }");
+				// Invoke the server if we're supposed to.
+				if (serverInvoke)
+				{
+					OnServerDataReceivedNonAlloc.Invoke(connectionID, data);
+				}
+				else
+				{
+					// Poke Mirror client instead.
+					OnClientDataReceivedNonAlloc.Invoke(data);
+				}
+			}
+			else
+			{
+				byte[] dataBuf = new byte[count];
+				// Copy our data into our buffers from ENET Native -> Ignorance Managed world.
+				sourcePacket.CopyTo(dataBuf);
+				sourcePacket.Dispose();
 
-            // Invoke the server if we're supposed to.
-            if (serverInvoke)
-            {
-                OnServerDataReceived.Invoke(connectionID, dataBuf);
-            }
-            else
-            {
-                // Poke Mirror client instead.
-                OnClientDataReceived.Invoke(dataBuf);
-            }
+				if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(dataBuf) }");
+
+				// Invoke the server if we're supposed to.
+				if (serverInvoke)
+				{
+					OnServerDataReceived.Invoke(connectionID, dataBuf);
+				}
+				else
+				{
+					// Poke Mirror client instead.
+					OnClientDataReceived.Invoke(dataBuf);
+				}
+			}
         }
 
         /// <summary>
