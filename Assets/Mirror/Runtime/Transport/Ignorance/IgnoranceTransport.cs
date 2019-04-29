@@ -263,7 +263,7 @@ namespace Mirror
             if (!AlreadyInitialized)
             {
                 if (!InitializeENET()) {
-                    LogError("Ignorance FATAL ERROR: ENET-senpai won't initialize. Did someone a bad native library in place of the one that should have shipped with this Transport?");
+                    LogError("Ignorance FATAL ERROR: ENET-senpai won't initialize. Did someone put a bad native library in place of the one that should have shipped with this Transport?");
                     return;
                 } else {
                     Log("Ignorance: ENET Initialized");
@@ -507,7 +507,7 @@ namespace Mirror
             {
                 if (!InitializeENET())
                 {
-                    Debug.LogError("Ignorance FATAL ERROR: ENET-senpai won't initialize. Did someone a bad native library in place of the one that should have shipped with this Transport?");
+                    Debug.LogError("Ignorance FATAL ERROR: ENET-senpai won't initialize. Did someone put a bad native library in place of the one that should have shipped with this Transport?");
                     return;
                 }
                 else
