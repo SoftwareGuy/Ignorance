@@ -1,4 +1,4 @@
-﻿// ----------------------------------------
+// ----------------------------------------
 // Ignorance by Matt Coburn, 2018 - 2019
 // This Transport uses other dependencies that you can
 // find references to in the README.md of this package.
@@ -701,7 +701,7 @@ namespace Mirror
                         knownPeersToConnIDs.Add(networkEvent.Peer, newConnectionID);
                         knownConnIDToPeers.Add(serverConnectionCnt, networkEvent.Peer);
 
-						if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
                         if (m_UseCustomTimeout) networkEvent.Peer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
 
                         OnServerConnected.Invoke(serverConnectionCnt);
@@ -1067,21 +1067,7 @@ namespace Mirror
         /// </summary>        
         public PacketFlags MapKnownChannelTypeToENETPacketFlag(KnownChannelTypes source)
         {
-            switch (source)
-            {
-                case KnownChannelTypes.Reliable:
-                    return PacketFlags.Reliable;            // reliable (tcp-like).
-                case KnownChannelTypes.ReliableUnsequenced:
-                    return (PacketFlags.Reliable | PacketFlags.Unsequenced);    //reliable, but unsequenced
-                case KnownChannelTypes.Unreliable:
-                    return PacketFlags.Unsequenced;         // completely unreliable.
-                case KnownChannelTypes.UnreliableFragmented:
-                    return PacketFlags.UnreliableFragment;  // unreliable fragmented.
-                case KnownChannelTypes.UnreliableSequenced:
-                    return PacketFlags.None;                // unreliable, but sequenced.
-                default:
-                    return PacketFlags.Unsequenced;
-            }
+            return (PacketFlags)source;
         }
 #endregion
 
@@ -1102,11 +1088,11 @@ namespace Mirror
         [Serializable]
         public enum KnownChannelTypes
         {
-            Reliable,
-            ReliableUnsequenced,
-            Unreliable,
-            UnreliableFragmented,
-            UnreliableSequenced,
+            Reliable = PacketFlags.Reliable,
+            ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,
+            Unreliable = PacketFlags.Unsequenced,
+            UnreliableFragmented = PacketFlags.UnreliableFragment,
+            UnreliableSequenced = PacketFlags.None
         }
 #endregion
 
@@ -1156,25 +1142,25 @@ namespace Mirror
                 // Don't bother trying to do it again this server session.
                 m_HasAlreadyConfiguredNat = true;
             }
+            catch (NatDeviceNotFoundException)
+            {
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
+                {
+                    LogError($"Ignorance: Sorry, automatic port fowarding has failed. The exception returned was: NAT Device Not Found (do you have a router with UPnP disabled?)");
+                }
+            }
+            catch (MappingException ex)
+            {
+                if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
+                {
+                    LogError($"Ignorance: Sorry, automatic port fowarding has failed. The exception returned was: NAT Device rejected the UPnP request. {ex}");
+                }
+            }
             catch (Exception ex)
             {
                 if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden)
                 {
-                    string error = string.Empty;
-                    if (ex.GetType() == typeof(Open.Nat.NatDeviceNotFoundException))
-                    {
-                        error = "NAT Device Not Found (do you have a router with UPnP disabled?)";
-                    }
-                    else if (ex.GetType() == typeof(Open.Nat.MappingException))
-                    {
-                        error = $"NAT Device rejected the UPnP request. {ex.ToString()}";
-                    }
-                    else
-                    {
-                        error = $"Unknown Exception: {ex.ToString()}";
-                    }
-
-                    LogError($"Ignorance: Sorry, automatic port fowarding has failed. The exception returned was: {error}");
+                    LogError($"Ignorance: Sorry, automatic port fowarding has failed. The exception returned was: Unknown Exception: {ex}");
                 }
             }
         }
