@@ -665,7 +665,7 @@ namespace Mirror
         /// New, "improved" server-side message processor. Multi messages per LateUpdate tick.
         /// </summary>
         /// <returns></returns>
-        public bool NewServerMessageProcessor()
+        public bool ProcessServerMessages()
         {
             bool serverWasPolled = false;
             int deadPeerConnID, timedOutConnID, knownConnectionID;
@@ -695,13 +695,13 @@ namespace Mirror
                         break;
                     case EventType.Connect:
                         // A client connected to the server. Assign a new ID to them.
-                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: New client connection to server. Peer ID: {networkEvent.Peer.ID}, IP: {networkEvent.Peer.IP}");
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: New client connection to server. Address: {networkEvent.Peer.IP}:{networkEvent.Peer.Port}. (ENET Peer ID: {networkEvent.Peer.ID})");
 
                         // Map them into our dictonaries.
                         knownPeersToConnIDs.Add(networkEvent.Peer, newConnectionID);
                         knownConnIDToPeers.Add(serverConnectionCnt, networkEvent.Peer);
 
-                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} is now known as connection ID {serverConnectionCnt}.");
+                        if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Peer ID {networkEvent.Peer.ID} becomes connection ID {serverConnectionCnt}.");
                         if (m_UseCustomTimeout) networkEvent.Peer.Timeout(Library.throttleScale, m_BasePeerTimeout, m_BasePeerTimeout * m_BasePeerMultiplier);
 
                         OnServerConnected.Invoke(serverConnectionCnt);
@@ -714,13 +714,13 @@ namespace Mirror
 
                         if (knownPeersToConnIDs.TryGetValue(networkEvent.Peer, out deadPeerConnID))
                         {
-                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} has disconnected.");
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Connection ID {knownPeersToConnIDs[networkEvent.Peer]} ({networkEvent.Peer.IP}:{networkEvent.Peer.Port}) has disconnected.");
                             OnServerDisconnected.Invoke(deadPeerConnID);
                             PeerDisconnectedInternal(networkEvent.Peer);
                         }
                         else
                         {
-                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance: Unknown Peer with ID {networkEvent.Peer.ID} has disconnected. Hmm...");
+                            if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) LogWarning($"Ignorance: Unknown Peer with ID {networkEvent.Peer.ID} ({networkEvent.Peer.IP}:{networkEvent.Peer.Port}) has disconnected. Hmm...");
                         }
                         break;
                     case EventType.Receive:
@@ -729,7 +729,7 @@ namespace Mirror
                         // Only process data from known peers.
                         if (knownPeersToConnIDs.TryGetValue(networkEvent.Peer, out knownConnectionID))
                         {
-                            NewMessageDataProcessor(networkEvent.Packet, true, knownConnectionID);
+                            ProcessMessageData(networkEvent.Packet, true, knownConnectionID);
                         }
                         else
                         {
@@ -770,7 +770,7 @@ namespace Mirror
         /// <param name="sourcePacket">The ENET Source packet.</param>
         /// <param name="serverInvoke">Is this intended to be invoked on the server instance?</param>
         /// <param name="connectionID">If it is intended to be invoked on the server, what connection ID to pass to Mirror?</param>
-        public void NewMessageDataProcessor(Packet sourcePacket, bool serverInvoke = false, int connectionID = 0)
+        public void ProcessMessageData(Packet sourcePacket, bool serverInvoke = false, int connectionID = 0)
         {
             if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance: Processing a {sourcePacket.Length} byte payload.");
 
@@ -785,12 +785,12 @@ namespace Mirror
             // Invoke the server if we're supposed to.
             if (serverInvoke)
             {
-                OnServerDataReceived.Invoke(connectionID, dataBuf);
+                OnServerDataReceived.Invoke(connectionID, new ArraySegment<byte>(dataBuf));
             }
             else
             {
                 // Poke Mirror client instead.
-                OnClientDataReceived.Invoke(dataBuf);
+                OnClientDataReceived.Invoke(new ArraySegment<byte>(dataBuf));
             }
         }
 
@@ -798,7 +798,7 @@ namespace Mirror
         /// New "improved" client message processor.
         /// </summary>
         /// <returns>True if successful, False if not.</returns>
-        public bool NewClientMessageProcessor()
+        public bool ProcessClientMessages()
         {
             if (!IsValid(m_Client) || m_ClientPeer.State == PeerState.Uninitialized)
             {
@@ -813,7 +813,8 @@ namespace Mirror
             {
                 if (!IsValid(m_Client))
                 {
-                    if (m_TransportVerbosity >= TransportVerbosity.Paranoid) LogWarning("Ignorance: NewClientMessageProcessor() loop: client not valid.");
+                    // 1.2.5: Change this to only LogSpam setting.
+                    if (m_TransportVerbosity == TransportVerbosity.LogSpam) LogWarning("Ignorance: ProcessClientMessages() loop: client not valid.");
                     return false;
                 }
 
@@ -824,7 +825,7 @@ namespace Mirror
                 }
 
                 // Spam the logs if we're over paranoid levels.
-                if (m_TransportVerbosity == TransportVerbosity.Paranoid) LogWarning($"Ignorance: NewClientMessageProcessor() processing {networkEvent.Type} event...");
+                if (m_TransportVerbosity == TransportVerbosity.Paranoid) LogWarning($"Ignorance: ProcessClientMessages() processing {networkEvent.Type} event...");
 
                 switch (networkEvent.Type)
                 {
@@ -854,10 +855,10 @@ namespace Mirror
                         // Client recieving some data.
                         if (m_TransportVerbosity >= TransportVerbosity.Paranoid) Log($"Ignorance: Client data channel {networkEvent.ChannelID} is receiving {networkEvent.Packet.Length} byte payload.");
                         // Don't panic, data processing and invoking is done in a new function.
-                        NewMessageDataProcessor(networkEvent.Packet);
+                        ProcessMessageData(networkEvent.Packet);
                         break;
                     case EventType.Timeout:
-                        Log($"Ignorance: Connection timeout while communicating with Host Peer IP {networkEvent.Peer.IP}");
+                        Log($"Ignorance: Connection timed out while communicating with Host Peer IP {networkEvent.Peer.IP}");
                         OnClientDisconnected.Invoke();
                         break;
                 }
@@ -925,9 +926,9 @@ namespace Mirror
             Library.Deinitialize();
             Log("Ignorance shutdown complete. Have a good one.");
         }
-#endregion
+        #endregion
 
-#region Transport - Inherited functions from Mirror
+        #region Transport - Inherited functions from Mirror
         // Prettify the output string, rather than IgnoranceTransport (Mirror.IgnoranceTransport)
         public override string ToString()
         {
@@ -939,8 +940,8 @@ namespace Mirror
         {
             if (enabled)
             {
-                NewServerMessageProcessor();
-                NewClientMessageProcessor();
+                ProcessServerMessages();
+                ProcessClientMessages();
             }
         }
 
@@ -975,9 +976,9 @@ namespace Mirror
             }
         }
 
-#endregion
+        #endregion
 
-#region Transport - Statistics
+        #region Transport - Statistics
         /// <summary>
         /// Server-world Packets Sent Counter, directly from ENET.
         /// </summary>
@@ -1032,9 +1033,9 @@ namespace Mirror
         {
             return m_ClientPeer.IsSet ? m_ClientPeer.PacketsLost : 0;
         }
-#endregion
+        #endregion
 
-#region Transport - Message Loggers
+        #region Transport - Message Loggers
         // Static helpers
         private void Log(object text)
         {
@@ -1050,9 +1051,9 @@ namespace Mirror
         {
             Debug.LogWarning(text);
         }
-#endregion
+        #endregion
 
-#region Transport - Toolbox
+        #region Transport - Toolbox
         /// <summary>
         /// Checks if a host object is valid.
         /// </summary>
@@ -1069,9 +1070,9 @@ namespace Mirror
         {
             return (PacketFlags)source;
         }
-#endregion
+        #endregion
 
-#region Transport - Custom
+        #region Transport - Custom
         public enum TransportVerbosity
         {
             SilenceIsGolden,
@@ -1094,9 +1095,9 @@ namespace Mirror
             UnreliableFragmented = PacketFlags.UnreliableFragment,
             UnreliableSequenced = PacketFlags.None
         }
-#endregion
+        #endregion
 
-#region UPnP - Automatic port forwarding
+        #region UPnP - Automatic port forwarding
 #if !IGNORANCE_NO_UPNP
         public async void DoServerPortForwarding()
         {
@@ -1165,7 +1166,7 @@ namespace Mirror
             }
         }
 #endif
-#endregion
+        #endregion
 
         public ushort port { get { return m_Port; } set { m_Port = value; } }   // Backwards compatibility.
         public string Version { get { return TransportInfo.Version; } }
