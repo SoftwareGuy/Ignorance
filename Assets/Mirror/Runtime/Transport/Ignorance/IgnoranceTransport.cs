@@ -192,16 +192,15 @@ namespace Mirror
             Debug.LogWarning("Hmm, looks like you're using Ignorance inside a Mac Editor instance. This is known to be problematic due to some Unity Mono bugs. " +
                 "If you have issues using Ignorance, please try the Unity 2019.1 beta and let the developer know. Thanks!");
 #endif
-            Library.Initialize();
-
             // If the user sets this to -1, treat it as no limit.
             if (m_MaximumTotalConnections < 0) m_MaximumTotalConnections = 0;
         }
 
-        public void OnDestroy()
-        {
-            Library.Deinitialize();
-        }
+        // 1.2.5: To be removed, potentially buggy in the Editor.
+        //public void OnDestroy()
+        //{
+        //    Library.Deinitialize();
+        //}
 
         #endregion
 
@@ -260,6 +259,19 @@ namespace Mirror
         /// <param name="maxConnections">How many connections can we have?</param>
         public void ServerStart(string networkAddress, ushort port, int maxConnections)
         {
+            // 1.2.5
+            if (!AlreadyInitialized)
+            {
+                if (!InitializeENET()) {
+                    LogError("Ignorance FATAL ERROR: ENET-senpai won't initialize. Did someone a bad native library in place of the one that should have shipped with this Transport?");
+                    return;
+                } else {
+                    Log("Ignorance: ENET Initialized");
+                    AlreadyInitialized = true;
+                }
+            }
+            
+
             // Do not attempt to start more than one server.
             // Check if the server is active before attempting to create. If it returns true,
             // then we should not continue, and we'll emit a refusal error message.
@@ -490,6 +502,21 @@ namespace Mirror
         /// <param name="port">The connection port.</param>
         public override void ClientConnect(string address)
         {
+            // 1.2.5
+            if (!AlreadyInitialized)
+            {
+                if (!InitializeENET())
+                {
+                    Debug.LogError("Ignorance FATAL ERROR: ENET-senpai won't initialize. Did someone a bad native library in place of the one that should have shipped with this Transport?");
+                    return;
+                }
+                else
+                {
+                    Debug.Log("Ignorance: ENET Initialized");
+                    AlreadyInitialized = true;
+                }
+            }
+
             // Make sure we're not trying to overflow the channel counts.
             if ((m_ChannelDefinitions.Count - 1) >= 255)
             {
@@ -923,8 +950,9 @@ namespace Mirror
                 m_Server.Dispose();
             }
 
-            Library.Deinitialize();
-            Log("Ignorance shutdown complete. Have a good one.");
+            Log("Ignorance: Deinitializing ENET.");
+            DeinitializeENET();
+            Log("Ignorance: Shutdown complete. Have a good one.");
         }
         #endregion
 
@@ -1083,7 +1111,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.4";
+            public const string Version = "1.2.5";
         }
 
         [Serializable]
@@ -1112,7 +1140,7 @@ namespace Mirror
                 m_NATDiscoverer = new NatDiscoverer();
                 CancellationTokenSource cts = new CancellationTokenSource(m_ServerUPNPTimeout);
                 // Hello, router? It's-a me, Ignorance!
-                m_NATDevice = await m_NATDiscoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts);
+                m_NATDevice = await m_NATDiscoverer.DiscoverDeviceAsync(PortMapper.Upnp | PortMapper.Pmp, cts);
                 // Get the external IP address...
                 System.Net.IPAddress externalIP = await m_NATDevice.GetExternalIPAsync();
                 if (m_TransportVerbosity > TransportVerbosity.SilenceIsGolden) Log($"Ignorance: Seems our external IP is {externalIP.ToString()}. Asking router to map local port {m_Port} to {externalIP.ToString()}:{m_Port}");
@@ -1180,5 +1208,21 @@ namespace Mirror
         {
             return m_ClientPeer.IsSet ? m_ClientPeer.BytesReceived : 0;
         }
+
+        private bool AlreadyInitialized = false;
+
+        private bool InitializeENET()
+        {
+            if (AlreadyInitialized) return true;
+
+            return Library.Initialize();
+        }
+
+        private void DeinitializeENET()
+        {
+            if (!AlreadyInitialized) return;
+            Library.Deinitialize();
+        }
+
     }
 }

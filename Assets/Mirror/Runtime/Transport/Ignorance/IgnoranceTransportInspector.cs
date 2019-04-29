@@ -1,4 +1,4 @@
-﻿// ----------------------------------------
+// ----------------------------------------
 // Ignorance Transport by Matt Coburn, 2018 - 2019
 // This Transport uses other dependencies that you can
 // find references to in the README.md of this package.
@@ -42,6 +42,7 @@ namespace Mirror
 
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("m_TransportVerbosity"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("m_UseLZ4Compression"));
+                EditorGUILayout.HelpBox("There has been some reports of LZ4 compression causing random disconnections after X seconds of successful connection to the server. Please file a bug if you are affected.", MessageType.Warning);
 
                 EditorGUI.indentLevel -= 1;
             }
