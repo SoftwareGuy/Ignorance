@@ -154,6 +154,9 @@ namespace Mirror
 
         private string m_MyServerAddress = string.Empty;
 
+        // Managed cache for incoming packets, size is max theoretical size for UDP packets
+        private byte[] packetCache = new byte[65535];       
+
         /// <summary>
         /// Known connections dictonary since ENET is a little weird.
         /// </summary>
@@ -801,23 +804,22 @@ namespace Mirror
         {
             if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance: Processing a {sourcePacket.Length} byte payload.");
 
-            // This will be improved on at a later date.
-            byte[] dataBuf = new byte[sourcePacket.Length];
-            // Copy our data into our buffers from ENET Native -> Ignorance Managed world.
-            sourcePacket.CopyTo(dataBuf);
+            // Copy umanaged buffer into local managed packet buffer
+            sourcePacket.CopyTo(this.packetCache);
+            int length = sourcePacket.Length;
             sourcePacket.Dispose();
 
-            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(dataBuf) }");
+            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(packetCache, 0, length) }");
 
             // Invoke the server if we're supposed to.
             if (serverInvoke)
             {
-                OnServerDataReceived.Invoke(connectionID, new ArraySegment<byte>(dataBuf));
+                OnServerDataReceived.Invoke(connectionID, new ArraySegment<byte>(this.packetCache, 0, length));
             }
             else
             {
                 // Poke Mirror client instead.
-                OnClientDataReceived.Invoke(new ArraySegment<byte>(dataBuf));
+                OnClientDataReceived.Invoke(new ArraySegment<byte>(this.packetCache, 0, length));
             }
         }
 
