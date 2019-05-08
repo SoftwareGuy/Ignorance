@@ -1113,7 +1113,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.5";
+            public const string Version = "1.2.6";
         }
 
         [Serializable]
