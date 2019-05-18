@@ -137,6 +137,9 @@ namespace Mirror
 #endif
         public int m_ServerUPNPRuleLifetime = 600;   // 1 hour?
 
+        public bool m_CustomPacketBufferSize = false;
+        public int m_PacketBufferSizeInKB = 64;
+
         private bool m_HasAlreadyConfiguredNat = false;
         private NatDiscoverer m_NATDiscoverer = null;
         private NatDevice m_NATDevice = null;
@@ -155,7 +158,7 @@ namespace Mirror
         private string m_MyServerAddress = string.Empty;
 
         // Managed cache for incoming packets, size is max theoretical size for UDP packets
-        private byte[] packetCache = new byte[65535];       
+        private byte[] packetCache = new byte[65535];
 
         /// <summary>
         /// Known connections dictonary since ENET is a little weird.
@@ -191,12 +194,20 @@ namespace Mirror
         private void Awake()
         {
             GreetEveryone();
+
 #if UNITY_EDITOR_OSX
             Debug.LogWarning("Hmm, looks like you're using Ignorance inside a Mac Editor instance. This is known to be problematic due to some Unity Mono bugs. " +
                 "If you have issues using Ignorance, please try the Unity 2019.1 beta and let the developer know. Thanks!");
 #endif
             // If the user sets this to -1, treat it as no limit.
             if (m_MaximumTotalConnections < 0) m_MaximumTotalConnections = 0;
+
+            // 1.2.7: If we're using a custom packet buffer size, initialize it.
+            if (m_CustomPacketBufferSize)
+            {
+                packetCache = new byte[m_PacketBufferSizeInKB * 1024];
+                Log($"Ignorance: Initialized packet cache. Capacity: {packetCache.Length} byte.");
+            }
         }
 
         // 1.2.5: To be removed, potentially buggy in the Editor.
@@ -356,7 +367,7 @@ namespace Mirror
 
             if (m_UseLZ4Compression)
             {
-                Log("Ignorance: Server instance will use LZ4 Compression.");
+                Log("Ignorance: Server instance will use LZ4 Compression. If you get random client disconnections, PLEASE FILE A BUG WITH A REPO PROJECT!");
                 m_Server.EnableCompression();
             }
 
@@ -531,7 +542,11 @@ namespace Mirror
 
             if (m_Client == null) m_Client = new Host();
             if (!m_Client.IsSet) m_Client.Create(null, 1, m_ChannelDefinitions.Count);
-            if (m_UseLZ4Compression) m_Client.EnableCompression();
+            if (m_UseLZ4Compression)
+            {
+                Log("Ignorance: Client will use LZ4 Compression. If you get random disconnections, PLEASE FILE A BUG WITH A REPO PROJECT!");
+                m_Client.EnableCompression();
+            }
 
             Address clientAddress = new Address();
 
@@ -624,6 +639,13 @@ namespace Mirror
 
         public bool ClientSend(int channelId, ArraySegment<byte> data)
         {
+            // 1.2.7: Never send any data if we're not initialized
+            if(AlreadyInitialized)
+            {
+                LogError("Ignorance: Attempted to ClientSend when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
+                return false;
+            }
+
             Packet mailingPigeon = default;
 
             if (!m_Client.IsSet)
@@ -697,10 +719,17 @@ namespace Mirror
         /// <returns></returns>
         public bool ProcessServerMessages()
         {
+            // 1.2.7: Never send any data if we're not initialized
+            if (AlreadyInitialized)
+            {
+                LogError("Ignorance: Attempted to ProcessServerMessages when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
+                return false;
+            }
+
             bool serverWasPolled = false;
             int deadPeerConnID, timedOutConnID, knownConnectionID;
             int newConnectionID = serverConnectionCnt;
-            Event networkEvent;
+            // Event networkEvent;
 
             // Don't attempt to process anything if the server is not active.
             if (!ServerActive()) return false;
@@ -710,7 +739,7 @@ namespace Mirror
 
             while (!serverWasPolled)
             {
-                if (m_Server.CheckEvents(out networkEvent) <= 0)
+                if (m_Server.CheckEvents(out Event networkEvent) <= 0)
                 {
                     if (m_Server.Service(0, out networkEvent) <= 0)
                         break;
@@ -766,7 +795,7 @@ namespace Mirror
                             // Emit a warning and clean the packet. We don't want it in memory.
                             networkEvent.Packet.Dispose();
 
-                            if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance WARNING: Discarded a packet because it was from a unknown peer. " +
+                            if (m_TransportVerbosity > TransportVerbosity.Chatty) LogWarning("Ignorance: Discarded a packet because it was from a unknown peer. " +
                                 "If you see this message way too many times then you are likely a victim of a (D)DoS attack that is targeting your server connection port." +
                                 " Ignorance will keep discarding packets but please do look into this. Failing to do so is risky and could potentially crash the server instance!");
                         }
@@ -804,22 +833,28 @@ namespace Mirror
         {
             if (m_TransportVerbosity == TransportVerbosity.Paranoid) Log($"Ignorance: Processing a {sourcePacket.Length} byte payload.");
 
+            // 1.2.7: Drop if bigger than our buffer. Security risk otherwise.
+            if(sourcePacket.Length > packetCache.Length)
+            {
+                LogError($"Ignorance: Dropping incoming packet. Packet size is {sourcePacket.Length} byte, our buffer is {packetCache.Length} byte. We could be under attack.");
+                sourcePacket.Dispose();
+            }
+
             // Copy umanaged buffer into local managed packet buffer
             sourcePacket.CopyTo(this.packetCache);
-            int length = sourcePacket.Length;
-            sourcePacket.Dispose();
+            int spLength = sourcePacket.Length;
 
-            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(packetCache, 0, length) }");
+            if (m_TransportVerbosity == TransportVerbosity.LogSpam) Log($"Ignorance: Packet payload:\n{ BitConverter.ToString(packetCache, 0, spLength) }");
 
-            // Invoke the server if we're supposed to.
             if (serverInvoke)
             {
-                OnServerDataReceived.Invoke(connectionID, new ArraySegment<byte>(this.packetCache, 0, length));
+                // Invoke the server if we're supposed to.
+                OnServerDataReceived.Invoke(connectionID, new ArraySegment<byte>(this.packetCache, 0, spLength));
             }
             else
             {
                 // Poke Mirror client instead.
-                OnClientDataReceived.Invoke(new ArraySegment<byte>(this.packetCache, 0, length));
+                OnClientDataReceived.Invoke(new ArraySegment<byte>(this.packetCache, 0, spLength));
             }
         }
 
@@ -829,6 +864,13 @@ namespace Mirror
         /// <returns>True if successful, False if not.</returns>
         public bool ProcessClientMessages()
         {
+            // 1.2.7: Never send any data if we're not initialized
+            if (!AlreadyInitialized)
+            {
+                LogError("Ignorance: Attempted to ProcessClientMessages when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
+                return false;
+            }
+
             if (!IsValid(m_Client) || m_ClientPeer.State == PeerState.Uninitialized)
             {
                 return false;
@@ -995,8 +1037,8 @@ namespace Mirror
             }
             else
             {
-                LogWarning("Ignorance detected a configuration problem and will fix it for you. There needs to be at least 2 channels" +
-                    " added at any time, and they must be Reliable and Unreliable channel types respectively.");
+                LogWarning("Ignorance detected a configuration problem and will fix it for you. There needs to be at least 2 channels " +
+                    "added at any time, and they must be Reliable and Unreliable channel types respectively.");
 
                 m_ChannelDefinitions = new List<KnownChannelTypes>()
                 {
@@ -1113,7 +1155,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.6";
+            public const string Version = "1.2.7";
         }
 
         [Serializable]
@@ -1216,7 +1258,6 @@ namespace Mirror
         private bool InitializeENET()
         {
             if (AlreadyInitialized) return true;
-
             return Library.Initialize();
         }
 
