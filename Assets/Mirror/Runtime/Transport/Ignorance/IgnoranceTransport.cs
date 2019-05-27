@@ -209,13 +209,6 @@ namespace Mirror
                 Log($"Ignorance: Initialized packet cache. Capacity: {packetCache.Length} byte.");
             }
         }
-
-        // 1.2.5: To be removed, potentially buggy in the Editor.
-        //public void OnDestroy()
-        //{
-        //    Library.Deinitialize();
-        //}
-
         #endregion
 
         #region Transport - Server Functions
@@ -365,6 +358,7 @@ namespace Mirror
             // Finally create the server.
             m_Server.Create(m_ServerAddress, m_MaximumTotalConnections, m_ChannelDefinitions.Count);
 
+            // WILL BE REMOVED IN 1.2.8
             if (m_UseLZ4Compression)
             {
                 Log("Ignorance: Server instance will use LZ4 Compression. If you get random client disconnections, PLEASE FILE A BUG WITH A REPO PROJECT!");
@@ -540,8 +534,11 @@ namespace Mirror
 
             Log($"Ignorance: Acknowledging connection request to {address}:{m_Port}");
 
+            // TODO: Recycle clients?
             if (m_Client == null) m_Client = new Host();
             if (!m_Client.IsSet) m_Client.Create(null, 1, m_ChannelDefinitions.Count);
+
+            // WILL BE REMOVED IN 1.2.8
             if (m_UseLZ4Compression)
             {
                 Log("Ignorance: Client will use LZ4 Compression. If you get random disconnections, PLEASE FILE A BUG WITH A REPO PROJECT!");
@@ -598,20 +595,13 @@ namespace Mirror
                 Log($"Ignorance: Client peer state before disconnect request fires: {m_ClientPeer.State}");
             }
 
-            if (m_ClientPeer.State == PeerState.Disconnected)
-            {
-                // The client peer is already disconnected. Don't be dumb.
-                return;
-            }
-
             Log("Ignorance: Received disconnection request from Mirror. Acknowledged!");
 
             // Disconnect the client's peer object, only if it's not disconnected. This might fix a bad pointer or something.
             // Reference: https://github.com/SoftwareGuy/Ignorance/issues/20
             if (m_ClientPeer.IsSet)
             {
-                if (m_TransportVerbosity > TransportVerbosity.Chatty) Log("Ignorance: Disconnecting the client's peer...");
-                if (m_ClientPeer.State != PeerState.Disconnected) m_ClientPeer.DisconnectNow(0);
+                m_ClientPeer.DisconnectNow(0);
             }
 
             if (IsValid(m_Client))
@@ -621,6 +611,7 @@ namespace Mirror
                 m_Client.Dispose();
             }
 
+            // TODO: Don't null this, recycle the client?
             m_Client = null;
         }
         #endregion
