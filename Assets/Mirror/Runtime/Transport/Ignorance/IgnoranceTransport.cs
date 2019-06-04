@@ -631,9 +631,10 @@ namespace Mirror
         public bool ClientSend(int channelId, ArraySegment<byte> data)
         {
             // 1.2.7: Never send any data if we're not initialized
-            if(AlreadyInitialized)
+            if(!AlreadyInitialized)
             {
-                LogError("Ignorance: Attempted to ClientSend when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
+                // 1.2.7.1: Shush, you!
+                // LogError("Ignorance: Attempted to ClientSend when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
                 return false;
             }
 
@@ -711,9 +712,11 @@ namespace Mirror
         public bool ProcessServerMessages()
         {
             // 1.2.7: Never send any data if we're not initialized
-            if (AlreadyInitialized)
+            // 1.2.7.1: I cucked this one up, I'm sorry
+            if (!AlreadyInitialized)
             {
-                LogError("Ignorance: Attempted to ProcessServerMessages when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
+                // 1.2.7.1: Shush, you!
+                // LogError("Ignorance: Attempted to ProcessServerMessages when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
                 return false;
             }
 
@@ -858,7 +861,8 @@ namespace Mirror
             // 1.2.7: Never send any data if we're not initialized
             if (!AlreadyInitialized)
             {
-                LogError("Ignorance: Attempted to ProcessClientMessages when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
+                // 1.2.7.1: Silence, you!
+                // LogError("Ignorance: Attempted to ProcessClientMessages when we're not initialized! (Please report this as a bug with a repro project. Might be Mirror being weird.)");
                 return false;
             }
 
@@ -1146,7 +1150,7 @@ namespace Mirror
 
         public class TransportInfo
         {
-            public const string Version = "1.2.7";
+            public const string Version = "1.2.7.1";
         }
 
         [Serializable]

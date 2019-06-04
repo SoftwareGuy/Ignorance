@@ -1028,6 +1028,8 @@ MonoBehaviour:
   m_ServerUPNPMappingDescription: Ignorance Transport
   m_ServerUPNPIpAddress: 192.168.88.2
   m_ServerUPNPRuleLifetime: 600
+  m_CustomPacketBufferSize: 0
+  m_PacketBufferSizeInKB: 64
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1103,7 +1105,7 @@ PrefabInstance:
     - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
       propertyPath: m_SceneId
-      value: 1035721996
+      value: 2868643800
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5339554c46006dd4e91cae9ff34c095d, type: 3}
