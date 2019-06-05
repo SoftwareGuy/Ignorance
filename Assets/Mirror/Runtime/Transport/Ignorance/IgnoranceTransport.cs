@@ -702,7 +702,8 @@ namespace Mirror
         /// <returns>A integer with the maximum packet size.</returns>
         public override int GetMaxPacketSize(int channel)
         {
-            return (int)Library.maxPacketSize;  // 33,554,432 bytes. Do not attempt to send more, ENET will likely catch fire.
+            // 1.2.7.2: Return the packet buffer size, not ENET's maximum packet size.
+            return m_PacketBufferSizeInKB * 1024;   // ie. 64 x 1024 = 65536
         }
 
         /// <summary>
