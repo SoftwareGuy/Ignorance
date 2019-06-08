@@ -1013,7 +1013,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  DebugEnabled: 1
+  DebugEnabled: 0
   ServerBindAll: 1
   ServerBindAddress: 127.0.0.1
   CommunicationPort: 7777

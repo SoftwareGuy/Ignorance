@@ -20,7 +20,7 @@ namespace Mirror
         public static readonly string[] Symbols = new string[] {
             "IGNORANCE", // Ignorance exists
             "IGNORANCE_1", // Major version
-            "IGNORANCE_1_2" // Major and minor version
+            "IGNORANCE_1_3" // Major and minor version
         };
 
         /// <summary>

@@ -19,7 +19,6 @@ namespace Mirror
         public int MaxPacketSize = 64;
         // Channels
         public ChannelTypes[] Channels;
-
         // custom peer limits
         public bool CustomMaxPeerLimit = false;
         public int CustomMaxPeers = 1000;
@@ -29,18 +28,14 @@ namespace Mirror
         public uint CustomTimeoutMultiplier = 3;
         // version of this transport
         private readonly string Version = "1.3.0";
-
         // enet engine related things
-        private bool ENETInitialized = false;
-        private bool ServerStarted = false;
-        private bool ClientStarted = false;
-        private Host ENETHost = new Host();
-        private Host ENETClientHost = new Host(); // Didn't want to have to do this but i don't want to risk crashes.
+        private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
+        private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
         private Peer ENETPeer = new Peer();
         private Address ENETAddress = new Address();
+        // lookup and reverse lookup dictionaries
         private Dictionary<int, Peer> ConnectionIDToPeers = new Dictionary<int, Peer>();
         private Dictionary<Peer, int> PeersToConnectionIDs = new Dictionary<Peer, int>();
-
         // mirror related things
         private byte[] PacketCache;
         private int NextConnectionID = 1;   // DO NOT MODIFY.
@@ -85,6 +80,8 @@ namespace Mirror
             ENETPeer = ENETClientHost.Connect(ENETAddress, Channels.Length);
             if(CustomTimeoutLimit) ENETPeer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
             ClientStarted = true;
+
+            if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Client has been started!");
         }
 
         public override bool ClientConnected()
@@ -137,12 +134,10 @@ namespace Mirror
             if (ENETPeer.Send((byte)channelId, ref payload))
             {
                 if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} OK");
-                payload.Dispose();
                 return true;
             } else
             {
                 if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} FAIL");
-                payload.Dispose();
                 return false;
             }
         }
@@ -151,7 +146,7 @@ namespace Mirror
         // TODO: Check this out.
         public override int GetMaxPacketSize(int channelId = 0)
         {
-            return (int)Library.maxPacketSize;  // 33,554,432 bytes.
+            return PacketCache.Length;
         }
 
         // Server
@@ -199,13 +194,11 @@ namespace Mirror
                 if(targetPeer.Send((byte)channelId, ref payload))
                 {
                     if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} to connection id {connectionId} OK");
-                    payload.Dispose();
                     return true;
                 }
                 else
                 {
                     if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} to connection id {connectionId} FAIL");
-                    payload.Dispose();
                     return false;
                 }
             } else
