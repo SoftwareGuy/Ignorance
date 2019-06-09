@@ -26,8 +26,12 @@ namespace Mirror
         public bool CustomTimeoutLimit = false;
         public uint CustomTimeoutBaseTicks = 5000;
         public uint CustomTimeoutMultiplier = 3;
+        // ping calculation timer
+        public bool PingCalculationEnabled = true;
+        public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
+
         // version of this transport
-        private readonly string Version = "1.3.0";
+        private readonly string Version = "1.3.0 RC 2";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -39,6 +43,9 @@ namespace Mirror
         // mirror related things
         private byte[] PacketCache;
         private int NextConnectionID = 1;   // DO NOT MODIFY.
+        // used for latency calculation
+        private int PingCalculationFrames = 0;
+        private int CurrentClientPing = 0;
 
         #region Client
         public override void ClientConnect(string address)
@@ -59,13 +66,13 @@ namespace Mirror
 
             if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - ClientConnect({address})");
 
-            if(Channels.Length > 255)
+            if (Channels.Length > 255)
             {
                 Debug.LogError($"Ignorance: Too many channels. Channel limit is 255, you have {Channels.Length}. This would probably crash ENET. Aborting connection.");
                 return;
             }
 
-            if(CommunicationPort < ushort.MinValue || CommunicationPort > ushort.MaxValue)
+            if (CommunicationPort < ushort.MinValue || CommunicationPort > ushort.MaxValue)
             {
                 Debug.LogError($"Ignorance: Bad communication port number. You need to set it between port 0 and 65535. Aborting connection.");
                 return;
@@ -78,7 +85,7 @@ namespace Mirror
             ENETAddress.Port = (ushort)CommunicationPort;
 
             ENETPeer = ENETClientHost.Connect(ENETAddress, Channels.Length);
-            if(CustomTimeoutLimit) ENETPeer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
+            if (CustomTimeoutLimit) ENETPeer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
             ClientStarted = true;
 
             if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Client has been started!");
@@ -93,7 +100,7 @@ namespace Mirror
         public override void ClientDisconnect()
         {
             if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - ClientDisconnect()");
-            
+
             if (ServerStarted)
             {
                 Debug.LogWarning("MIRROR BUG: ClientDisconnect called even when we're in HostClient/Dedicated Server mode");
@@ -122,7 +129,7 @@ namespace Mirror
             // Log spam if you really want that...
             // if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - ClientSend({channelId}, ({data.Count} bytes not shown))");
             if (!ENETClientHost.IsSet) return false;
-            if(channelId > Channels.Length)
+            if (channelId > Channels.Length)
             {
                 Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
                 return false;
@@ -135,11 +142,17 @@ namespace Mirror
             {
                 if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} OK");
                 return true;
-            } else
+            }
+            else
             {
                 if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} FAIL");
                 return false;
             }
+        }
+
+        public string GetClientPing()
+        {
+            return CurrentClientPing.ToString();
         }
         #endregion
 
@@ -191,7 +204,7 @@ namespace Mirror
             if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer targetPeer))
             {
                 payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-                if(targetPeer.Send((byte)channelId, ref payload))
+                if (targetPeer.Send((byte)channelId, ref payload))
                 {
                     if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} to connection id {connectionId} OK");
                     return true;
@@ -201,11 +214,12 @@ namespace Mirror
                     if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} to connection id {connectionId} FAIL");
                     return false;
                 }
-            } else
+            }
+            else
             {
                 if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Unknown connection id {connectionId}");
                 return false;
-            }            
+            }
         }
 
         public override void ServerStart()
@@ -229,10 +243,11 @@ namespace Mirror
             ENETAddress.SetHost("::0");
             Debug.Log("Mac OS Unity Editor workaround applied.");
 #else
-            if(Application.platform == RuntimePlatform.OSXPlayer)
+            if (Application.platform == RuntimePlatform.OSXPlayer)
             {
                 ENETAddress.SetHost("::0");
-            } else
+            }
+            else
             {
                 ENETAddress.SetHost((ServerBindAll ? "0.0.0.0" : ServerBindAddress));
             }
@@ -269,7 +284,7 @@ namespace Mirror
             ServerStarted = false;
         }
         #endregion
-        
+
         public override void Shutdown()
         {
             if (DebugEnabled) Debug.Log("Ignorance: Cleaning the packet cache...");
@@ -283,11 +298,11 @@ namespace Mirror
 
         // core
         #region Core Transport
-        private bool InitializeENET ()
+        private bool InitializeENET()
         {
             PacketCache = new byte[MaxPacketSize * 1024];
             if (DebugEnabled) Debug.Log($"Initialized new packet cache, {MaxPacketSize * 1024} bytes capacity.");
-            
+
             return Library.Initialize();
         }
 
@@ -332,7 +347,7 @@ namespace Mirror
                         OnServerConnected.Invoke(newConnectionID);
                         NextConnectionID++;
                         break;
-                    
+
                     case EventType.Disconnect:
                     case EventType.Timeout:
                         // A client disconnected.
@@ -350,11 +365,12 @@ namespace Mirror
                         // Only process data from known peers.
                         if (PeersToConnectionIDs.TryGetValue(networkEvent.Peer, out int knownConnectionID))
                         {
-                            if(networkEvent.Packet.Length > PacketCache.Length)
+                            if (networkEvent.Packet.Length > PacketCache.Length)
                             {
                                 if (DebugEnabled) Debug.Log($"Ignorance: Packet too big to fit in buffer. {networkEvent.Packet.Length} packet bytes vs {PacketCache.Length} cache bytes {networkEvent.Peer.ID}.");
                                 networkEvent.Packet.Dispose();
-                            } else
+                            }
+                            else
                             {
                                 // invoke on the server.
                                 networkEvent.Packet.CopyTo(PacketCache);
@@ -382,7 +398,7 @@ namespace Mirror
         private bool ProcessClientMessages()
         {
             // Never do anything when ENET is not initialized
-            if(!ENETInitialized)
+            if (!ENETInitialized)
             {
                 return false;
             }
@@ -469,29 +485,42 @@ namespace Mirror
             // (https://github.com/vis2k/Mirror/pull/379)
 
             // Coburn: does the order here really matter? Server then client?
-            if(enabled)
+            if (enabled)
             {
-                if(ServerStarted) ProcessServerMessages();
-                if(ClientStarted) ProcessClientMessages();
+                if (PingCalculationEnabled)
+                {
+                    PingCalculationFrames++;
+                    if (PingCalculationFrames >= PingCalculationFrameTimer)
+                    {
+                        if (!ENETPeer.IsSet || !IsValid(ENETClientHost)) CurrentClientPing = 0;
+                        else CurrentClientPing = (int)ENETPeer.RoundTripTime;
+                    }
+                }
+
+                if (ServerStarted) ProcessServerMessages();
+                if (ClientStarted) ProcessClientMessages();
             }
         }
 
         public override string ToString()
         {
             // A little complicated if else mess.
-            if(ServerActive() && NetworkClient.active)
+            if (ServerActive() && NetworkClient.active)
             {
                 // HostClient Mode
                 return $"Ignorance {Version} in HostClient Mode";
-            } else if (ServerActive() && !NetworkClient.active)
+            }
+            else if (ServerActive() && !NetworkClient.active)
             {
                 // Dedicated server masterrace mode
                 return $"Ignorance {Version} in Dedicated Server Mode";
-            } else if(!ServerActive() && NetworkClient.active)
+            }
+            else if (!ServerActive() && NetworkClient.active)
             {
                 // Client mode
                 return $"Ignorance {Version} in Client Mode";
-            } else
+            }
+            else
             {
                 // Unknown state. How did that happen?
                 return $"Ignorance {Version} disconnected/unknown state";
