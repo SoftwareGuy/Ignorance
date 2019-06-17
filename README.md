@@ -1,5 +1,5 @@
 # Ignorance 1.3
-![Ko-Fi Donation](https://ko-fi.com/coburn] [![PayPal](https://drive.google.com/uc?id=1OQrtNBVJehNVxgPf6T6yX1wIysz1ElLR)](https://www.paypal.me/coburn64) ![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg) ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg) 
+![PayPal](https://img.shields.io/badge/donate-Ko--Fi-red.svg)](https://ko-fi.com/coburn) [![PayPal](https://drive.google.com/uc?id=1OQrtNBVJehNVxgPf6T6yX1wIysz1ElLR)](https://www.paypal.me/coburn64) ![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg) ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg) 
 *If you feel so inclined, I'd appreciate [a coffee to keep me caffeinated](https://ko-fi.com/coburn) if you use this transport.*
 
 Welcome to Ignorance, a plug-in Transport system for [Mirror Networking](https://github.com/vis2k/Mirror) that allows you to harness reliable UDP communications over the vast seas that is the internet. Harnessing the ENET Backend, it provides reliable and unreliable UDP packet delivery with up to 255 individual channels and 4096 theortical maximum clients connected at any time.
