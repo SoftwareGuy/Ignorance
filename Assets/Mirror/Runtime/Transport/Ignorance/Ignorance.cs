@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 namespace Mirror
 {
-    public class Ignorance1dot3 : Transport, ISegmentTransport
+    public class Ignorance : Transport, ISegmentTransport
     {
         // debug
         public bool DebugEnabled = false;
@@ -29,7 +29,6 @@ namespace Mirror
         // ping calculation timer
         public bool PingCalculationEnabled = true;
         public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
-
         // version of this transport
         private readonly string Version = "1.3.0 RC 2";
         // enet engine related things
