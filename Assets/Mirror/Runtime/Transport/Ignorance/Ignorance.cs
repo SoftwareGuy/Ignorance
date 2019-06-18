@@ -493,6 +493,7 @@ namespace Mirror
                     {
                         if (!ENETPeer.IsSet || !IsValid(ENETClientHost)) CurrentClientPing = 0;
                         else CurrentClientPing = (int)ENETPeer.RoundTripTime;
+						PingCalculationFrames = 0;
                     }
                 }
 
