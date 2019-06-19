@@ -16,7 +16,8 @@ namespace Mirror
         public string ServerBindAddress = "127.0.0.1";
         public int CommunicationPort = 7777;
         // maximum packet sizes
-        public int MaxPacketSize = 64;
+        [UnityEngine.Serialization.FormerlySerializedAs("MaxPacketSize")]
+        public int MaxPacketSizeInKb = 64;
         // Channels
         public ChannelTypes[] Channels;
         // custom peer limits
@@ -269,7 +270,7 @@ namespace Mirror
                 Debug.Log("Ignorance: Cleaning the packet cache...");
             }
 
-            PacketCache = new byte[MaxPacketSize * 1024];
+            PacketCache = new byte[MaxPacketSizeInKb * 1024];
 
             if (DebugEnabled) Debug.Log("Ignorance: Cleaning up lookup dictonaries");
             ConnectionIDToPeers.Clear();
@@ -299,8 +300,8 @@ namespace Mirror
         #region Core Transport
         private bool InitializeENET()
         {
-            PacketCache = new byte[MaxPacketSize * 1024];
-            if (DebugEnabled) Debug.Log($"Initialized new packet cache, {MaxPacketSize * 1024} bytes capacity.");
+            PacketCache = new byte[MaxPacketSizeInKb * 1024];
+            if (DebugEnabled) Debug.Log($"Initialized new packet cache, {MaxPacketSizeInKb * 1024} bytes capacity.");
 
             return Library.Initialize();
         }

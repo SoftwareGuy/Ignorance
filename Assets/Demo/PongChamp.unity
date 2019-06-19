@@ -1024,6 +1024,8 @@ MonoBehaviour:
   CustomTimeoutLimit: 0
   CustomTimeoutBaseTicks: 5000
   CustomTimeoutMultiplier: 3
+  PingCalculationEnabled: 1
+  PingCalculationFrameTimer: 120
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -75,7 +75,7 @@ PlayerSettings:
   Force IOS Speakers When Recording: 0
   deferSystemGesturesMode: 0
   hideHomeButton: 0
-  submitAnalytics: 1
+  submitAnalytics: 0
   usePlayerLog: 1
   bakeCollisionMeshes: 0
   forceSingleInstance: 0
@@ -153,10 +153,10 @@ PlayerSettings:
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
-    Android: com.Mirror.IgnoranceTestApp
+    Android: studio.oiran.IgnoranceTransportForMirror
   buildNumber: {}
   AndroidBundleVersionCode: 1
-  AndroidMinSdkVersion: 16
+  AndroidMinSdkVersion: 19
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
   aotOptions: 
@@ -622,6 +622,7 @@ PlayerSettings:
   webGLThreadsSupport: 0
   scriptingDefineSymbols:
     1: MIRROR;MIRROR_1726_OR_NEWER;MIRROR_3_0_OR_NEWER;IGNORANCE;IGNORANCE_1;IGNORANCE_1_3
+    7: MIRROR;MIRROR_1726_OR_NEWER;MIRROR_3_0_OR_NEWER;IGNORANCE;IGNORANCE_1;IGNORANCE_1_3
   platformArchitecture: {}
   scriptingBackend: {}
   il2cppCompilerConfiguration: {}
@@ -630,7 +631,8 @@ PlayerSettings:
   allowUnsafeCode: 0
   additionalIl2CppArgs: 
   scriptingRuntimeVersion: 1
-  apiCompatibilityLevelPerPlatform: {}
+  apiCompatibilityLevelPerPlatform:
+    Android: 6
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
   metroPackageName: Template_3D
