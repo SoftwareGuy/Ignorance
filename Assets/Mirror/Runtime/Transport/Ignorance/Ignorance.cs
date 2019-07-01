@@ -10,17 +10,23 @@ namespace Mirror
     public class Ignorance : Transport, ISegmentTransport
     {
         // debug
+        [Header("Debug Options")]
         public bool DebugEnabled = false;
         // server bind to all and addresses
+        [Header("Server Binding")]
         public bool ServerBindAll = true;
         public string ServerBindAddress = "127.0.0.1";
+        [Header("Connection Port")]
         public int CommunicationPort = 7777;
         // maximum packet sizes
+        [Header("Security")]
         [UnityEngine.Serialization.FormerlySerializedAs("MaxPacketSize")]
         public int MaxPacketSizeInKb = 64;
         // Channels
+        [Header("Channel Definitions")]
         public ChannelTypes[] Channels;
         // custom peer limits
+        [Header("Custom Peer and Timeout Settings")]
         public bool CustomMaxPeerLimit = false;
         public int CustomMaxPeers = 1000;
         // custom timeouts
@@ -28,8 +34,10 @@ namespace Mirror
         public uint CustomTimeoutBaseTicks = 5000;
         public uint CustomTimeoutMultiplier = 3;
         // ping calculation timer
+        [Header("Ping Calculation")]
         public bool PingCalculationEnabled = true;
         public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
+
         // version of this transport
         private readonly string Version = "1.3.0";
         // enet engine related things
@@ -44,8 +52,7 @@ namespace Mirror
         private byte[] PacketCache;
         private int NextConnectionID = 1;   // DO NOT MODIFY.
         // used for latency calculation
-        private int PingCalculationFrames = 0;
-        private int CurrentClientPing = 0;
+        private int PingCalculationFrames = 0, CurrentClientPing = 0;
 
         #region Client
         public override void ClientConnect(string address)
