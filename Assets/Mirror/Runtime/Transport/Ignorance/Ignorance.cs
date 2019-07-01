@@ -31,7 +31,7 @@ namespace Mirror
         public bool PingCalculationEnabled = true;
         public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
         // version of this transport
-        private readonly string Version = "1.3.0 RC 2";
+        private readonly string Version = "1.3.0";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -78,7 +78,7 @@ namespace Mirror
                 return;
             }
 
-            if (ENETClientHost == null || !ENETClientHost.IsSet) ENETClientHost.Create(null, 1, Channels.Length);
+            if (ENETClientHost == null || !ENETClientHost.IsSet) ENETClientHost.Create(null, 1, Channels.Length, 0, 0, PacketCache.Length);
             if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Created ENET Host object");
 
             ENETAddress.SetHost(address);
@@ -256,7 +256,9 @@ namespace Mirror
             if (ENETHost == null || !ENETHost.IsSet) ENETHost = new Host();
 
             // Go go go! Clear those corners!
-            ENETHost.Create(ENETAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0);
+            // Fun fact: The author of the ENET Wrapper implemented packet size limits in ENET after we implemented them in Mirror.
+            // *thinking emoji*
+            ENETHost.Create(ENETAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0, PacketCache.Length);
 
             if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Server should be created now... If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
             ServerStarted = true;
@@ -473,7 +475,7 @@ namespace Mirror
             Reliable = PacketFlags.Reliable,
             ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,
             Unreliable = PacketFlags.Unsequenced,
-            UnreliableFragmented = PacketFlags.UnreliableFragment,
+            UnreliableFragmented = PacketFlags.UnreliableFragmented,
             UnreliableSequenced = PacketFlags.None
         }
 

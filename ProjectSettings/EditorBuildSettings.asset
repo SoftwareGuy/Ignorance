@@ -8,7 +8,4 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Demo/PongChamp.unity
     guid: 1839e1cfa0cc43642a0878a2b83f889c
-  - enabled: 1
-    path: Assets/Demo/TanksDemoIgnoranceNext.unity
-    guid: 49e0089d20e11a946984d88f6ba9214e
   m_configObjects: {}
