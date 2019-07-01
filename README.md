@@ -46,7 +46,7 @@ As of Ignorance 1.3, I have included a pre-configured sample scene so you can ge
 
 **Hard mode:**
 
-If you haven't already, make a empty GameObject with the Mirror **Network Manager**. It will automatically add Telepathy as the default transport. Add a **new component** and look for **Ignorance Transport**. You will have Ignorance added as a transport, but it will not be activated. Now **drag the Ignorance Transport script** into the **Transport** field of the **Network Manager inspector**. If all goes well, you should see **GameObjectName (IgnoranceTransport)** in that field. 
+If you haven't already, make a empty GameObject with the Mirror **Network Manager**. It will automatically add Telepathy as the default transport. Add a **new component** and look for **Ignorance**. You will have Ignorance added as a transport, but it will not be activated. Now **drag the Ignorance script** into the **Transport** field of the **Network Manager inspector**. If all goes well, you should see **GameObjectName (Ignorance)** in that field. 
 
 ## FAQ (aka Please Read This First)
 
@@ -58,9 +58,9 @@ Ignorance aims to replace it with a stable and high performance transport system
 ### Why are you using Mirror's LateUpdate vs Threads?
 This is Mirror's design, not mine. Ignorance tries it's best to address all the packets coming in and out every frame.
 
-Since LateUpdate is frame-rate dependent the lower the framerate the more latency you'll encounter due to how the backend is polled. Ideally if you're going to use this transport you're better off using setting your server to use at least a tickrate of 30 ticks per second. Any more and you're risking the server getting choked. All transports have this design issue.
+Since LateUpdate is frame-rate dependent, the lower the framerate the more latency you'll encounter due to how the backend is polled. Ideally if you're going to use this transport you're better off using setting your server to use at least a tickrate of 30 ticks per second. Any less (ie. below 30) and you're risking the server getting choked. All transports have this design issue.
 
-I do have a threaded version of Ignorance that suffers Unity shitting the bed under heavy load due to the really disappointing Mono implementation of threading support unfortunately.
+I do have a threaded version of Ignorance that unfortunately suffers Unity shitting the bed under heavy load due to the really disappointing Mono implementation of threading support.
 
 ### I have a bug!
 [Check the current open bug reports and/or report a new one here](https://github.com/SoftwareGuy/Ignorance/issues) and I also recommend you be present in the Discord so I can ask for further info and/or you can test fixes for your bug reports.
