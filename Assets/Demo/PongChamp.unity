@@ -900,6 +900,7 @@ GameObject:
   - component: {fileID: 1886246552}
   - component: {fileID: 1886246551}
   - component: {fileID: 1886246553}
+  - component: {fileID: 1886246554}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -1013,11 +1014,11 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  DebugEnabled: 0
+  DebugEnabled: 1
   ServerBindAll: 1
   ServerBindAddress: 127.0.0.1
   CommunicationPort: 7777
-  MaxPacketSize: 64
+  MaxPacketSizeInKb: 64
   Channels: 0100000002000000
   CustomMaxPeerLimit: 0
   CustomMaxPeers: 1000
@@ -1026,6 +1027,22 @@ MonoBehaviour:
   CustomTimeoutMultiplier: 3
   PingCalculationEnabled: 1
   PingCalculationFrameTimer: 120
+--- !u!114 &1886246554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1886246549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc7b92ec4d51ac640900734e93b5fb4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  DebugMode: 0
+  AutomaticDiscovery: 1
+  DiscoveryIntervalMilliseconds: 5000
+  LanDiscoveryPort: 7779
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0

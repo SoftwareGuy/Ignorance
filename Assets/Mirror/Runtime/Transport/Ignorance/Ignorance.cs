@@ -1,3 +1,15 @@
+// Ignorance 1.3.x
+// A Unity LLAPI Replacement Transport for Mirror Networking
+// https://github.com/SoftwareGuy/Ignorance
+// -----------------
+// Ignorance Transport is licensed under the MIT license, however
+// it comes with no warranty what-so-ever. However, if you do
+// encounter a problem with Ignorance you can get support by
+// dropping past the Mirror discord's #ignorance channel. Otherwise,
+// open a issue ticket on the GitHub issues page. Ensure you provide
+// lots of detail of what you were doing and the error/stack trace.
+// -----------------
+
 using ENet;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
@@ -9,6 +21,14 @@ namespace Mirror
 {
     public class Ignorance : Transport, ISegmentTransport
     {
+        // hooks for ignorance modules
+        // server startup
+        public Action OnIgnoranceServerStartup;
+        public Action OnIgnoranceServerShutdown;
+        // server shutdown
+        public Action OnIgnoranceClientStartup;
+        public Action OnIgnoranceClientShutdown;
+
         // debug
         [Header("Debug Options")]
         public bool DebugEnabled = false;
@@ -39,7 +59,7 @@ namespace Mirror
         public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
 
         // version of this transport
-        private readonly string Version = "1.3.0";
+        private readonly string Version = "1.3.1";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -269,6 +289,8 @@ namespace Mirror
 
             if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Server should be created now... If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
             ServerStarted = true;
+
+            OnIgnoranceServerStartup?.Invoke();
         }
 
         public override void ServerStop()
@@ -291,6 +313,7 @@ namespace Mirror
             }
 
             ServerStarted = false;
+            OnIgnoranceServerShutdown?.Invoke();
         }
         #endregion
 
