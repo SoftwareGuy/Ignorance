@@ -15,13 +15,11 @@ using System.Threading;
 
 namespace Mirror
 {
-
     public class IgnoranceLANDiscoveryModule : MonoBehaviour
     {
         // Use this as a hook to add servers to the list, etc.
         // The string parameter will be the server's IP address.
         public Action<string> OnServerDiscovered;
-
         public bool DebugMode = false;
 
         [SerializeField] protected bool AutomaticDiscovery = true;
@@ -55,6 +53,8 @@ namespace Mirror
 
             coreModule.OnIgnoranceClientStartup += OnIgnoranceClientStart;
             coreModule.OnIgnoranceClientShutdown += OnIgnoranceClientShutdown;
+
+            Debug.LogWarning("This LAN Discovery module is beta-quality. Use with caution. If you encounter problems, please file a bug report!");
         }
 
         public void Start()
@@ -156,6 +156,7 @@ namespace Mirror
                         // Nothing received. Carry on.
                     } else if(ClientRequestData.Length != lanDiscoveryRequestData.Length)
                     {
+                        // Not the right data length?
                         Debug.LogWarning("Ignorance LAN Discovery: Client request packet length mismatch. Possible UDP attack.");
                     } else if(lanDiscoveryRequestData.SequenceEqual(ClientRequestData))
                     {
@@ -169,6 +170,7 @@ namespace Mirror
                 } catch(SocketException sockEx)
                 {
                     // TODO: Ensure that we catch all errors apart from the non-blocking operation could not be completed immediately exception
+                    // if(sockEx.SocketErrorCode != SocketError.)
                     // Debug.LogError($"Ignorance LAN Discovery: An exception occurred. {e.ToString()}");
                 }
 

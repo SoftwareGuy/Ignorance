@@ -34,7 +34,8 @@ namespace Mirror
         /// </summary>
         public void OnIgnoranceServerStart()
         {
-            throw new NotImplementedException();
+            Debug.LogError("Doing nothing - this module is not implemented.");
+            // throw new NotImplementedException();
         }
 
         /// <summary>
@@ -42,7 +43,7 @@ namespace Mirror
         /// </summary>
         public void OnIgnoranceServerShutdown()
         {
-            throw new NotImplementedException();
+            // throw new NotImplementedException();
         }
 
         /// <summary>
