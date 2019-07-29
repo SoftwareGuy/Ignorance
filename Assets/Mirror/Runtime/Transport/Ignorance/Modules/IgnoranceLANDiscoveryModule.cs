@@ -33,6 +33,8 @@ namespace Mirror
         protected Thread serverThread;
         protected Thread clientThread;
 
+        protected List<string> KnownServers = new List<string>();
+
         // Do not touch the following.
         byte[] lanDiscoveryRequestData = System.Text.Encoding.ASCII.GetBytes("IgnoranceLANDiscoveryRequest");
         byte[] lanDiscoveryResponseData = System.Text.Encoding.ASCII.GetBytes("IgnoranceLANDiscoveryResponse");
@@ -59,7 +61,7 @@ namespace Mirror
 
         public void Start()
         {
-            if(AutomaticDiscovery)
+            if (AutomaticDiscovery)
             {
                 StartLANDiscoveryClient();
             }
@@ -90,7 +92,7 @@ namespace Mirror
         /// </summary>
         private void OnIgnoranceClientStart()
         {
-            throw new NotImplementedException();
+            ;
         }
 
         /// <summary>
@@ -98,7 +100,7 @@ namespace Mirror
         /// </summary>
         private void OnIgnoranceClientShutdown()
         {
-            throw new NotImplementedException();
+            ;
         }
 
         /// <summary>
@@ -142,7 +144,7 @@ namespace Mirror
             lanDiscoveryServer.Client.Blocking = false;
 
             bool needSleep;
-            IPEndPoint clientEndpoint = new IPEndPoint(IPAddress.Any, 0);
+            IPEndPoint clientEndpoint = new IPEndPoint(IPAddress.Any, LanDiscoveryPort);
 
             while (!ceaseOperation)
             {
@@ -151,23 +153,27 @@ namespace Mirror
                 {
                     byte[] ClientRequestData = lanDiscoveryServer.Receive(ref clientEndpoint);
 
-                    if(ClientRequestData == null)
+                    if (ClientRequestData == null)
                     {
                         // Nothing received. Carry on.
-                    } else if(ClientRequestData.Length != lanDiscoveryRequestData.Length)
+                    }
+                    else if (ClientRequestData.Length != lanDiscoveryRequestData.Length)
                     {
                         // Not the right data length?
                         Debug.LogWarning("Ignorance LAN Discovery: Client request packet length mismatch. Possible UDP attack.");
-                    } else if(lanDiscoveryRequestData.SequenceEqual(ClientRequestData))
+                    }
+                    else if (lanDiscoveryRequestData.SequenceEqual(ClientRequestData))
                     {
                         needSleep = false;
-                        if(DebugMode) print($"Ignorance LAN Discovery: Potential client found at {clientEndpoint.Address}... Advertising the server to them.");                       
+                        if (DebugMode) print($"Ignorance LAN Discovery: Potential client found at {clientEndpoint.Address}... Advertising the server to them.");
                         lanDiscoveryServer.Send(lanDiscoveryResponseData, lanDiscoveryResponseData.Length, clientEndpoint);
-                    } else
+                    }
+                    else
                     {
                         Debug.LogWarning($"Ignorance LAN Discovery: Wrong UDP Data from {clientEndpoint.Address}");
                     }
-                } catch(SocketException sockEx)
+                }
+                catch (SocketException sockEx)
                 {
                     // TODO: Ensure that we catch all errors apart from the non-blocking operation could not be completed immediately exception
                     // if(sockEx.SocketErrorCode != SocketError.)
@@ -182,7 +188,7 @@ namespace Mirror
             Debug.Log("Ignorance LAN Discovery: Server thread has stopped.");
         }
 
-        private void LANDiscoveryClientThread ()
+        private void LANDiscoveryClientThread()
         {
             print("Ignorance LAN Discovery: Client thread has started.");
 
@@ -190,37 +196,67 @@ namespace Mirror
             discoveryClient.EnableBroadcast = true;
             discoveryClient.Client.Blocking = false;
 
-            IPEndPoint serverEp = new IPEndPoint(IPAddress.Any, 0);
+            IPEndPoint serverEp = new IPEndPoint(IPAddress.Any, LanDiscoveryPort);
             IPEndPoint bcastEP = new IPEndPoint(IPAddress.Broadcast, LanDiscoveryPort);
 
-            bool needSleep = false;
+            bool needSleep;
+
+            // Start the stopwatch.
+            bool firsty = true;
+            System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+
             while (!clientCeaseOperation)
             {
                 needSleep = true;
 
                 try
                 {
-                    discoveryClient.Send(lanDiscoveryRequestData, lanDiscoveryRequestData.Length, bcastEP);
-                    if(DebugMode) print($"Ignorance LAN Discovery: Discovering servers...");
-                    
+                    if (!firsty)
+                    {
+                        if (sw.ElapsedMilliseconds > DiscoveryIntervalMilliseconds)
+                        {
+                            if (DebugMode) print($"Ignorance LAN Discovery: (Re-)Discovering servers...");
+                            sw.Restart();
+                            discoveryClient.Send(lanDiscoveryRequestData, lanDiscoveryRequestData.Length, bcastEP);
+                        }
+                    } else
+                    {
+                        if (DebugMode) print($"Ignorance LAN Discovery: Start discovering servers...");
+                        discoveryClient.Send(lanDiscoveryRequestData, lanDiscoveryRequestData.Length, bcastEP);
+                        sw.Start();
+
+                        // We've sent out the first packet.
+                        firsty = false;
+                    }
+                        
+                    // Our incoming response.
                     byte[] incomingResponse = discoveryClient.Receive(ref serverEp);
                     if (incomingResponse == null)
                     {
                         // Nothing's happening here lads.
                         ;
-                    } else if (incomingResponse.Length != lanDiscoveryResponseData.Length)
+                    }
+                    else if (incomingResponse.Length != lanDiscoveryResponseData.Length)
                     {
                         // Wrong length.
-                        Debug.LogWarning("Ignorance LAN Discovery: Server response packet length mismatch. Possible UDP attack.");
-
-                    } else if (incomingResponse.SequenceEqual(lanDiscoveryResponseData))
+                        Debug.LogWarning("Ignorance LAN Discovery: Server response packet length mismatch. Possible MITM or UDP attack.");
+                    }
+                    else if (incomingResponse.SequenceEqual(lanDiscoveryResponseData))
                     {
                         // It's a hit.
                         needSleep = false;
 
-                        if (DebugMode) print($"Ignorance LAN Discovery: I have found a server at {serverEp.Address.ToString()}");
-                        OnServerDiscovered?.Invoke(serverEp.Address.ToString());
-                    } else
+                        if (!KnownServers.Contains(serverEp.Address.ToString()))
+                        {
+                            if (DebugMode) print($"Ignorance LAN Discovery: I have found a new server at {serverEp.Address.ToString()}");
+                            KnownServers.Add(serverEp.Address.ToString());
+                            OnServerDiscovered?.Invoke(serverEp.Address.ToString());
+                        } else
+                        {
+                            if (DebugMode) print($"Ignorance LAN Discovery: We already know the server at {serverEp.Address.ToString()}; skipping.");
+                        }
+                    }
+                    else
                     {
                         Debug.LogError($"Ignorance LAN Discovery: Bad data from {serverEp.Address.ToString()}");
                     }

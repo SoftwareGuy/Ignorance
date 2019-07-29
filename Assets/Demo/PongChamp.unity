@@ -1039,7 +1039,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc7b92ec4d51ac640900734e93b5fb4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DebugMode: 0
+  DebugMode: 1
   AutomaticDiscovery: 1
   DiscoveryIntervalMilliseconds: 5000
   LanDiscoveryPort: 7779
