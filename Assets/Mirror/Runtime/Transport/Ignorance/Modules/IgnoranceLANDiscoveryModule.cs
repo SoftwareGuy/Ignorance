@@ -61,8 +61,9 @@ namespace Mirror
 
         public void Start()
         {
-            if (AutomaticDiscovery)
-            {
+            // TODO: Come up with a better "don't start if we're a server" if check here.
+            if (AutomaticDiscovery && !NetworkManager.isHeadless)
+            {              
                 StartLANDiscoveryClient();
             }
         }
@@ -120,6 +121,7 @@ namespace Mirror
         public void OnIgnoranceServerShutdown()
         {
             ceaseOperation = true;
+            if (!serverThread.IsAlive) return;
             serverThread.Join();
         }
 
