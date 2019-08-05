@@ -319,6 +319,9 @@ namespace Mirror
 
         public override void Shutdown()
         {
+            // c6: just right at the top of shutdown "Herp I shut down nao". lol... then if thats missing obv problems
+            Debug.Log("Herp I shut down nao");
+
             if (DebugEnabled) Debug.Log("Ignorance: Cleaning the packet cache...");
 
             ServerStarted = false;
