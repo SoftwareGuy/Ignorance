@@ -266,10 +266,34 @@ namespace Mirror
             }
 
             // Setup.
-#if UNITY_EDITOR_OSX
-            ENETAddress.SetHost("::0");
-            Debug.Log("Mac OS Unity Editor workaround applied.");
-#else
+            // Dirty fix that might not work.
+            // #if UNITY_EDITOR_OSX
+            //          ENETAddress.SetHost("::0");
+            //          Debug.Log("Mac OS Unity Editor workaround applied.");
+            // #else
+
+            if (!ServerBindAll)
+            {
+                if (DebugEnabled) print($"Ignorance: Not binding to all interfaces, checking if supplied info is actually an IP address");
+                if (System.Net.IPAddress.TryParse(ServerBindAddress, out _))
+                {
+                    // Looks good to us. Let's use it.
+                    if (DebugEnabled) print($"Ignorance: Valid IP Address {ServerBindAddress}");
+                    ENETAddress.SetIP(ServerBindAddress);
+                }
+                else
+                {
+                    // Might be a hostname.
+                    if (DebugEnabled) print($"Ignorance: Doesn't look like a valid IP address, assuming it's a hostname?");
+                    ENETAddress.SetHost(ServerBindAddress);
+                }
+            }
+            else
+            {
+                if (DebugEnabled) print($"Ignorance: Setting address to all interfaces, port {CommunicationPort}");
+            }
+
+            /*
             if (Application.platform == RuntimePlatform.OSXPlayer)
             {
                 ENETAddress.SetHost("::0");
@@ -278,7 +302,8 @@ namespace Mirror
             {
                 ENETAddress.SetHost((ServerBindAll ? "0.0.0.0" : ServerBindAddress));
             }
-#endif
+            */
+            // #endif
             ENETAddress.Port = (ushort)CommunicationPort;
             if (ENETHost == null || !ENETHost.IsSet) ENETHost = new Host();
 
