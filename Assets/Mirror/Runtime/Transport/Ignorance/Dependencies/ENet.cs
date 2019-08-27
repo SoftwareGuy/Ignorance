@@ -791,6 +791,19 @@ namespace ENet {
 			return Native.enet_peer_send(nativePeer, channelID, packet.NativeData) == 0;
 		}
 
+        // Added by Coburn. This version returns either 0 if the send was successful,
+        // or the ENET return code if not. Sometimes a bool is not enough to determine
+        // the root cause of the issue.
+        public int SendAndReturnStatusCode(byte channelID, ref Packet packet)
+        {
+            CheckCreated();
+
+            packet.CheckCreated();
+
+            return Native.enet_peer_send(nativePeer, channelID, packet.NativeData);
+        }
+
+
 		public bool Receive(out byte channelID, out Packet packet) {
 			CheckCreated();
 
