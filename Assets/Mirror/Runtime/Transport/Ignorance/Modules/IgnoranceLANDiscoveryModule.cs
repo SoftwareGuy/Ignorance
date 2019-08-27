@@ -17,6 +17,10 @@ namespace Mirror
 {
     public class IgnoranceLANDiscoveryModule : MonoBehaviour
     {
+        // Obsolete. You should really look at MirrorNetworkDiscovery instead.
+        // https://github.com/in0finite/MirrorNetworkDiscovery
+        // This will be removed in a later version of Ignorance.
+
         // Use this as a hook to add servers to the list, etc.
         // The string parameter will be the server's IP address.
         public Action<string> OnServerDiscovered;
@@ -41,6 +45,8 @@ namespace Mirror
 
         public void Awake()
         {
+            Debug.LogWarning("This module is obsolete and will be removed in a later version of Ignorance. Read the source comments for more information.");
+
             coreModule = GetComponent<Ignorance>();
             if (!coreModule)
             {
