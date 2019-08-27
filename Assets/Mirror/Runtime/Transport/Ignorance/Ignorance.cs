@@ -77,6 +77,9 @@ namespace Mirror
         #region Client
         public override void ClientConnect(string address)
         {
+            // test
+            Debug.LogError($"{Time.unscaledTime} | ClientConnect");
+
             if (!ENETInitialized)
             {
                 if (InitializeENET())
@@ -291,6 +294,10 @@ namespace Mirror
             else
             {
                 if (DebugEnabled) print($"Ignorance: Setting address to all interfaces, port {CommunicationPort}");
+#if UNITY_IOS
+                // Coburn: temporary fix until I figure out if this is similar to the MacOS bug again...
+                ENETAddress.SetIP("::0");
+#endif
             }
 
             /*
@@ -340,7 +347,7 @@ namespace Mirror
             ServerStarted = false;
             OnIgnoranceServerShutdown?.Invoke();
         }
-        #endregion
+#endregion
 
         public override void Shutdown()
         {
@@ -357,7 +364,7 @@ namespace Mirror
         }
 
         // core
-        #region Core Transport
+#region Core Transport
         private bool InitializeENET()
         {
             PacketCache = new byte[MaxPacketSizeInKb * 1024];
@@ -487,6 +494,7 @@ namespace Mirror
                     case EventType.Connect:
                         // Client connected.
                         // Debug.Log("Connect");
+                        Debug.LogError($"{Time.unscaledTime} | Client Connected");
                         OnClientConnected.Invoke();
                         break;
                     case EventType.Timeout:
@@ -524,7 +532,7 @@ namespace Mirror
         {
             return host != null && host.IsSet;
         }
-        #endregion
+#endregion
 
         // known packet types.
         [Serializable]
