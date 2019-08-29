@@ -347,7 +347,7 @@ namespace Mirror
             ServerStarted = false;
             OnIgnoranceServerShutdown?.Invoke();
         }
-#endregion
+        #endregion
 
         public override void Shutdown()
         {
@@ -364,7 +364,7 @@ namespace Mirror
         }
 
         // core
-#region Core Transport
+        #region Core Transport
         private bool InitializeENET()
         {
             PacketCache = new byte[MaxPacketSizeInKb * 1024];
@@ -532,7 +532,7 @@ namespace Mirror
         {
             return host != null && host.IsSet;
         }
-#endregion
+        #endregion
 
         // known packet types.
         [Serializable]
@@ -563,7 +563,7 @@ namespace Mirror
                     {
                         if (!ENETPeer.IsSet || !IsValid(ENETClientHost)) CurrentClientPing = 0;
                         else CurrentClientPing = (int)ENETPeer.RoundTripTime;
-						PingCalculationFrames = 0;
+                        PingCalculationFrames = 0;
                     }
                 }
 
