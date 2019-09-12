@@ -910,13 +910,20 @@ namespace ENet {
 
 	[SuppressUnmanagedCodeSecurity]
 	internal static class Native {
-		#if __IOS__ || UNITY_IOS && !UNITY_EDITOR
-			private const string nativeLibrary = "__Internal";
-		#else
-			private const string nativeLibrary = "enet";
-		#endif
+#if __IOS__ || UNITY_IOS && !UNITY_EDITOR
+        // iOS
+		private const string nativeLibrary = "__Internal";
+#elif __APPLE__ || UNITY_STANDALONE_OSX
+        // MacOS
+        // Custom ENet Repo builds as libenet.bundle; make sure it's the same.
+        private const string nativeLibrary = "libenet";
+#else
+        // Assume everything else, Windows et al...
+        // This might be interesting if someone's building for Nintendo Switch or whatnot...
+        private const string nativeLibrary = "enet";
+#endif
 
-		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern int enet_initialize();
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
