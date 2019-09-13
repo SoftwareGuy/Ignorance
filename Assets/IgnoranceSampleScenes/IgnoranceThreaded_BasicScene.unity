@@ -155,7 +155,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 522064723}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 71e9bc32a33e875449302faaac757daa, type: 3}
+  m_Script: {fileID: 11500000, guid: ec862738267237f4d91e6454ff15f4ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   OnClientConnected:
@@ -200,15 +200,10 @@ MonoBehaviour:
   ServerBindAll: 1
   ServerBindAddress: 127.0.0.1
   CommunicationPort: 7777
-  MaxPacketSize: 64
+  MaximumPeerCCU: 4095
+  EnetPollTimeout: 1
+  MaxPacketSizeInKb: 64
   Channels: 0100000002000000
-  CustomMaxPeerLimit: 0
-  CustomMaxPeers: 1000
-  CustomTimeoutLimit: 0
-  CustomTimeoutBaseTicks: 5000
-  CustomTimeoutMultiplier: 3
-  PingCalculationEnabled: 1
-  PingCalculationFrameTimer: 120
 --- !u!114 &522064726
 MonoBehaviour:
   m_ObjectHideFlags: 0

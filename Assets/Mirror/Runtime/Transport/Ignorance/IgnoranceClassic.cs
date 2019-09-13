@@ -47,7 +47,7 @@ namespace Mirror
         public int MaxPacketSizeInKb = 64;
         // Channels
         [Header("Channel Definitions")]
-        public ChannelTypes[] Channels;
+        public IgnoranceChannelTypes[] Channels;
         // custom peer limits
         [Header("Custom Peer and Timeout Settings")]
         public bool CustomMaxPeerLimit = false;
@@ -537,17 +537,7 @@ namespace Mirror
         }
         #endregion
 
-        // known packet types.
-        [Serializable]
-        public enum ChannelTypes
-        {
-            Reliable = PacketFlags.Reliable,
-            ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,
-            Unreliable = PacketFlags.Unsequenced,
-            UnreliableFragmented = PacketFlags.UnreliableFragmented,
-            UnreliableSequenced = PacketFlags.None,
-            UnbundledInstant = PacketFlags.Instant,
-        }
+        // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
 
         // monobehaviour specific stuff
         public void LateUpdate()
@@ -606,15 +596,15 @@ namespace Mirror
             if (Channels != null && Channels.Length >= 2)
             {
                 // Check to make sure that Channel 0 and 1 are correct.
-                if (Channels[0] != ChannelTypes.Reliable) Channels[0] = ChannelTypes.Reliable;
-                if (Channels[1] != ChannelTypes.Unreliable) Channels[1] = ChannelTypes.Unreliable;
+                if (Channels[0] != IgnoranceChannelTypes.Reliable) Channels[0] = IgnoranceChannelTypes.Reliable;
+                if (Channels[1] != IgnoranceChannelTypes.Unreliable) Channels[1] = IgnoranceChannelTypes.Unreliable;
             }
             else
             {
-                Channels = new ChannelTypes[2]
+                Channels = new IgnoranceChannelTypes[2]
                 {
-                    ChannelTypes.Reliable,
-                    ChannelTypes.Unreliable
+                    IgnoranceChannelTypes.Reliable,
+                    IgnoranceChannelTypes.Unreliable
                 };
             }
         }

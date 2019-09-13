@@ -181,7 +181,7 @@ namespace Mirror
                         Debug.LogWarning($"Ignorance LAN Discovery: Wrong UDP Data from {clientEndpoint.Address}");
                     }
                 }
-                catch (SocketException sockEx)
+                catch
                 {
                     // TODO: Ensure that we catch all errors apart from the non-blocking operation could not be completed immediately exception
                     // if(sockEx.SocketErrorCode != SocketError.)
@@ -269,7 +269,7 @@ namespace Mirror
                         Debug.LogError($"Ignorance LAN Discovery: Bad data from {serverEp.Address.ToString()}");
                     }
                 }
-                catch (SocketException sockEx)
+                catch
                 {
                     // TODO: Ensure that we catch all errors apart from the non-blocking operation could not be completed immediately exception
                     // Debug.LogError($"Ignorance LAN Discovery: An exception occurred. {e.ToString()}");

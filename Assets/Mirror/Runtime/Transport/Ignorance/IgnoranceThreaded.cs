@@ -74,7 +74,7 @@ namespace Mirror
         public int MaxPacketSizeInKb = 64;
 
         [Header("Channel Definitions")]
-        public ChannelTypes[] Channels;
+        public IgnoranceChannelTypes[] Channels;
 
         // Standard things
         public void Awake()
@@ -373,7 +373,6 @@ namespace Mirror
 
             byte[] workerPacketBuffer = new byte[maxPacketSize];
             Address cAddress = new Address();
-            Peer cPeer = new Peer();
 
             using (Host cHost = new Host())
             {
@@ -391,7 +390,7 @@ namespace Mirror
                 // Attempt to start connection...
                 cAddress.SetHost(hostAddress);
                 cAddress.Port = port;
-                cPeer = cHost.Connect(cAddress, channelCount);
+                Peer cPeer = cHost.Connect(cAddress, channelCount);
 
                 while (!clientShouldCeaseOperation)
                 {
@@ -412,8 +411,6 @@ namespace Mirror
                                 IncomingPacket connPkt = default;
                                 connPkt.type = MirrorPacketType.ClientConnected;
                                 MirrorClientIncomingQueue.Enqueue(connPkt);
-
-                                // OnClientConnected.Invoke();
                                 break;
                             case EventType.Timeout:
                             case EventType.Disconnect:
@@ -663,15 +660,15 @@ namespace Mirror
             if (Channels != null && Channels.Length >= 2)
             {
                 // Check to make sure that Channel 0 and 1 are correct.
-                if (Channels[0] != ChannelTypes.Reliable) Channels[0] = ChannelTypes.Reliable;
-                if (Channels[1] != ChannelTypes.Unreliable) Channels[1] = ChannelTypes.Unreliable;
+                if (Channels[0] != IgnoranceChannelTypes.Reliable) Channels[0] = IgnoranceChannelTypes.Reliable;
+                if (Channels[1] != IgnoranceChannelTypes.Unreliable) Channels[1] = IgnoranceChannelTypes.Unreliable;
             }
             else
             {
-                Channels = new ChannelTypes[2]
+                Channels = new IgnoranceChannelTypes[2]
                 {
-                    ChannelTypes.Reliable,
-                    ChannelTypes.Unreliable
+                    IgnoranceChannelTypes.Reliable,
+                    IgnoranceChannelTypes.Unreliable
                 };
             }
         }
@@ -695,16 +692,7 @@ namespace Mirror
             public CommandPacketType commandType;
         }
 
-        [Serializable]
-        public enum ChannelTypes
-        {
-            Reliable = PacketFlags.Reliable,
-            ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,
-            Unreliable = PacketFlags.Unsequenced,
-            UnreliableFragmented = PacketFlags.UnreliableFragmented,
-            UnreliableSequenced = PacketFlags.None,
-            UnbundledInstant = PacketFlags.Instant,
-        }
+        // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
 
         [Serializable]
         public enum MirrorPacketType
