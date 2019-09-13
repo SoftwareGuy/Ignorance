@@ -28,12 +28,12 @@ namespace Mirror
     public class IgnoranceThreaded : Transport, ISegmentTransport
     {
         // Client Queues
-        static ConcurrentQueue<IncomingPacket> MirrorClientIncomingQueue;
-        static ConcurrentQueue<OutgoingPacket> MirrorClientOutgoingQueue;
+        static ConcurrentQueue<IncomingPacket> MirrorClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
+        static ConcurrentQueue<OutgoingPacket> MirrorClientOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();
 
         // Server Queues
-        static ConcurrentQueue<IncomingPacket> MirrorIncomingQueue;    // queue going into mirror from clients.
-        static ConcurrentQueue<OutgoingPacket> MirrorOutgoingQueue;    // queue going to clients from Mirror.
+        static ConcurrentQueue<IncomingPacket> MirrorIncomingQueue = new ConcurrentQueue<IncomingPacket>();    // queue going into mirror from clients.
+        static ConcurrentQueue<OutgoingPacket> MirrorOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();    // queue going to clients from Mirror.
 
         // lookup and reverse lookup dictionaries
         static ConcurrentDictionary<int, Peer> ConnectionIDToPeers = new ConcurrentDictionary<int, Peer>();
@@ -327,8 +327,17 @@ namespace Mirror
             if (serverWorker != null && serverWorker.IsAlive) serverWorker.Join();
 
             // IMPORTANT: Flush the queues. Get rid of the dead bodies.
-            MirrorIncomingQueue = new ConcurrentQueue<IncomingPacket>();
-            MirrorOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();
+            // c6: Do not use new, instead just while dequeue anything else in the queue
+            // c6: helps avoid GC
+            while(MirrorIncomingQueue.TryDequeue(out _))
+            {
+                ;
+            }
+
+            while (MirrorOutgoingQueue.TryDequeue(out _))
+            {
+                ;
+            }
 
             print($"Ignorance Threaded: Server stopped.");
         }
@@ -368,8 +377,16 @@ namespace Mirror
 
         private static void ClientWorker(string hostAddress, ushort port, int channelCount, int maxPacketSize = 16384, int serviceTimeout = 1)
         {
-            MirrorClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
-            MirrorClientOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();
+            // Drain anything in the queue...
+            while (MirrorClientIncomingQueue.TryDequeue(out _))
+            {
+                ;
+            }
+
+            while (MirrorClientOutgoingQueue.TryDequeue(out _))
+            {
+                ;
+            }
 
             byte[] workerPacketBuffer = new byte[maxPacketSize];
             Address cAddress = new Address();
