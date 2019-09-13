@@ -370,6 +370,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0996ec573094c24890a4d4233ee871e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  syncMode: 0
   syncInterval: 0.1
 --- !u!114 &1278075349
 MonoBehaviour:
@@ -1097,6 +1098,16 @@ PrefabInstance:
         type: 3}
       propertyPath: m_SceneId
       value: 1035721996
+      objectReference: {fileID: 0}
+    - target: {fileID: 440842259441939327, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: compressRotation
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 440842259441939327, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: syncInterval
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5339554c46006dd4e91cae9ff34c095d, type: 3}

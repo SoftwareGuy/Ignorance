@@ -117,10 +117,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_ServerOnly: 0
-  m_LocalPlayerAuthority: 0
+  serverOnly: 0
+  localPlayerAuthority: 0
   m_AssetId: 
-  m_SceneId: 1989471980
+  m_SceneId: 3492928568
 --- !u!114 &440270013149532785
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -133,8 +133,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 38b5c2f743cd8034a8beeebf277c92c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  syncMode: 0
   syncInterval: 0.1
   speed: 50
+  rigidbody2d: {fileID: 520653813702449573}
 --- !u!114 &440842259441939327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -147,6 +149,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f74aedd71d9a4f55b3ce499326d45fb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  syncMode: 0
   syncInterval: 0.05
   compressRotation: 0
 --- !u!58 &8881572407762724401
