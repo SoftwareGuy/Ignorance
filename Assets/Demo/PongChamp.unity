@@ -1102,7 +1102,7 @@ PrefabInstance:
     - target: {fileID: 440842259441939327, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
       propertyPath: compressRotation
-      value: 3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 440842259441939327, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
