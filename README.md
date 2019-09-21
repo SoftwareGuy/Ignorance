@@ -53,14 +53,20 @@ If you haven't already, make a empty GameObject with the Mirror **Network Manage
 ### Why should I use Ignorance over Unity LLAPI?
 Unity LLAPI is old, obsolete and no longer mantained by Unity Technologies. It is currently on heavy life-support until they get their act together with the new Unity Multiplay system. Plus, it was held together by bandaids and bubble-gum. Depending on what you threw over the network, you'd get random latency spikes and packets would go missing even in Reliable delivery mode.
 
-Ignorance aims to replace it with a stable and high performance transport system that allows you to forget about low-level networking stress and spend more time focus on **making** the game you want to make.
+Ignorance aims to replace it with a stable and high performance transport system that allows you to forget about low-level networking stress and spend more time focusing on the gameplay.
 
-### Why are you using Mirror's LateUpdate vs Threads?
-This is Mirror's design, not mine. Ignorance tries it's best to address all the packets coming in and out every frame.
+### Ignorance Classic vs Ignorance Threaded
+As of the latest version of Ignorance, there are two versions included in releases and this repository. They are as follows:
 
-Since LateUpdate is frame-rate dependent, the lower the framerate the more latency you'll encounter due to how the backend is polled. Ideally if you're going to use this transport you're better off using setting your server to use at least a tickrate of 30 ticks per second. Any less (ie. below 30) and you're risking the server getting choked. All transports have this design issue.
+- Classic: This one pumps the ENET Backend every LateUpdate tick, and if any events come in, they will be fired all in that tick. This is the "tried and true" transport pumping method. 
+- Threaded: This one pumps the ENET Backend with a configurable timeout and uses seperate server and client incoming and outgoing  queues. Network Events get placed into their respective queues and are pumped until the server or client is disconnected respectively. During every LateUpdate tick, the incoming queues are drained, ready for more network activity. This allows maximum performance, at the expense of some stability as Unity threading can be very tempermental at times.
 
-I do have a threaded version of Ignorance that unfortunately suffers Unity shitting the bed under heavy load due to the really disappointing Mono implementation of threading support.
+If performance is essential for you, use the **Ignorance Threaded** version of Ignorance. This will give you maximum networking performance. If stability is essential, use the **Ignorance Classic** version of Ignorance.
+
+### Important note
+Since Mirror and all transports use LateUpdate to process their network code, there might be a chance that at very low framerate (ie. you are really stressing the server or creating lots of GameObjects in which Unity has to load from disk) that the networking gets overwhelmed, regardless of classic or threaded versions of Ignorance. It is essential to keep your server's frame rate running as high as possible as this will reduce latency and in-game lag. You will be able to tell when the server is under heavy stress when networked objects get very choppy and/or the client starts hanging.
+
+Until Mirror changes how they manage their transport code, we are stuck with having to deal with this design issue.
 
 ### I have a bug!
 [Check the current open bug reports and/or report a new one here](https://github.com/SoftwareGuy/Ignorance/issues) and I also recommend you be present in the Discord so I can ask for further info and/or you can test fixes for your bug reports.
