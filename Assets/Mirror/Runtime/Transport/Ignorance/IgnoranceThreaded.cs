@@ -23,6 +23,8 @@ using System.Collections.Concurrent;
 using ENet;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+using System.Collections.Generic;
+
 namespace Mirror
 {
     public class IgnoranceThreaded : Transport, ISegmentTransport
@@ -49,13 +51,13 @@ namespace Mirror
         // Client stuffs.
         static volatile bool isClientConnected = false;
         static volatile string clientConnectionAddress = string.Empty;
-        
+
 
         // private byte[] ClientPacketCache;
         // Standard stuffs
 
         private bool ENETInitialized = false;
-        
+
 
         // Properties
         public bool DebugEnabled;
@@ -125,7 +127,11 @@ namespace Mirror
                         OnServerDisconnected?.Invoke(pkt.connectionId);
                         break;
                     case MirrorPacketType.ServerClientSentData:
+#if MIRROR_4_0_OR_NEWER
+                        OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data), pkt.channelId);
+#else
                         OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data));
+#endif
                         break;
                     default:
                         // Nothing to see here.
@@ -141,21 +147,25 @@ namespace Mirror
         private bool ProcessClientMessages()
         {
             while (MirrorClientIncomingQueue.TryDequeue(out IncomingPacket pkt))
-            {               
+            {
                 switch (pkt.type)
                 {
                     case MirrorPacketType.ClientConnected:
-                        if(DebugEnabled) print($"Ignorance: We have connected!");
+                        if (DebugEnabled) print($"Ignorance: We have connected!");
                         isClientConnected = true;
                         OnClientConnected?.Invoke();
                         break;
                     case MirrorPacketType.ClientDisconnected:
-                        if(DebugEnabled) print($"Ignorance: We have been disconnected.");
+                        if (DebugEnabled) print($"Ignorance: We have been disconnected.");
                         isClientConnected = false;
                         OnClientDisconnected?.Invoke();
                         break;
                     case MirrorPacketType.ClientGotData:
-                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data));
+#if MIRROR_4_0_OR_NEWER
+                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
+#else
+                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
+#endif
                         break;
                 }
             }
@@ -197,7 +207,7 @@ namespace Mirror
                 return;
             }
 
-            if(string.IsNullOrEmpty(address))
+            if (string.IsNullOrEmpty(address))
             {
                 Debug.LogError($"Ignorance: Null or empty address to connect to. Aborting connection.");
                 return;
@@ -215,14 +225,8 @@ namespace Mirror
             clientWorker.Start();
         }
 
-        public override bool ClientSend(int channelId, byte[] data)
-        {
-            // redirect it to the ArraySegment version.
-            return ClientSend(channelId, new ArraySegment<byte>(data));
-        }
-
-        public bool ClientSend(int channelId, ArraySegment<byte> data)
-        {
+#if MIRROR_4_0_OR_NEWER
+        public override bool ClientSend(int channelId, ArraySegment<byte> data) {
             if (channelId > Channels.Length)
             {
                 Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
@@ -242,6 +246,14 @@ namespace Mirror
 
             return true;
         }
+
+#else
+        public override bool ClientSend(int channelId, byte[] data)
+        {
+            // redirect it to the ArraySegment version.
+            return ClientSend(channelId, new ArraySegment<byte>(data));
+        }
+#endif
 
         public override void ClientDisconnect()
         {
@@ -276,11 +288,12 @@ namespace Mirror
             serverWorker.Start();
         }
 
+#if !MIRROR_4_0_OR_NEWER
         public override bool ServerSend(int connectionId, int channelId, byte[] data)
         {
             return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
         }
-
+#endif
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
             if (!ServerStarted)
@@ -329,7 +342,7 @@ namespace Mirror
             // IMPORTANT: Flush the queues. Get rid of the dead bodies.
             // c6: Do not use new, instead just while dequeue anything else in the queue
             // c6: helps avoid GC
-            while(MirrorIncomingQueue.TryDequeue(out _))
+            while (MirrorIncomingQueue.TryDequeue(out _))
             {
                 ;
             }
@@ -464,8 +477,8 @@ namespace Mirror
                     // Outgoing stuff
                     while (MirrorClientOutgoingQueue.TryDequeue(out OutgoingPacket opkt))
                     {
-                        if(opkt.commandType == CommandPacketType.ClientDisconnectRequest)
-                        {                            
+                        if (opkt.commandType == CommandPacketType.ClientDisconnectRequest)
+                        {
                             cPeer.DisconnectNow(0);
                             return;
                         }
@@ -636,6 +649,7 @@ namespace Mirror
 
                                     IncomingPacket dataPkt = default;
                                     dataPkt.connectionId = dataConnID;
+                                    dataPkt.channelId = (int)netEvent.ChannelID;
                                     dataPkt.type = MirrorPacketType.ServerClientSentData;
 
                                     // TODO: Come up with a better method of doing this.
@@ -689,6 +703,42 @@ namespace Mirror
                 };
             }
         }
+
+#if MIRROR_4_0_OR_NEWER
+        public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
+        {
+            if (!ServerStarted)
+            {
+                Debug.LogError("Attempted to send while the server was not active");
+                return false;
+            }
+
+            if (channelId > Channels.Length)
+            {
+                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+                return false;
+            }
+
+            foreach(int conn in connectionIds) {
+                // Another sneaky hack
+                ServerSend(conn, channelId, segment);
+                /*
+                    OutgoingPacket op = default;
+                    op.connectionId = conn;
+                    op.channelId = (byte)channelId;
+
+                    Packet dataPayload = default;
+                    dataPayload.Create(segment.Array, segment.Offset, segment.Count + segment.Offset, (PacketFlags)Channels[channelId]);
+                    op.payload = dataPayload;
+
+                    MirrorOutgoingQueue.Enqueue(op);
+                */
+            }
+
+            return true;          
+        }
+#endif
+
         #endregion
 
         #region Structs, classes, etc
@@ -696,6 +746,7 @@ namespace Mirror
         private struct IncomingPacket
         {
             public int connectionId;
+            public int channelId;
             public MirrorPacketType type;
             public byte[] data;
             public string ipAddress;
@@ -729,7 +780,7 @@ namespace Mirror
             ClientDisconnectRequest
         }
 
-        #endregion
+#endregion
     }
 
 

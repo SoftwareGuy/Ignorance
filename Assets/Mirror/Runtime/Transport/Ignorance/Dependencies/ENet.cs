@@ -123,15 +123,12 @@ namespace ENet
     {
         private ENetAddress nativeAddress;
 
-        internal ENetAddress NativeData
-        {
-            get
-            {
+        internal ENetAddress NativeData {
+            get {
                 return nativeAddress;
             }
 
-            set
-            {
+            set {
                 nativeAddress = value;
             }
         }
@@ -141,15 +138,12 @@ namespace ENet
             nativeAddress = address;
         }
 
-        public ushort Port
-        {
-            get
-            {
+        public ushort Port {
+            get {
                 return nativeAddress.port;
             }
 
-            set
-            {
+            set {
                 nativeAddress.port = value;
             }
         }
@@ -195,15 +189,12 @@ namespace ENet
     {
         private ENetEvent nativeEvent;
 
-        internal ENetEvent NativeData
-        {
-            get
-            {
+        internal ENetEvent NativeData {
+            get {
                 return nativeEvent;
             }
 
-            set
-            {
+            set {
                 nativeEvent = value;
             }
         }
@@ -213,42 +204,32 @@ namespace ENet
             nativeEvent = @event;
         }
 
-        public EventType Type
-        {
-            get
-            {
+        public EventType Type {
+            get {
                 return nativeEvent.type;
             }
         }
 
-        public Peer Peer
-        {
-            get
-            {
+        public Peer Peer {
+            get {
                 return new Peer(nativeEvent.peer);
             }
         }
 
-        public byte ChannelID
-        {
-            get
-            {
+        public byte ChannelID {
+            get {
                 return nativeEvent.channelID;
             }
         }
 
-        public uint Data
-        {
-            get
-            {
+        public uint Data {
+            get {
                 return nativeEvent.data;
             }
         }
 
-        public Packet Packet
-        {
-            get
-            {
+        public Packet Packet {
+            get {
                 return new Packet(nativeEvent.packet);
             }
         }
@@ -258,15 +239,12 @@ namespace ENet
     {
         private ENetCallbacks nativeCallbacks;
 
-        internal ENetCallbacks NativeData
-        {
-            get
-            {
+        internal ENetCallbacks NativeData {
+            get {
                 return nativeCallbacks;
             }
 
-            set
-            {
+            set {
                 nativeCallbacks = value;
             }
         }
@@ -283,15 +261,12 @@ namespace ENet
     {
         private IntPtr nativePacket;
 
-        internal IntPtr NativeData
-        {
-            get
-            {
+        internal IntPtr NativeData {
+            get {
                 return nativePacket;
             }
 
-            set
-            {
+            set {
                 nativePacket = value;
             }
         }
@@ -310,38 +285,30 @@ namespace ENet
             }
         }
 
-        public bool IsSet
-        {
-            get
-            {
+        public bool IsSet {
+            get {
                 return nativePacket != IntPtr.Zero;
             }
         }
 
-        public IntPtr Data
-        {
-            get
-            {
+        public IntPtr Data {
+            get {
                 CheckCreated();
 
                 return Native.enet_packet_get_data(nativePacket);
             }
         }
 
-        public int Length
-        {
-            get
-            {
+        public int Length {
+            get {
                 CheckCreated();
 
                 return Native.enet_packet_get_length(nativePacket);
             }
         }
 
-        public bool HasReferences
-        {
-            get
-            {
+        public bool HasReferences {
+            get {
                 CheckCreated();
 
                 return Native.enet_packet_check_references(nativePacket) != 0;
@@ -443,15 +410,12 @@ namespace ENet
     {
         private IntPtr nativeHost;
 
-        internal IntPtr NativeData
-        {
-            get
-            {
+        internal IntPtr NativeData {
+            get {
                 return nativeHost;
             }
 
-            set
-            {
+            set {
                 nativeHost = value;
             }
         }
@@ -476,58 +440,46 @@ namespace ENet
             Dispose(false);
         }
 
-        public bool IsSet
-        {
-            get
-            {
+        public bool IsSet {
+            get {
                 return nativeHost != IntPtr.Zero;
             }
         }
 
-        public uint PeersCount
-        {
-            get
-            {
+        public uint PeersCount {
+            get {
                 CheckCreated();
 
                 return Native.enet_host_get_peers_count(nativeHost);
             }
         }
 
-        public uint PacketsSent
-        {
-            get
-            {
+        public uint PacketsSent {
+            get {
                 CheckCreated();
 
                 return Native.enet_host_get_packets_sent(nativeHost);
             }
         }
 
-        public uint PacketsReceived
-        {
-            get
-            {
+        public uint PacketsReceived {
+            get {
                 CheckCreated();
 
                 return Native.enet_host_get_packets_received(nativeHost);
             }
         }
 
-        public uint BytesSent
-        {
-            get
-            {
+        public uint BytesSent {
+            get {
                 CheckCreated();
 
                 return Native.enet_host_get_bytes_sent(nativeHost);
             }
         }
 
-        public uint BytesReceived
-        {
-            get
-            {
+        public uint BytesReceived {
+            get {
                 CheckCreated();
 
                 return Native.enet_host_get_bytes_received(nativeHost);
@@ -757,15 +709,12 @@ namespace ENet
         private IntPtr nativePeer;
         private readonly uint nativeID;
 
-        internal IntPtr NativeData
-        {
-            get
-            {
+        internal IntPtr NativeData {
+            get {
                 return nativePeer;
             }
 
-            set
-            {
+            set {
                 nativePeer = value;
             }
         }
@@ -776,26 +725,20 @@ namespace ENet
             nativeID = nativePeer != IntPtr.Zero ? Native.enet_peer_get_id(nativePeer) : 0;
         }
 
-        public bool IsSet
-        {
-            get
-            {
+        public bool IsSet {
+            get {
                 return nativePeer != IntPtr.Zero;
             }
         }
 
-        public uint ID
-        {
-            get
-            {
+        public uint ID {
+            get {
                 return nativeID;
             }
         }
 
-        public string IP
-        {
-            get
-            {
+        public string IP {
+            get {
                 CheckCreated();
 
                 byte[] ip = ArrayPool.GetByteBuffer();
@@ -807,115 +750,92 @@ namespace ENet
             }
         }
 
-        public ushort Port
-        {
-            get
-            {
+        public ushort Port {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_port(nativePeer);
             }
         }
 
-        public uint MTU
-        {
-            get
-            {
+        public uint MTU {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_mtu(nativePeer);
             }
         }
 
-        public PeerState State
-        {
-            get
-            {
+        public PeerState State {
+            get {
                 return nativePeer == IntPtr.Zero ? PeerState.Uninitialized : Native.enet_peer_get_state(nativePeer);
             }
         }
 
-        public uint RoundTripTime
-        {
-            get
-            {
+        public uint RoundTripTime {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_rtt(nativePeer);
             }
         }
 
-        public uint LastSendTime
-        {
-            get
-            {
+        public uint LastSendTime {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_lastsendtime(nativePeer);
             }
         }
 
-        public uint LastReceiveTime
-        {
-            get
-            {
+        public uint LastReceiveTime {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_lastreceivetime(nativePeer);
             }
         }
 
-        public ulong PacketsSent
-        {
-            get
-            {
+        public ulong PacketsSent {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_packets_sent(nativePeer);
             }
         }
 
-        public ulong PacketsLost
-        {
-            get
-            {
+        public ulong PacketsLost {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_packets_lost(nativePeer);
             }
         }
 
-        public ulong BytesSent
-        {
-            get
-            {
+        public ulong BytesSent {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_bytes_sent(nativePeer);
             }
         }
 
-        public ulong BytesReceived
-        {
-            get
-            {
+        public ulong BytesReceived {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_bytes_received(nativePeer);
             }
         }
 
-        public IntPtr Data
-        {
-            get
-            {
+        public IntPtr Data {
+            get {
                 CheckCreated();
 
                 return Native.enet_peer_get_data(nativePeer);
             }
 
-            set
-            {
+            set {
                 CheckCreated();
 
                 Native.enet_peer_set_data(nativePeer, value);
@@ -1069,10 +989,8 @@ namespace ENet
             Native.enet_deinitialize();
         }
 
-        public static uint Time
-        {
-            get
-            {
+        public static uint Time {
+            get {
                 return Native.enet_time_get();
             }
         }
@@ -1084,7 +1002,7 @@ namespace ENet
 #if __IOS__ || UNITY_IOS && !UNITY_EDITOR
         // iOS
 		private const string nativeLibrary = "__Internal";
-#elif __APPLE__ || UNITY_STANDALONE_OSX && !UNITY_EDITOR
+#elif __APPLE__ || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         // MacOS
         // Custom ENet Repo builds as libenet.bundle; make sure it's the same.
         private const string nativeLibrary = "libenet";

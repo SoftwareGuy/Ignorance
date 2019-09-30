@@ -97,7 +97,7 @@ namespace Mirror
                 }
             }
 
-            if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - ClientConnect({address})");
+            if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: ClientConnect({address})");
 
             if (Channels.Length > 255)
             {
@@ -112,7 +112,7 @@ namespace Mirror
             }
 
             if (ENETClientHost == null || !ENETClientHost.IsSet) ENETClientHost.Create(null, 1, Channels.Length, 0, 0, PacketCache.Length);
-            if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Created ENET Host object");
+            if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Created ENET Host object");
 
             ENETAddress.SetHost(address);
             ENETAddress.Port = (ushort)CommunicationPort;
@@ -121,7 +121,7 @@ namespace Mirror
             if (CustomTimeoutLimit) ENETPeer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
             ClientStarted = true;
 
-            if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Client has been started!");
+            if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Client has been started!");
         }
 
         public override bool ClientConnected()
@@ -132,7 +132,7 @@ namespace Mirror
 
         public override void ClientDisconnect()
         {
-            if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - ClientDisconnect()");
+            if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: ClientDisconnect()");
 
             if (ServerStarted)
             {
@@ -151,16 +151,16 @@ namespace Mirror
             }
         }
 
+#if !MIRROR_4_0_OR_NEWER
         public override bool ClientSend(int channelId, byte[] data)
         {
             // redirect it to the ArraySegment version.
             return ClientSend(channelId, new ArraySegment<byte>(data));
         }
+#endif
 
-        public bool ClientSend(int channelId, ArraySegment<byte> data)
+        public override bool ClientSend(int channelId, ArraySegment<byte> data)
         {
-            // Log spam if you really want that...
-            // if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - ClientSend({channelId}, ({data.Count} bytes not shown))");
             if (!ENETClientHost.IsSet) return false;
             if (channelId > Channels.Length)
             {
@@ -170,15 +170,15 @@ namespace Mirror
 
             Packet payload = default;
             payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-
-            if (ENETPeer.Send((byte)channelId, ref payload))
+            int returnCode = ENETPeer.SendAndReturnStatusCode((byte)channelId, ref payload);
+            if (returnCode == 0)
             {
-                if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} OK");
+                if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} OK");
                 return true;
             }
             else
             {
-                if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} FAIL");
+                if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} FAIL, code {returnCode}");
                 return false;
             }
         }
@@ -218,10 +218,12 @@ namespace Mirror
             else return "UNKNOWN";
         }
 
+#if !MIRROR_4_0_OR_NEWER
         public override bool ServerSend(int connectionId, int channelId, byte[] data)
         {
             return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
         }
+#endif
 
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
@@ -237,20 +239,22 @@ namespace Mirror
             if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer targetPeer))
             {
                 payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-                if (targetPeer.Send((byte)channelId, ref payload))
+                int returnCode = targetPeer.SendAndReturnStatusCode((byte)channelId, ref payload);
+
+                if (returnCode == 0)
                 {
-                    if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} to connection id {connectionId} OK");
+                    if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} to connection id {connectionId} OK");
                     return true;
                 }
                 else
                 {
-                    if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Outgoing packet on channel {channelId} to connection id {connectionId} FAIL");
+                    if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} to connection id {connectionId} FAIL, code {returnCode}");
                     return false;
                 }
             }
             else
             {
-                if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Unknown connection id {connectionId}");
+                if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Unknown connection id {connectionId}");
                 return false;
             }
         }
@@ -322,7 +326,7 @@ namespace Mirror
             // *thinking emoji*
             ENETHost.Create(ENETAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0, PacketCache.Length);
 
-            if (DebugEnabled) Debug.Log($"Ignorance: DEBUGGING MODE - Server should be created now... If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
+            if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Server should be created now... If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
             ServerStarted = true;
 
             OnIgnoranceServerStartup?.Invoke();
@@ -332,8 +336,8 @@ namespace Mirror
         {
             if (DebugEnabled)
             {
-                Debug.Log("Ignorance: DEBUGGING MODE - ServerStop()");
-                Debug.Log("Ignorance: Cleaning the packet cache...");
+                Debug.Log("[DEBUGGING MODE] Ignorance: ServerStop()");
+                Debug.Log("[DEBUGGING MODE] Ignorance: Cleaning the packet cache...");
             }
 
             PacketCache = new byte[MaxPacketSizeInKb * 1024];
@@ -446,8 +450,11 @@ namespace Mirror
                                 networkEvent.Packet.CopyTo(PacketCache);
                                 int spLength = networkEvent.Packet.Length;
                                 networkEvent.Packet.Dispose();
-
-                                OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength));
+#if MIRROR_4_0_OR_NEWER
+                                OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
+#else
+                                OnServerDataReceived?.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength));
+#endif
                             }
                         }
                         else
@@ -520,8 +527,11 @@ namespace Mirror
                             networkEvent.Packet.CopyTo(PacketCache);
                             int spLength = networkEvent.Packet.Length;
                             networkEvent.Packet.Dispose();
-
+#if MIRROR_4_0_OR_NEWER
+                            OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
+#else
                             OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength));
+#endif
                         }
                         break;
                 }
@@ -535,7 +545,7 @@ namespace Mirror
         {
             return host != null && host.IsSet;
         }
-        #endregion
+#endregion
 
         // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
 
@@ -608,5 +618,51 @@ namespace Mirror
                 };
             }
         }
+
+#if MIRROR_4_0_OR_NEWER
+        public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
+        {
+            if (!ENETHost.IsSet) return false;
+
+            foreach(int conn in connectionIds) {
+                // Cheeky hack?
+                ServerSend(conn, channelId, segment);
+
+                /*
+                Packet payload = default;
+
+                if (channelId > Channels.Length)
+                {
+                    Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+                    return false;
+                }
+
+                if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer targetPeer))
+                {
+                    payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
+                    int returnCode = targetPeer.SendAndReturnStatusCode((byte)channelId, ref payload));
+                    if (returnCode == 0)
+                    {
+                        // Success.
+                        if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} to connection {connectionId} OK!");
+                        return true;
+                    }
+                    else
+                    {
+                        if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} to connection {connectionId} FAIL! (Code {returnCode})");
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Unknown connection id {connectionId}");
+                    return false;
+                }
+                */
+            }
+
+            return true;
+        }
+#endif
     }
 }
