@@ -62,7 +62,7 @@ namespace Mirror
         public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
 
         // version of this transport
-        private readonly string Version = "1.3.2";
+        private readonly string Version = "1.3.5";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
