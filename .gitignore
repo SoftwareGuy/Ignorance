@@ -358,3 +358,6 @@ Temp/*
 /NX*
 Build/
 Assets/IgnoranceNext/
+Assets/Mirror/Authenticators/
+Assets/_DoNotShip/
+Assets/_DoNotShip.meta
