@@ -13,17 +13,14 @@
 // Use with caution.
 // -----------------
 
-using UnityEngine;
-using System.Collections;
 using System;
-using Debug = UnityEngine.Debug;
-using System.Threading;
-using System.Diagnostics;
 using System.Collections.Concurrent;
+using System.Threading;
 using ENet;
+using UnityEngine;
+using Debug = UnityEngine.Debug;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
-using System.Collections.Generic;
 
 namespace Mirror
 {
@@ -164,7 +161,7 @@ namespace Mirror
 #if MIRROR_4_0_OR_NEWER
                         OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
 #else
-                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
+                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data));
 #endif
                         break;
                 }
@@ -225,35 +222,21 @@ namespace Mirror
             clientWorker.Start();
         }
 
+        // Client Sending: ArraySegment and classic byte array versions
 #if MIRROR_4_0_OR_NEWER
-        public override bool ClientSend(int channelId, ArraySegment<byte> data) {
-            if (channelId > Channels.Length)
-            {
-                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
-                return false;
-            }
-
-            OutgoingPacket opkt = default;
-            opkt.channelId = (byte)channelId;
-
-            Packet payload = default;
-            payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-
-            opkt.payload = payload;
-
-            // Enqueue it.
-            MirrorClientOutgoingQueue.Enqueue(opkt);
-
-            return true;
+        public override bool ClientSend(int channelId, ArraySegment<byte> data)
+#else
+        public bool ClientSend(int channelId, ArraySegment<byte> data)
+#endif
+        {
+            return ENETClientQueueInternal(channelId, data);
         }
 
-#else
         public override bool ClientSend(int channelId, byte[] data)
         {
             // redirect it to the ArraySegment version.
-            return ClientSend(channelId, new ArraySegment<byte>(data));
+            return ENETClientQueueInternal(channelId, new ArraySegment<byte>(data));
         }
-#endif
 
         public override void ClientDisconnect()
         {
@@ -294,32 +277,15 @@ namespace Mirror
             return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
         }
 #endif
+#if MIRROR_4_0_OR_NEWER
+        public override bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
+#else
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
+#endif
         {
-            if (!ServerStarted)
-            {
-                Debug.LogError("Attempted to send while the server was not active");
-                return false;
-            }
-
-            if (channelId > Channels.Length)
-            {
-                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
-                return false;
-            }
-
-            OutgoingPacket op = default;
-            op.connectionId = connectionId;
-            op.channelId = (byte)channelId;
-
-            Packet dataPayload = default;
-            dataPayload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-
-            op.payload = dataPayload;
-
-            MirrorOutgoingQueue.Enqueue(op);
-            return true;
+            return ENETServerQueueInternal(connectionId, channelId, data);
         }
+
         public override bool ServerDisconnect(int connectionId)
         {
             OutgoingPacket op = default;
@@ -721,24 +687,68 @@ namespace Mirror
 
             foreach(int conn in connectionIds) {
                 // Another sneaky hack
-                ServerSend(conn, channelId, segment);
-                /*
-                    OutgoingPacket op = default;
-                    op.connectionId = conn;
-                    op.channelId = (byte)channelId;
-
-                    Packet dataPayload = default;
-                    dataPayload.Create(segment.Array, segment.Offset, segment.Count + segment.Offset, (PacketFlags)Channels[channelId]);
-                    op.payload = dataPayload;
-
-                    MirrorOutgoingQueue.Enqueue(op);
-                */
+                ENETServerQueueInternal(conn, channelId, segment);
             }
 
             return true;          
         }
 #endif
 
+        /// <summary>
+        /// Enqueues a packet for ENET worker to pick up and dispatch.
+        /// Hopefully should make it easier to fix things.
+        /// </summary>
+        /// <param name="channelId">The channel id you wish to send the packet on. Must be within 0 and the count of the channels array.</param>
+        /// <param name="dataPayload">The array segment containing the data to send to ENET.</param>
+        /// <returns></returns>
+        private bool ENETClientQueueInternal(int channelId, ArraySegment<byte> dataPayload)
+        {
+            if (channelId > Channels.Length)
+            {
+                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+                return false;
+            }
+
+            OutgoingPacket opkt = default;
+            opkt.channelId = (byte)channelId;
+
+            Packet payload = default;
+            payload.Create(dataPayload.Array, dataPayload.Offset, dataPayload.Count + dataPayload.Offset, (PacketFlags)Channels[channelId]);
+
+            opkt.payload = payload;
+
+            // Enqueue it.
+            MirrorClientOutgoingQueue.Enqueue(opkt);
+
+            return true;
+        }
+
+        private bool ENETServerQueueInternal(int connectionId, int channelId, ArraySegment<byte> data)
+        {
+            if (!ServerStarted)
+            {
+                Debug.LogError("Attempted to send while the server was not active");
+                return false;
+            }
+
+            if (channelId > Channels.Length)
+            {
+                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+                return false;
+            }
+
+            OutgoingPacket op = default;
+            op.connectionId = connectionId;
+            op.channelId = (byte)channelId;
+
+            Packet dataPayload = default;
+            dataPayload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
+
+            op.payload = dataPayload;
+
+            MirrorOutgoingQueue.Enqueue(op);
+            return true;
+        }
         #endregion
 
         #region Structs, classes, etc
@@ -780,7 +790,7 @@ namespace Mirror
             ClientDisconnectRequest
         }
 
-#endregion
+        #endregion
     }
 
 

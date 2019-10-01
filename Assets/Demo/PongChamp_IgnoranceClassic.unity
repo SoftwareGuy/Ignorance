@@ -900,7 +900,7 @@ GameObject:
   - component: {fileID: 1886246550}
   - component: {fileID: 1886246552}
   - component: {fileID: 1886246551}
-  - component: {fileID: 1886246554}
+  - component: {fileID: 1886246553}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -956,7 +956,7 @@ MonoBehaviour:
   showDebugMessages: 0
   offlineScene: 
   onlineScene: 
-  transport: {fileID: 1886246554}
+  transport: {fileID: 1886246553}
   networkAddress: localhost
   maxConnections: 4
   authenticator: {fileID: 0}
@@ -965,7 +965,7 @@ MonoBehaviour:
   autoCreatePlayer: 1
   playerSpawnMethod: 1
   spawnPrefabs: []
---- !u!114 &1886246554
+--- !u!114 &1886246553
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -974,7 +974,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1886246549}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec862738267237f4d91e6454ff15f4ea, type: 3}
+  m_Script: {fileID: 11500000, guid: 71e9bc32a33e875449302faaac757daa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   OnClientConnected:
@@ -1015,14 +1015,19 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
     m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-  DebugEnabled: 1
+  DebugEnabled: 0
   ServerBindAll: 1
   ServerBindAddress: 127.0.0.1
   CommunicationPort: 7777
-  MaximumPeerCCU: 4095
-  EnetPollTimeout: 1
   MaxPacketSizeInKb: 64
   Channels: 0100000002000000
+  CustomMaxPeerLimit: 0
+  CustomMaxPeers: 1000
+  CustomTimeoutLimit: 0
+  CustomTimeoutBaseTicks: 5000
+  CustomTimeoutMultiplier: 3
+  PingCalculationEnabled: 1
+  PingCalculationFrameTimer: 120
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0
