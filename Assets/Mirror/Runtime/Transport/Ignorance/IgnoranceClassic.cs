@@ -157,14 +157,16 @@ namespace Mirror
 #endif
 
 #if MIRROR_4_0_OR_NEWER
-        public override bool ClientSend(int channelId, ArraySegment<byte> data)        
-#else
-        public bool ClientSend(int channelId, ArraySegment<byte> data)
-#endif
+        public override bool ClientSend(int channelId, ArraySegment<byte> data)
         {
             return ENETClientSendInternal(channelId, data);
         }
-
+#else
+        public bool ClientSend(int channelId, ArraySegment<byte> data)
+        {
+            return ENETClientSendInternal(channelId, data);
+        }
+#endif
         public string GetClientPing()
         {
             return CurrentClientPing.ToString();
@@ -207,6 +209,7 @@ namespace Mirror
         }
 #endif
 
+        // Can't deprecate this because I believe Dissonance uses it still...
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
             if (!ENETHost.IsSet) return false;

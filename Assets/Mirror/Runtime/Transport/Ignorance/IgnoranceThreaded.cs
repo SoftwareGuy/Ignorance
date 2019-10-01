@@ -21,6 +21,10 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+// Mirror 4.0 Specific.
+#if MIRROR_4_0_OR_NEWER
+using System.Collections.Generic;
+#endif
 
 namespace Mirror
 {
@@ -231,13 +235,13 @@ namespace Mirror
         {
             return ENETClientQueueInternal(channelId, data);
         }
-
+#if !MIRROR_4_0_OR_NEWER
         public override bool ClientSend(int channelId, byte[] data)
         {
             // redirect it to the ArraySegment version.
             return ENETClientQueueInternal(channelId, new ArraySegment<byte>(data));
         }
-
+#endif
         public override void ClientDisconnect()
         {
             if (DebugEnabled) Debug.Log($"Ignorance: Client disconnection acknowledged");
@@ -277,11 +281,8 @@ namespace Mirror
             return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
         }
 #endif
-#if MIRROR_4_0_OR_NEWER
-        public override bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
-#else
+        // Can't deprecate this due to Dissonance...
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
-#endif
         {
             return ENETServerQueueInternal(connectionId, channelId, data);
         }
