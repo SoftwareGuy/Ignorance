@@ -148,25 +148,11 @@ namespace Mirror
             }
         }
 
-#if !MIRROR_4_0_OR_NEWER
-        public override bool ClientSend(int channelId, byte[] data)
-        {
-            // redirect it to the ArraySegment version.
-            return ENETClientSendInternal(channelId, new ArraySegment<byte>(data));
-        }
-#endif
-
-#if MIRROR_4_0_OR_NEWER
         public override bool ClientSend(int channelId, ArraySegment<byte> data)
         {
             return ENETClientSendInternal(channelId, data);
         }
-#else
-        public bool ClientSend(int channelId, ArraySegment<byte> data)
-        {
-            return ENETClientSendInternal(channelId, data);
-        }
-#endif
+
         public string GetClientPing()
         {
             return CurrentClientPing.ToString();
@@ -201,13 +187,6 @@ namespace Mirror
             if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer result)) return $"{result.IP}:{result.Port}";
             else return "UNKNOWN";
         }
-
-#if !MIRROR_4_0_OR_NEWER
-        public override bool ServerSend(int connectionId, int channelId, byte[] data)
-        {
-            return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
-        }
-#endif
 
         // Can't deprecate this because I believe Dissonance uses it still...
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
@@ -435,11 +414,7 @@ namespace Mirror
                                 networkEvent.Packet.CopyTo(PacketCache);
                                 int spLength = networkEvent.Packet.Length;
                                 networkEvent.Packet.Dispose();
-#if MIRROR_4_0_OR_NEWER
                                 OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
-#else
-                                OnServerDataReceived?.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength));
-#endif
                             }
                         }
                         else
@@ -509,11 +484,7 @@ namespace Mirror
                             networkEvent.Packet.CopyTo(PacketCache);
                             int spLength = networkEvent.Packet.Length;
                             networkEvent.Packet.Dispose();
-#if MIRROR_4_0_OR_NEWER
                             OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
-#else
-                            OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength));
-#endif
                         }
                         break;
                 }
@@ -560,25 +531,14 @@ namespace Mirror
         public override string ToString()
         {
             // A little complicated if else mess.
-            if (ServerActive() && NetworkClient.active)
+            if (ServerActive())
             {
-                // HostClient Mode
-                return $"Ignorance {Version} in HostClient Mode";
-            }
-            else if (ServerActive() && !NetworkClient.active)
-            {
-                // Dedicated server masterrace mode
-                return $"Ignorance {Version} in Dedicated Server Mode";
-            }
-            else if (!ServerActive() && NetworkClient.active)
-            {
-                // Client mode
-                return $"Ignorance {Version} in Client Mode";
+                if (NetworkClient.active) return $"Ignorance {Version} in HostClient Mode";      // HostClient Mode
+                else return $"Ignorance {Version} in Dedicated Server Mode";                    // Dedicated server masterrace mode
             }
             else
             {
-                // Unknown state. How did that happen?
-                return $"Ignorance {Version} disconnected/unknown state";
+                return $"Ignorance {Version} in Client Mode";                                   // Client mode
             }
         }
 
@@ -601,51 +561,19 @@ namespace Mirror
             }
         }
 
-#if MIRROR_4_0_OR_NEWER
+        // Mirror 4.x specific: ServerSend to more than one connection id
         public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
         {
             if (!ENETHost.IsSet) return false;
 
-            foreach(int conn in connectionIds) {
+            foreach (int conn in connectionIds)
+            {
                 // Cheeky hack?
                 ServerSend(conn, channelId, segment);
-
-                /*
-                Packet payload = default;
-
-                if (channelId > Channels.Length)
-                {
-                    Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
-                    return false;
-                }
-
-                if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer targetPeer))
-                {
-                    payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-                    int returnCode = targetPeer.SendAndReturnStatusCode((byte)channelId, ref payload));
-                    if (returnCode == 0)
-                    {
-                        // Success.
-                        if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} to connection {connectionId} OK!");
-                        return true;
-                    }
-                    else
-                    {
-                        if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} to connection {connectionId} FAIL! (Code {returnCode})");
-                        return false;
-                    }
-                }
-                else
-                {
-                    if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Unknown connection id {connectionId}");
-                    return false;
-                }
-                */
             }
 
             return true;
         }
-#endif
 
         /// <summary>
         /// Interal function used by the transport to carry data to the actual sending functions of the wrapper.

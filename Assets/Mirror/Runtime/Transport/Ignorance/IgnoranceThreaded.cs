@@ -22,9 +22,7 @@ using Debug = UnityEngine.Debug;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
 // Mirror 4.0 Specific.
-#if MIRROR_4_0_OR_NEWER
 using System.Collections.Generic;
-#endif
 
 namespace Mirror
 {
@@ -53,13 +51,8 @@ namespace Mirror
         static volatile bool isClientConnected = false;
         static volatile string clientConnectionAddress = string.Empty;
 
-
-        // private byte[] ClientPacketCache;
         // Standard stuffs
-
         private bool ENETInitialized = false;
-
-
         // Properties
         public bool DebugEnabled;
 
@@ -94,7 +87,7 @@ namespace Mirror
 
         public override string ToString()
         {
-            return "Ignorance Threaded Edition";
+            return "Ignorance Threaded";
         }
 
         public void LateUpdate()
@@ -128,11 +121,7 @@ namespace Mirror
                         OnServerDisconnected?.Invoke(pkt.connectionId);
                         break;
                     case MirrorPacketType.ServerClientSentData:
-#if MIRROR_4_0_OR_NEWER
                         OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data), pkt.channelId);
-#else
-                        OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data));
-#endif
                         break;
                     default:
                         // Nothing to see here.
@@ -162,11 +151,7 @@ namespace Mirror
                         OnClientDisconnected?.Invoke();
                         break;
                     case MirrorPacketType.ClientGotData:
-#if MIRROR_4_0_OR_NEWER
                         OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
-#else
-                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data));
-#endif
                         break;
                 }
             }
@@ -227,21 +212,11 @@ namespace Mirror
         }
 
         // Client Sending: ArraySegment and classic byte array versions
-#if MIRROR_4_0_OR_NEWER
         public override bool ClientSend(int channelId, ArraySegment<byte> data)
-#else
-        public bool ClientSend(int channelId, ArraySegment<byte> data)
-#endif
         {
             return ENETClientQueueInternal(channelId, data);
         }
-#if !MIRROR_4_0_OR_NEWER
-        public override bool ClientSend(int channelId, byte[] data)
-        {
-            // redirect it to the ArraySegment version.
-            return ENETClientQueueInternal(channelId, new ArraySegment<byte>(data));
-        }
-#endif
+
         public override void ClientDisconnect()
         {
             if (DebugEnabled) Debug.Log($"Ignorance: Client disconnection acknowledged");
@@ -275,12 +250,6 @@ namespace Mirror
             serverWorker.Start();
         }
 
-#if !MIRROR_4_0_OR_NEWER
-        public override bool ServerSend(int connectionId, int channelId, byte[] data)
-        {
-            return ServerSend(connectionId, channelId, new ArraySegment<byte>(data));
-        }
-#endif
         // Can't deprecate this due to Dissonance...
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
@@ -339,12 +308,6 @@ namespace Mirror
         public override int GetMaxPacketSize(int channelId = 0)
         {
             return MaxPacketSizeInKb * 1024;
-        }
-
-        // utility
-        private bool IsValid(Host host)
-        {
-            return host != null && host.IsSet;
         }
         #endregion
 
@@ -467,12 +430,6 @@ namespace Mirror
         private Thread IgnoranceServerThread()
         {
             string bindAddress = string.Empty;
-            /* if (ServerBindAll)
-            {
-                if (SystemInfo.operatingSystemFamily == OperatingSystemFamily.MacOSX) bindAddress = "::0";
-                else bindAddress = "0.0.0.0";
-            }
-            */
 
             Thread t = new Thread(() => ServerWorker(bindAddress, (ushort)CommunicationPort, Channels.Length, MaximumPeerCCU, MaxPacketSizeInKb * 1024, EnetPollTimeout));
             return t;
@@ -670,8 +627,6 @@ namespace Mirror
                 };
             }
         }
-
-#if MIRROR_4_0_OR_NEWER
         public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
         {
             if (!ServerStarted)
@@ -686,14 +641,14 @@ namespace Mirror
                 return false;
             }
 
-            foreach(int conn in connectionIds) {
+            foreach (int conn in connectionIds)
+            {
                 // Another sneaky hack
                 ENETServerQueueInternal(conn, channelId, segment);
             }
 
-            return true;          
+            return true;
         }
-#endif
 
         /// <summary>
         /// Enqueues a packet for ENET worker to pick up and dispatch.
