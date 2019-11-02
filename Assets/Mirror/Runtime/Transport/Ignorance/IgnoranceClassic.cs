@@ -159,7 +159,6 @@ namespace Mirror
         }
         #endregion
 
-        // TODO: Check this out.
         public override int GetMaxPacketSize(int channelId = 0)
         {
             return PacketCache.Length;
@@ -526,6 +525,16 @@ namespace Mirror
                 if (ServerStarted) ProcessServerMessages();
                 if (ClientStarted) ProcessClientMessages();
             }
+        }
+
+        public override bool Available()
+        {
+#if UNITY_WEBGL || UNITY_WSA
+            // Ignorance is not available on these platforms.
+            return false;
+#else
+            return true;
+#endif
         }
 
         public override string ToString()
