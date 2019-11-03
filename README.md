@@ -1,15 +1,7 @@
 Ignorance 1.3
 =============
 
-![Ko-Fi](https://img.shields.io/badge/Donate-Ko--Fi-red)
-
-![Pay-Pal](https://img.shields.io/badge/Donate-PayPal-blue)
-
-![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg)
-
-![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg)
-
-![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
+![Ko-Fi](https://img.shields.io/badge/Donate-Ko--Fi-red) ![Pay-Pal](https://img.shields.io/badge/Donate-PayPal-blue) ![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg) ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
 
 *If you feel so inclined, I'd appreciate* [a coffee to keep me
 caffeinated](https://ko-fi.com/coburn) *if you use this transport.*
