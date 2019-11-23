@@ -529,7 +529,7 @@ namespace Mirror
 
         public override bool Available()
         {
-#if UNITY_WEBGL || UNITY_WSA
+#if UNITY_WEBGL
             // Ignorance is not available on these platforms.
             return false;
 #else
