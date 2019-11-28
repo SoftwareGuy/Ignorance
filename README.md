@@ -64,14 +64,14 @@ Compatiblity
 
 -   Xbox One
 
-    -   UWP: Unlikely, unless UWP applications can access C-language plugins.
+    -   UWP: Tested and confirmed working for **LAN Client only**. LAN Host doesn't work.
 
     -   Native: Possibly, however I don’t have development kit or license to
         test.
 
 -   PlayStation
 
-    -   Vita: Possibly, however I’d need access to DevNet to build against their
+    -   Vita: Possibly, however I’d need access to Sony DevNet to build against their
         toolchain. And I don’t have said access.
 
     -   PS4: Falls into the same boat as Vita (above)
@@ -133,12 +133,14 @@ get started easily.
 
 **Hard mode:**
 
-If you haven't already, make a empty GameObject with the Mirror **Network
-Manager**. It will automatically add Telepathy as the default transport. Add a
-**new component** and look for **Ignorance**. You will have Ignorance added as a
-transport, but it will not be activated. Now **drag the Ignorance script** into
-the **Transport** field of the **Network Manager inspector**. If all goes well,
-you should see **GameObjectName (Ignorance)** in that field.
+- If you haven't already, make a empty GameObject with the Mirror **Network
+Manager**. 
+- It will automatically add Telepathy as the default transport. 
+- Add a **new component** and look for **Ignorance Classic** or **Ignorance Threaded**.
+- You will have Ignorance added as a transport, but it will not be activated.
+- Remove the Telepathy transport.
+- Now **drag the Ignorance (Classic/Threaded) component** into the **Transport** field of the **Network Manager** inspector. 
+- If all goes well, you should see `**Game Object Name (Ignorance Classic/Threaded)` in that field.
 
 FAQ (aka Please Read This First)
 --------------------------------
