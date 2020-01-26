@@ -24,6 +24,9 @@ namespace Mirror
 {
     public class IgnoranceClassic : Transport, ISegmentTransport
     {
+        // DO NOT TOUCH THIS.
+        public const string Scheme = "enet";
+
         // hooks for ignorance modules
         // server startup
         public Action OnIgnoranceServerStartup;
@@ -322,7 +325,7 @@ namespace Mirror
         public override void Shutdown()
         {
             // c6: just right at the top of shutdown "Herp I shut down nao". lol... then if thats missing obv problems
-            Debug.Log("Herp I shut down nao");
+            // Debug.Log("Herp I shut down nao");
 
             if (DebugEnabled) Debug.Log("Ignorance: Cleaning the packet cache...");
 
@@ -614,5 +617,31 @@ namespace Mirror
                 return false;
             }
         }
+
+        #region Mirror 6.2+ - URI Support
+#if MIRROR_7_0_OR_NEWER
+        public override Uri ServerUri()
+        {
+            UriBuilder builder = new UriBuilder();
+            builder.Scheme = Scheme;
+            builder.Host = ServerBindAddress;
+            builder.Port = CommunicationPort;
+            return builder.Uri;
+        }
+#endif
+        public override void ClientConnect(Uri uri)
+        {
+            if (uri.Scheme != Scheme)
+                throw new ArgumentException($"Invalid uri {uri}, use {Scheme}://host:port instead", nameof(uri));
+
+            if (!uri.IsDefaultPort)
+            {
+                // Set the communication port to the one specified.
+                CommunicationPort = uri.Port;
+            }
+
+            ClientConnect(uri.Host);
+        }
+#endregion
     }
 }
