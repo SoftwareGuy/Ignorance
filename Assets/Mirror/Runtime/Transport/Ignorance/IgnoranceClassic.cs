@@ -65,7 +65,7 @@ namespace Mirror
         public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
 
         // version of this transport
-        private readonly string Version = "1.3.5";
+        private readonly string Version = "1.3.6";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -413,7 +413,20 @@ namespace Mirror
                             else
                             {
                                 // invoke on the server.
-                                networkEvent.Packet.CopyTo(PacketCache);
+                                try
+                                {
+                                    networkEvent.Packet.CopyTo(PacketCache);
+                                }
+                                catch (Exception e)
+                                {
+                                    Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENET) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
+                                        $"Exception returned was: {e.Message}\n" +
+                                        $"Debug details: {(PacketCache == null ? "packet buffer was NULL" : $"{PacketCache.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
+                                        $"Stack Trace: {e.StackTrace}");
+                                    networkEvent.Packet.Dispose();
+                                    break;
+                                }
+
                                 int spLength = networkEvent.Packet.Length;
                                 networkEvent.Packet.Dispose();
                                 OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
@@ -483,7 +496,20 @@ namespace Mirror
                         else
                         {
                             // invoke on the client.
-                            networkEvent.Packet.CopyTo(PacketCache);
+                            try
+                            {
+                                networkEvent.Packet.CopyTo(PacketCache);
+                            }
+                            catch (Exception e)
+                            {
+                                Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENET) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
+                                    $"Exception returned was: {e.Message}\n" +
+                                    $"Debug details: {(PacketCache == null ? "packet buffer was NULL" : $"{PacketCache.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
+                                    $"Stack Trace: {e.StackTrace}");
+                                networkEvent.Packet.Dispose();
+                                break;
+                            }
+
                             int spLength = networkEvent.Packet.Length;
                             networkEvent.Packet.Dispose();
                             OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
