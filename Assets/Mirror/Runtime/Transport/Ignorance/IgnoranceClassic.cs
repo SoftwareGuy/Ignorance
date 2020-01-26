@@ -668,6 +668,6 @@ namespace Mirror
 
             ClientConnect(uri.Host);
         }
-#endregion
+        #endregion
     }
 }

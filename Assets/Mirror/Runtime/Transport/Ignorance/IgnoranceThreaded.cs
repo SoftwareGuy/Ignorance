@@ -10,17 +10,20 @@
 // lots of detail of what you were doing and the error/stack trace.
 // -----------------
 // Server & Client Threaded Version
-// Use with caution.
+// 
 // -----------------
-
-using System;
-using System.Collections.Concurrent;
-// Mirror 4.0 Specific.
-using System.Collections.Generic;
-using System.Threading;
-using ENet;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
+
+// Used for threading.
+using System;
+using System.Threading;
+
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+
+// Very important these ones.
+using ENet;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
 
@@ -28,6 +31,9 @@ namespace Mirror
 {
     public class IgnoranceThreaded : Transport, ISegmentTransport
     {
+        // DO NOT TOUCH THIS.
+        public const string Scheme = "enet";
+
         // Client Queues
         static ConcurrentQueue<IncomingPacket> MirrorClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
         static ConcurrentQueue<OutgoingPacket> MirrorClientOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();
@@ -353,7 +359,7 @@ namespace Mirror
                 ;
             }
 
-            //
+            // This comment was actually left blank, but now it's not. You're welcome.
             using (Host cHost = new Host())
             {
                 try
@@ -681,6 +687,32 @@ namespace Mirror
                 serverWorkerHost.Flush();
                 ServerStarted = false;
             }
+        }
+        #endregion
+
+        #region Mirror 6.2+ - URI Support
+#if MIRROR_7_0_OR_NEWER
+        public override Uri ServerUri()
+        {
+            UriBuilder builder = new UriBuilder();
+            builder.Scheme = Scheme;
+            builder.Host = ServerBindAddress;
+            builder.Port = CommunicationPort;
+            return builder.Uri;
+        }
+#endif
+        public override void ClientConnect(Uri uri)
+        {
+            if (uri.Scheme != Scheme)
+                throw new ArgumentException($"Invalid uri {uri}, use {Scheme}://host:port instead", nameof(uri));
+
+            if (!uri.IsDefaultPort)
+            {
+                // Set the communication port to the one specified.
+                CommunicationPort = uri.Port;
+            }
+
+            ClientConnect(uri.Host);
         }
         #endregion
 
