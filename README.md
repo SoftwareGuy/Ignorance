@@ -195,9 +195,9 @@ having to deal with this design issue.
 ### I have a bug!
 
 [Check the current open bug reports and/or report a new one
-here](https://github.com/SoftwareGuy/Ignorance/issues) and I also recommend you
-be present in the Discord so I can ask for further info and/or you can test
-fixes for your bug reports.
+here](https://github.com/SoftwareGuy/Ignorance/issues). I strongly also recommend you
+be present in the [Mirror Discord](https://discord.gg/N9QVxbM) so I can ask for further info and/or you can test
+fixes for your bug reports. Trolls are not welcome.
 
 Bugs that do not have enough details will be closed with \#wontfix. Details like
 your OS, Unity Editor version, any Ignorance errors, etc is essential for a good
@@ -205,8 +205,9 @@ bug report.
 
 I have questions, I want answers.
 ---------------------------------
+[Here's a quick primer.](https://vis2k.github.io/Mirror/Transports/Ignorance)
 
-[You're welcome.](https://vis2k.github.io/Mirror/Transports/Ignorance)
+It might be slightly out of date, but it covers the basics of Ignorance.
 
 ### I am not satisfied with Ignorance.
 
@@ -245,19 +246,16 @@ Credits
 -   To all the others who I have missed. Thanks a lot, you know who you are.
 
 -   You too can have your name here if you send in a PR. Don't delay, get your
-    PR in today! \#\#\# Previous hall of fame:
+    PR in today! 
 
+### Previous hall of fame:
 -   [FSE_Vincenzo](https://github.com/Vincenz099): Providing insight into proper
     usage of ENET, rebuttal, improvements, etc.
-
 -   [shiena](https://github.com/shiena): Pull requests for bug fixes and
     oversights.
-
 -   [Draknith](https://github.com/FizzCube): Testing and mapping
     Reliable/Unreliable channels in Mirror to ENET Channels, testing.
 
 ### And last but not least...
-
 -   [nxrighthere](https://github.com/nxrighthere): Helped debug some things in
-    early versions of Ignorance, before going full rampage and blacklisting
-    everyone on the Mirror team from his repos. RIP.
+    early versions of Ignorance, before blacklisting everyone on the Mirror team from his repos. His funeral.
