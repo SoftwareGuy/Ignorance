@@ -401,7 +401,10 @@ namespace ENet
         {
             if (destination == null)
                 throw new ArgumentNullException("destination");
-
+            if (Data == null)
+            {
+                return;
+            }
             Marshal.Copy(Data, destination, 0, Length);
         }
     }
