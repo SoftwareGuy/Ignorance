@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Demo/PongChamp.unity
-    guid: 1839e1cfa0cc43642a0878a2b83f889c
+    path: Assets/IgnoranceSampleScenes/IgnoranceThreaded_BasicScene.unity
+    guid: 41ad25598d342f240bd8830833bfb1c5
   m_configObjects: {}

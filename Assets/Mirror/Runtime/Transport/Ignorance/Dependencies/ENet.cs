@@ -64,11 +64,10 @@ namespace ENet
         Zombie = 9
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Explicit, Size = 18)]
     internal struct ENetAddress
     {
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
-        public byte[] ip;
+        [FieldOffset(16)]
         public ushort port;
     }
 
@@ -401,7 +400,10 @@ namespace ENet
         {
             if (destination == null)
                 throw new ArgumentNullException("destination");
-
+            if (Data == null)
+            {
+                return;
+            }
             Marshal.Copy(Data, destination, 0, Length);
         }
     }
@@ -964,7 +966,8 @@ namespace ENet
     {
         public const uint maxChannelCount = 0xFF;
         public const uint maxPeers = 0xFFF;
-        public const uint maxPacketSize = 32 * 1024 * 1024;
+        public const uint maxPacketSize = 32 * 1024 * 1024;	    
+    	public const uint throttleThreshold = 20; 		// Reasonable threshold to help reduce throttling.
         public const uint throttleScale = 32;
         public const uint throttleAcceleration = 2;
         public const uint throttleDeceleration = 2;
@@ -972,7 +975,8 @@ namespace ENet
         public const uint timeoutLimit = 32;
         public const uint timeoutMinimum = 5000;
         public const uint timeoutMaximum = 30000;
-        public const uint version = (2 << 16) | (3 << 8) | (0);
+	    
+        public const uint version = (2 << 16) | (4 << 8) | (0);
 
         public static bool Initialize()
         {
@@ -1024,16 +1028,16 @@ namespace ENet
         [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
         internal static extern uint enet_time_get();
 
-        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         internal static extern int enet_address_set_host_ip(ref ENetAddress address, string ip);
 
-        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         internal static extern int enet_address_set_host(ref ENetAddress address, string hostName);
 
-        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         internal static extern int enet_address_get_host_ip(ENetAddress address, StringBuilder ip, IntPtr ipLength);
 
-        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         internal static extern int enet_address_get_host(ENetAddress address, StringBuilder hostName, IntPtr nameLength);
 
         [DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
