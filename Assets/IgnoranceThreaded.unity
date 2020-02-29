@@ -370,6 +370,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0996ec573094c24890a4d4233ee871e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  syncMode: 0
   syncInterval: 0.1
 --- !u!114 &1278075349
 MonoBehaviour:
@@ -383,10 +384,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  sceneId: 3073769009
   serverOnly: 0
-  localPlayerAuthority: 0
   m_AssetId: 
-  m_SceneId: 3073769009
 --- !u!4 &1278075350
 Transform:
   m_ObjectHideFlags: 0
@@ -958,6 +958,7 @@ MonoBehaviour:
   transport: {fileID: 1886246553}
   networkAddress: localhost
   maxConnections: 4
+  authenticator: {fileID: 0}
   playerPrefab: {fileID: 1240244544407914, guid: b1651eaf8c7564a1c86031dfbb8a7b28,
     type: 3}
   autoCreatePlayer: 1
@@ -978,41 +979,28 @@ MonoBehaviour:
   OnClientConnected:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: UnityEngine.Events.UnityEvent, UnityEngine.CoreModule, Version=0.0.0.0,
-      Culture=neutral, PublicKeyToken=null
   OnClientDataReceived:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: Mirror.UnityEventArraySegment, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
   OnClientError:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: Mirror.UnityEventException, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
   OnClientDisconnected:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: UnityEngine.Events.UnityEvent, UnityEngine.CoreModule, Version=0.0.0.0,
-      Culture=neutral, PublicKeyToken=null
   OnServerConnected:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   OnServerDataReceived:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: Mirror.UnityEventIntArraySegment, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
   OnServerError:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: Mirror.UnityEventIntException, Mirror, Version=0.0.0.0, Culture=neutral,
-      PublicKeyToken=null
   OnServerDisconnected:
     m_PersistentCalls:
       m_Calls: []
-    m_TypeName: Mirror.UnityEventInt, Mirror, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  PingCalculationFrameTimer: 120
   DebugEnabled: 0
   ServerBindAll: 1
   ServerBindAddress: 127.0.0.1
@@ -1020,7 +1008,7 @@ MonoBehaviour:
   MaximumPeerCCU: 4095
   EnetPollTimeout: 1
   MaxPacketSizeInKb: 64
-  Channels: 
+  Channels: 0100000002000000
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1028,6 +1016,21 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: m_AssetId
+      value: 5339554c46006dd4e91cae9ff34c095d
+      objectReference: {fileID: 0}
+    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: m_SceneId
+      value: 1035721996
+      objectReference: {fileID: 0}
+    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: sceneId
+      value: 8495643
+      objectReference: {fileID: 0}
     - target: {fileID: 542835289192032773, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
       propertyPath: m_Name
@@ -1087,16 +1090,6 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_AssetId
-      value: 5339554c46006dd4e91cae9ff34c095d
-      objectReference: {fileID: 0}
-    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_SceneId
-      value: 1035721996
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5339554c46006dd4e91cae9ff34c095d, type: 3}

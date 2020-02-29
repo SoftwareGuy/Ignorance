@@ -56,6 +56,10 @@ namespace Mirror
         // Client stuffs.
         static volatile bool isClientConnected = false;
         static volatile string clientConnectionAddress = string.Empty;
+       
+        [Header("Ping Calculation")]
+        public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
+        public static Action<uint> ClientPingUpdated;
 
         // Standard stuffs
         private bool ENETInitialized = false;
@@ -335,7 +339,8 @@ namespace Mirror
                 port = (ushort)CommunicationPort,
                 maxChannels = Channels.Length,
                 maxPacketSize = MaxPacketSizeInKb * 1024,
-                threadPumpTimeout = EnetPollTimeout
+                threadPumpTimeout = EnetPollTimeout,
+                pingCountUpdateTimer = PingCalculationFrameTimer,
             };
 
             Thread t = new Thread(() => ClientWorkerThread(threadBootstrap));
@@ -345,6 +350,8 @@ namespace Mirror
         private static void ClientWorkerThread(ThreadBootstrapStruct startupInfo)
         {
             // Setup...
+            int pingUpdateTicks = 0;
+
             byte[] workerPacketBuffer = new byte[startupInfo.maxPacketSize];
             Address cAddress = new Address();
 
@@ -382,6 +389,17 @@ namespace Mirror
                 while (!clientShouldCeaseOperation)
                 {
                     bool clientWasPolled = false;
+
+                    // Ping update ticker.
+                    if(startupInfo.pingCountUpdateTimer > 0)
+                    {
+                        pingUpdateTicks++;
+                        if (pingUpdateTicks >= startupInfo.pingCountUpdateTimer)
+                        {
+                            ClientPingUpdated?.Invoke(cPeer.RoundTripTime);
+                            pingUpdateTicks = 0;
+                        }
+                    }
 
                     while (!clientWasPolled)
                     {
@@ -866,6 +884,9 @@ namespace Mirror
             public int maxPacketSize;
             public int maxChannels;
             public int maxPeers;
+
+            // Client only
+            public int pingCountUpdateTimer;
         }
         #endregion
     }
