@@ -56,10 +56,6 @@ namespace Mirror
         // Client stuffs.
         static volatile bool isClientConnected = false;
         static volatile string clientConnectionAddress = string.Empty;
-       
-        [Header("Ping Calculation")]
-        public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
-        public static Action<uint> ClientPingUpdated;
 
         // Standard stuffs
         private bool ENETInitialized = false;
@@ -81,6 +77,15 @@ namespace Mirror
 
         [Header("Channel Definitions")]
         public IgnoranceChannelTypes[] Channels;
+
+        // Ping Calculation
+        [Header("Ping Calculation")]
+        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. Keep it frequent, but not too frequent. 3 - 5 seconds should be OK.")]
+        public int PingCalculationTimer = 3;
+
+        // API related to the Ping Calculations
+        public uint CurrentClientPing { get { return LastClientPing; } } // Client can read this, but can't write to it.
+        static volatile uint LastClientPing; // Network thread should be the one calling the shots here.
 
         // Standard things
         public void Awake()
@@ -340,7 +345,7 @@ namespace Mirror
                 maxChannels = Channels.Length,
                 maxPacketSize = MaxPacketSizeInKb * 1024,
                 threadPumpTimeout = EnetPollTimeout,
-                pingCountUpdateTimer = PingCalculationFrameTimer,
+                pingUpdateInterval = PingCalculationTimer,
             };
 
             Thread t = new Thread(() => ClientWorkerThread(threadBootstrap));
@@ -350,7 +355,7 @@ namespace Mirror
         private static void ClientWorkerThread(ThreadBootstrapStruct startupInfo)
         {
             // Setup...
-            int pingUpdateTicks = 0;
+            uint nextPingUpdate = 0;
 
             byte[] workerPacketBuffer = new byte[startupInfo.maxPacketSize];
             Address cAddress = new Address();
@@ -390,15 +395,11 @@ namespace Mirror
                 {
                     bool clientWasPolled = false;
 
-                    // Ping update ticker.
-                    if(startupInfo.pingCountUpdateTimer > 0)
+                    if(Library.Time >= nextPingUpdate)
                     {
-                        pingUpdateTicks++;
-                        if (pingUpdateTicks >= startupInfo.pingCountUpdateTimer)
-                        {
-                            ClientPingUpdated?.Invoke(cPeer.RoundTripTime);
-                            pingUpdateTicks = 0;
-                        }
+                        LastClientPing = cPeer.RoundTripTime;
+                        // Library.Time is milliseconds, so we need to do some quick math.
+                        nextPingUpdate = Library.Time + (uint)(startupInfo.pingUpdateInterval * 1000);
                     }
 
                     while (!clientWasPolled)
@@ -886,7 +887,7 @@ namespace Mirror
             public int maxPeers;
 
             // Client only
-            public int pingCountUpdateTimer;
+            public int pingUpdateInterval;
         }
         #endregion
     }
