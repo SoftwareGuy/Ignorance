@@ -61,8 +61,9 @@ namespace Mirror
         public uint CustomTimeoutMultiplier = 3;
         // ping calculation timer
         [Header("Ping Calculation")]
-        public bool PingCalculationEnabled = true;
-        public int PingCalculationFrameTimer = 120;    // assuming 60 frames per second, 2 second interval.
+        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. " +
+            "Keep it frequent, but not too frequent. 3 - 5 seconds should be OK. 0 to disable.")]
+        public int PingCalculationInterval = 3;
 
         // version of this transport
         private readonly string Version = "1.3.7";
@@ -76,9 +77,8 @@ namespace Mirror
         private Dictionary<Peer, int> PeersToConnectionIDs = new Dictionary<Peer, int>();
         // mirror related things
         private byte[] PacketCache;
-        private int NextConnectionID = 1;   // DO NOT MODIFY.
-        // used for latency calculation
-        private int PingCalculationFrames = 0, CurrentClientPing = 0;
+        private int NextConnectionID = 1; // DO NOT MODIFY "NextConnectionID"
+        private uint NextPingCalculationTime = 0, CurrentClientPing = 0;
 
         #region Client
         public override void ClientConnect(string address)
@@ -334,6 +334,9 @@ namespace Mirror
 
             ENETInitialized = false;
             Library.Deinitialize();
+
+            // Reset the next ping calculation timer
+            NextPingCalculationTime = 0;
         }
 
         // core
@@ -540,19 +543,23 @@ namespace Mirror
             // Coburn: does the order here really matter? Server then client?
             if (enabled)
             {
-                if (PingCalculationEnabled)
-                {
-                    PingCalculationFrames++;
-                    if (PingCalculationFrames >= PingCalculationFrameTimer)
-                    {
-                        if (!ENETPeer.IsSet || !IsValid(ENETClientHost)) CurrentClientPing = 0;
-                        else CurrentClientPing = (int)ENETPeer.RoundTripTime;
-                        PingCalculationFrames = 0;
-                    }
-                }
-
                 if (ServerStarted) ProcessServerMessages();
-                if (ClientStarted) ProcessClientMessages();
+                if (ClientStarted)
+                {
+                    // Is ping calculation enabled?
+                    if (PingCalculationInterval > 0)
+                    {
+                        // Time to recalculate our ping?
+                        if (NextPingCalculationTime >= Library.Time)
+                        {
+                            // If the peer is set, then poll it. Otherwise it might not be time to do that.
+                            if (ENETPeer.IsSet) CurrentClientPing = ENETPeer.RoundTripTime;
+                            NextPingCalculationTime = (uint)(Library.Time + (PingCalculationInterval * 1000));
+                        }
+                    }
+
+                    ProcessClientMessages();
+                }
             }
         }
 

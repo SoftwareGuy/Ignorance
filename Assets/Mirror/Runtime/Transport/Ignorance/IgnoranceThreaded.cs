@@ -80,12 +80,12 @@ namespace Mirror
 
         // Ping Calculation
         [Header("Ping Calculation")]
-        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. Keep it frequent, but not too frequent. 3 - 5 seconds should be OK.")]
-        public int PingCalculationTimer = 3;
+        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. " +
+            "Keep it frequent, but not too frequent. 3 - 5 seconds should be OK. 0 to disable.")]
+        public int PingCalculationInterval = 3;
 
         // API related to the Ping Calculations
-        public uint CurrentClientPing { get { return LastClientPing; } } // Client can read this, but can't write to it.
-        static volatile uint LastClientPing; // Network thread should be the one calling the shots here.
+        public static volatile uint CurrentClientPing; // Don't try setting this, it will be overwritten by the network thread.
 
         // Standard things
         public void Awake()
@@ -345,7 +345,7 @@ namespace Mirror
                 maxChannels = Channels.Length,
                 maxPacketSize = MaxPacketSizeInKb * 1024,
                 threadPumpTimeout = EnetPollTimeout,
-                pingUpdateInterval = PingCalculationTimer,
+                pingUpdateInterval = PingCalculationInterval,
             };
 
             Thread t = new Thread(() => ClientWorkerThread(threadBootstrap));
@@ -397,7 +397,7 @@ namespace Mirror
 
                     if(Library.Time >= nextPingUpdate)
                     {
-                        LastClientPing = cPeer.RoundTripTime;
+                        CurrentClientPing = cPeer.RoundTripTime;
                         // Library.Time is milliseconds, so we need to do some quick math.
                         nextPingUpdate = Library.Time + (uint)(startupInfo.pingUpdateInterval * 1000);
                     }
