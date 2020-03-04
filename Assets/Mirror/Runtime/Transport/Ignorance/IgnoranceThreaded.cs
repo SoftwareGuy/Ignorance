@@ -79,10 +79,11 @@ namespace Mirror
         public IgnoranceChannelTypes[] Channels;
 
         // Ping Calculation
-        [Header("Ping Calculation")]
-        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. " +
+        [Header("Statistics Calculation")]
+        [Tooltip("This value (in seconds) controls how often the client stats will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. " +
             "Keep it frequent, but not too frequent. 3 - 5 seconds should be OK. 0 to disable.")]
-        public int PingCalculationInterval = 3;
+        public int StatisticsCalculationInterval = 3;
+        public static volatile PeerStatistics statistics = new PeerStatistics();
 
         // API related to the Ping Calculations
         public static volatile uint CurrentClientPing; // Don't try setting this, it will be overwritten by the network thread.
@@ -338,6 +339,8 @@ namespace Mirror
         #region Client Threading
         private Thread IgnoranceClientThread()
         {
+            statistics = new PeerStatistics();
+
             ThreadBootstrapStruct threadBootstrap = new ThreadBootstrapStruct
             {
                 hostAddress = clientConnectionAddress,
@@ -345,7 +348,7 @@ namespace Mirror
                 maxChannels = Channels.Length,
                 maxPacketSize = MaxPacketSizeInKb * 1024,
                 threadPumpTimeout = EnetPollTimeout,
-                pingUpdateInterval = PingCalculationInterval,
+                pingUpdateInterval = StatisticsCalculationInterval,
             };
 
             Thread t = new Thread(() => ClientWorkerThread(threadBootstrap));
@@ -355,7 +358,7 @@ namespace Mirror
         private static void ClientWorkerThread(ThreadBootstrapStruct startupInfo)
         {
             // Setup...
-            uint nextPingUpdate = 0;
+            uint nextStatsUpdate = 0;
 
             byte[] workerPacketBuffer = new byte[startupInfo.maxPacketSize];
             Address cAddress = new Address();
@@ -381,8 +384,8 @@ namespace Mirror
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("Ignorance encountered a fatal exception. I'm sorry, but I gotta bail - if you believe you found a bug, please report it on the GitHub.\n" +
-                        $"The exception returned was: {e.ToString()}");
+                    Debug.LogError("Ignorance encountered a fatal exception. To help debug the issue, use a Debug DLL of ENET and look for a 'enet_log.txt' file in the root of your " +
+                        $"application folder.\nIf you believe you found a bug, please report it on the GitHub issue tracker. The exception returned was: {e.ToString()}");
                     return;
                 }
 
@@ -395,11 +398,17 @@ namespace Mirror
                 {
                     bool clientWasPolled = false;
 
-                    if(Library.Time >= nextPingUpdate)
+                    if(Library.Time >= nextStatsUpdate)
                     {
-                        CurrentClientPing = cPeer.RoundTripTime;
+                        statistics.CurrentPing = cPeer.RoundTripTime;
+                        statistics.BytesReceived = cPeer.BytesReceived;
+                        statistics.BytesSent = cPeer.BytesSent;
+
+                        statistics.PacketsLost = cPeer.PacketsLost;
+                        statistics.PacketsSent = cPeer.PacketsSent;
+
                         // Library.Time is milliseconds, so we need to do some quick math.
-                        nextPingUpdate = Library.Time + (uint)(startupInfo.pingUpdateInterval * 1000);
+                        nextStatsUpdate = Library.Time + (uint)(startupInfo.pingUpdateInterval * 1000);
                     }
 
                     while (!clientWasPolled)
