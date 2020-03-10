@@ -41,16 +41,15 @@ Compatiblity
 
 -   macOS 10.12 onwards. El Captain and below **ARE NOT** supported.
 
-    -   Tested and confirmed working on High Sierra and Mojave. Catalina has not
-        been tested due to bugs and/or version immaturity.
+    -   Tested and confirmed working on High Sierra, Mojave, Catalina.   
 
 -   Linux
 
-    -   x86_64 libraries included. Compiled on a Ubuntu 18.04 LTS instance
+    -   x86_64 libraries are included, compiled on a Ubuntu 18.04 LTS instance
         (Bionic Beaver).
 
     -   Should *just work* on various Linux distros, as long as they aren’t too
-        exotic. Main testing has been done on Debian/Ubuntu and CentOS.
+        exotic. Main testing has been done on Debian/Ubuntu/Fedora/CentOS.
 
     -   If your distro uses a different C library instead of GNU C then you’ll
         need to recompile the blobs manually. See the ENet-CSharp repository for
@@ -58,8 +57,7 @@ Compatiblity
 
 ### Console
 
--   Nintendo Switch: **Likely possible, however you’ll need to manually compile
-    it.** [See this document from the ENet-CSharp
+-   Nintendo Switch: Manual compile required - [see this document from the ENet-CSharp
     repository.](https://github.com/SoftwareGuy/ENet-CSharp/blob/master/BUILD-FOR-SWITCH.txt)
 
 -   Xbox One
@@ -71,19 +69,18 @@ Compatiblity
 
 -   PlayStation
 
-    -   Vita: Possibly, however I’d need access to Sony DevNet to build against their
-        toolchain. And I don’t have said access.
+    -   Vita: Possibly. Would require me having access to the Vita SDK and C compiler.
 
     -   PS4: Falls into the same boat as Vita (above)
 
-    -   Will probably require some patches in ENET to commodate the OS
-        differences that Vita/PS4 have (they are \*BSD based)
+    -   Both systems will probably require some patches in ENET to commodate the OS
+        differences that Vita/PS4 have (as they are \*BSD based).
 
 ### Mobile
 
 -   Android 4.4 "KitKat" onwards.
 
-    -   ARMv7, ARM64 and x86 Blobs are included.
+    -   ARMv7, ARM64 and x86 blobs are included.
 
     -   x86_64 Blobs are not included since Unity 2018.4 LTS does not support
         that platform yet.
@@ -93,7 +90,9 @@ Compatiblity
     -   System version 8.0 minimum
 
     -   Supports iPhone 4S to the latest iPhone. Tested and working on iPhone
-        4S, iPhone 5s, iPad 2 WiFi + 3G and iPad (5th Gen).
+        4S, iPhone 5s, iPad 2 WiFi + 3G and iPad (5th Gen)
+
+    -   Compiled as a FAT library.
 
 Dependencies
 ------------
@@ -111,13 +110,6 @@ Mirror Compatibility
 Please use the Mirror Asset Store releases. The master branch of Mirror can also
 be used but please beware that it's bleeding edge and massive breakage can be
 expected on a bad day.
-
-###  
-
-When using Ignorance inside the MacOS environment, it will run in a
-compatibility mode to ensure things work correctly. This is due to some Unity
-Editor thread managed-to-native issues that were fixed in 2018.3+. Windows and
-Linux do not suffer this problem.
 
 Installation
 ------------
