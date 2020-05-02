@@ -79,18 +79,6 @@ namespace ENet {
 		public IntPtr packet;
 	}
 
-	[StructLayout(LayoutKind.Sequential)]
-	internal struct ENetCallbacks {
-		public AllocCallback malloc;
-		public FreeCallback free;
-		public NoMemoryCallback noMemory;
-	}
-
-	public delegate IntPtr AllocCallback(IntPtr size);
-	public delegate void FreeCallback(IntPtr memory);
-	public delegate void NoMemoryCallback();
-	public delegate void PacketFreeCallback(Packet packet);
-
 	internal static class ArrayPool {
 		[ThreadStatic]
 		private static byte[] byteBuffer;
@@ -220,26 +208,6 @@ namespace ENet {
 		}
 	}
 
-	public class Callbacks {
-		private ENetCallbacks nativeCallbacks;
-
-		internal ENetCallbacks NativeData {
-			get {
-				return nativeCallbacks;
-			}
-
-			set {
-				nativeCallbacks = value;
-			}
-		}
-
-		public Callbacks(AllocCallback allocCallback, FreeCallback freeCallback, NoMemoryCallback noMemoryCallback) {
-			nativeCallbacks.malloc = allocCallback;
-			nativeCallbacks.free = freeCallback;
-			nativeCallbacks.noMemory = noMemoryCallback;
-		}
-	}
-
 	public struct Packet : IDisposable {
 		private IntPtr nativePacket;
 
@@ -311,18 +279,6 @@ namespace ENet {
 		internal void IsCreated() {
 			if (nativePacket == IntPtr.Zero)
 				throw new InvalidOperationException("Packet not created");
-		}
-
-		public void SetFreeCallback(IntPtr callback) {
-			IsCreated();
-
-			Native.enet_packet_set_free_callback(nativePacket, callback);
-		}
-
-		public void SetFreeCallback(PacketFreeCallback callback) {
-			IsCreated();
-
-			Native.enet_packet_set_free_callback(nativePacket, Marshal.GetFunctionPointerForDelegate(callback));
 		}
 
 		public void Create(byte[] data) {
@@ -924,14 +880,20 @@ namespace ENet {
 			return Native.enet_initialize() == 0;
 		}
 
-		public static bool Initialize(Callbacks callbacks) {
-			ENetCallbacks nativeCallbacks = callbacks.NativeData;
-
-			return Native.enet_initialize_with_callbacks(version, ref nativeCallbacks) == 0;
-		}
-
 		public static void Deinitialize() {
 			Native.enet_deinitialize();
+		}
+
+		// Supports for mimalloc memory allocator.
+		public static IntPtr Malloc(int size) => Malloc((ulong)size);
+		public static IntPtr Malloc(ulong size)
+		{
+			return Native.enet_mem_acquire(size);
+		}
+
+		public static void Free(IntPtr alloc)
+		{
+			Native.enet_mem_release(alloc);
 		}
 
 		public static uint Time {
@@ -952,13 +914,16 @@ namespace ENet {
 #else
         // Assume everything else, Windows et al...		
         private const string nativeLibrary = "enet";
-#endif	
+#endif
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern int enet_initialize();
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-		internal static extern int enet_initialize_with_callbacks(uint version, ref ENetCallbacks inits);
+		internal static extern IntPtr enet_mem_acquire(ulong sz);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern void enet_mem_release(IntPtr alloc);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_deinitialize();
@@ -1004,9 +969,6 @@ namespace ENet {
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern int enet_packet_get_length(IntPtr packet);
-
-		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-		internal static extern void enet_packet_set_free_callback(IntPtr packet, IntPtr callback);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_packet_dispose(IntPtr packet);
