@@ -115,6 +115,8 @@ namespace Mirror
             return "Ignorance Threaded";
         }
 
+        // TODO: Don't use LateUpdate, because all network stuff will be 1 frame late.
+        // TODO: Use FixedUpdate and some trickery. But that's for another day.
         public void LateUpdate()
         {
             if (enabled)
@@ -252,7 +254,7 @@ namespace Mirror
             }
 
             OutgoingPacket opkt = default;
-            opkt.commandType = CommandPacketType.ClientDisconnectRequest;
+            opkt.commandType = CommandPacketType.ClientDisconnectionRequest;
             MirrorClientOutgoingQueue.Enqueue(opkt);
 
             // ...
@@ -284,7 +286,9 @@ namespace Mirror
         {
             OutgoingPacket op = default;
             op.connectionId = connectionId;
-            op.commandType = CommandPacketType.BootToTheFace;
+            op.commandType = CommandPacketType.ServerWantsToDisconnectClient;
+
+            MirrorServerOutgoingQueue.Enqueue(op);
             return true;
         }
 
@@ -297,6 +301,7 @@ namespace Mirror
         {
             serverShouldCeaseOperation = true;
             Thread.Sleep(5);    // Allow it to have a micro-sleep
+
             if (serverWorker != null && serverWorker.IsAlive) serverWorker.Join();
 
             // IMPORTANT: Flush the queues. Get rid of the dead bodies.
@@ -482,7 +487,7 @@ namespace Mirror
                     // Outgoing stuff
                     while (MirrorClientOutgoingQueue.TryDequeue(out OutgoingPacket opkt))
                     {
-                        if (opkt.commandType == CommandPacketType.ClientDisconnectRequest)
+                        if (opkt.commandType == CommandPacketType.ClientDisconnectionRequest)
                         {
                             cPeer.DisconnectNow(0);
                             return;
@@ -564,10 +569,10 @@ namespace Mirror
                     {
                         switch (opkt.commandType)
                         {
-                            case CommandPacketType.BootToTheFace:
+                            case CommandPacketType.ServerWantsToDisconnectClient:
                                 if (ConnectionIDToPeers.TryGetValue(opkt.connectionId, out Peer bootedPeer))
                                 {
-                                    bootedPeer.DisconnectNow(0);
+                                    bootedPeer.DisconnectLater(0);
                                 }
                                 break;
 
@@ -895,8 +900,8 @@ namespace Mirror
         public enum CommandPacketType
         {
             Nothing,
-            BootToTheFace,
-            ClientDisconnectRequest
+            ServerWantsToDisconnectClient,
+            ClientDisconnectionRequest
         }
 
         // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
