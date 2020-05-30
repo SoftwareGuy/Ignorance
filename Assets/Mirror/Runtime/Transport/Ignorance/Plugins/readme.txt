@@ -19,6 +19,10 @@ A brief summary of these folders are as follows:
 -- ARMv8/AArch64 (arm64-v8a)
 -- x86 (32bit): Left here for legacy reasons
 
+- iOS 
+- FAT Library (armv7 + arm64)
+- Targeted for iOS 8 minimum. Unsigned library.
+
 DEBUG VERSIONS
 ===============
 Debug versions are provided for MacOS and iOS targets since they've been the most annoying platforms. Especially iOS.
