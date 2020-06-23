@@ -8,6 +8,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_DoNotShip/Debug_IgnoranceThreaded_BasicScene.unity
     guid: 64656fb231d86984890b51371f699612
+  - enabled: 1
+    path: Assets/Ignorance4Test.unity
+    guid: 0bd9997a2bbacc247a6bcfd4a4782657
   - enabled: 0
     path: Assets/IgnoranceSampleScenes/IgnoranceThreaded_BasicScene.unity
     guid: 41ad25598d342f240bd8830833bfb1c5
