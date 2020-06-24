@@ -54,7 +54,6 @@ namespace OiranStudio.Ignorance4
         // Used to determine if this tick had network polled or not.       
         private bool networkPumpedThisFrame = false;
         
-
         public override bool Available()
         {
             // Ignorance is not available on platforms that don't allow native binaries.
@@ -221,6 +220,8 @@ namespace OiranStudio.Ignorance4
                             break;
                         case Definitions.PacketEventType.Data:
                             OnClientDataReceived?.Invoke(incomingPacket.Payload, incomingPacket.ChannelId);
+                            // Release it, since we have consumed it.
+                            System.Buffers.ArrayPool<byte>.Shared.Return(incomingPacket.Payload.Array);
                             break;
                     }
                 }

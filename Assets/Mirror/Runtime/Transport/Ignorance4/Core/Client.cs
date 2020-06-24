@@ -21,6 +21,7 @@
  *  SOFTWARE.
  */
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Threading;
 using ENet;
@@ -109,13 +110,13 @@ namespace OiranStudio.Ignorance4
             EmittedLogString?.Invoke(false, "Stopping client instance.");
             StayHome = true;
 
-            if(clientThread.IsAlive)
+            if (clientThread.IsAlive)
             {
                 clientThread.Join();
             }
 
             ClientActive = false;
-            EmittedLogString?.Invoke(false, "Stopped client instance.");            
+            EmittedLogString?.Invoke(false, "Stopped client instance.");
         }
 
 
@@ -192,12 +193,12 @@ namespace OiranStudio.Ignorance4
                         switch (enetEvent.Type)
                         {
                             // Nothing happened this time. Take a nap.
-                            case ENet.EventType.None:
+                            case EventType.None:
                             default:
                                 break;
 
                             // Client connected.
-                            case ENet.EventType.Connect:
+                            case EventType.Connect:
                                 EmittedLogString?.Invoke(true, $"Connection established to {connectionAddress}:{port}!");
                                 IncomingDataPackets.Enqueue(new Definitions.IgnoranceDataPacket()
                                 {
@@ -206,7 +207,7 @@ namespace OiranStudio.Ignorance4
                                 });
                                 break;
 
-                            case ENet.EventType.Receive:
+                            case EventType.Receive:
                                 EmittedLogString?.Invoke(true, $"Connection receiving data: channel {enetEvent.ChannelID}, {enetEvent.Packet.Length} byte");
                                 if (enetEvent.Packet.IsSet)
                                 {
@@ -233,23 +234,22 @@ namespace OiranStudio.Ignorance4
                                         }
 
                                         // Good, now let's process this.
-                                        // Cache that packet.
-                                        EmittedLogString?.Invoke(true, $"Buffer write position: {bufferCurrentPosition}"); // DEBUG
-
-                                        enetEvent.Packet.CopyTo(clientWorkBuffer, (int)bufferCurrentPosition);
+                                        // Cache that packet. Let's ask (nicely) for some memory.
+                                        byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(MaximumPacketSize);
+                                        enetEvent.Packet.CopyTo(rentedBuffer);
 
                                         Definitions.IgnoranceDataPacket ignoranceDataPacket = new Definitions.IgnoranceDataPacket()
                                         {
                                             Type = Definitions.PacketEventType.Data,
                                             ChannelId = enetEvent.ChannelID,
-                                            Payload = new ArraySegment<byte>(clientWorkBuffer, bufferCurrentPosition, enetEvent.Packet.Length)
+                                            Payload = new ArraySegment<byte>(rentedBuffer, 0, enetEvent.Packet.Length)
                                         };
 
                                         bufferCurrentPosition += enetEvent.Packet.Length;
                                         // EmittedLogString?.Invoke(true, $"Buffer next write position: {bufferCurrentPosition}"); // DEBUG
 
                                         // All good - now put it into the queue to shuttle back over to mirror world
-                                        enetEvent.Packet.Dispose();                                        
+                                        enetEvent.Packet.Dispose();
                                         IncomingDataPackets.Enqueue(ignoranceDataPacket);
                                     }
                                     else

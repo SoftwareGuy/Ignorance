@@ -20,10 +20,8 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *  SOFTWARE.
  */
-using UnityEngine;
-using ENet;
 using System;
-using System.Collections.Concurrent;
+using ENet;
 
 namespace OiranStudio.Ignorance4
 {
