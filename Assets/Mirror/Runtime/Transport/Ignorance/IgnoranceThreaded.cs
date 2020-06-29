@@ -153,6 +153,13 @@ namespace Mirror
                         // Nothing to see here.
                         break;
                 }
+
+                // Some messages can disable the transport
+                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+                if (!enabled)
+                {
+                    break;
+                }
             }
 
             // Flashbang though the window and race to the finish.
@@ -179,6 +186,13 @@ namespace Mirror
                     case MirrorPacketType.ClientGotData:
                         OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
                         break;
+                }
+                
+                // Some messages can disable the transport
+                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+                if (!enabled)
+                {
+                    break;
                 }
             }
             return true;
