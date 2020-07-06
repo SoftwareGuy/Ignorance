@@ -427,6 +427,13 @@ namespace Mirror
                         }
                         break;
                 }
+
+                // Some messages can disable the transport
+                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+                if (!enabled)
+                {
+                    break;
+                }
             }
 
             // We're done here. Return.
@@ -502,6 +509,13 @@ namespace Mirror
                             OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
                         }
                         break;
+                }
+                
+                // Some messages can disable the transport
+                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+                if (!enabled)
+                {
+                    break;
                 }
             }
             // We're done here. Return.
