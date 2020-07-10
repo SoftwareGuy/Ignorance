@@ -487,6 +487,7 @@ namespace Mirror
 
                                     IncomingPacket dataPkt = default;
                                     dataPkt.type = MirrorPacketType.ClientGotData;
+                                    dataPkt.channelId = networkEvent.ChannelID;
                                     dataPkt.data = new byte[spLength];  // Grrr!!!
                                     networkEvent.Packet.CopyTo(dataPkt.data);
 
