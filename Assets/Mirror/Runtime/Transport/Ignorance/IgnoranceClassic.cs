@@ -22,18 +22,10 @@ using EventType = ENet.EventType;
 
 namespace Mirror
 {
-    public class IgnoranceClassic : Transport, ISegmentTransport
+    public class IgnoranceClassic : Transport
     {
         // DO NOT TOUCH THIS.
         public const string Scheme = "enet";
-
-        // hooks for ignorance modules
-        // server startup
-        public Action OnIgnoranceServerStartup;
-        public Action OnIgnoranceServerShutdown;
-        // server shutdown
-        public Action OnIgnoranceClientStartup;
-        public Action OnIgnoranceClientShutdown;
 
         // debug
         [Header("Debug Options")]
@@ -66,7 +58,7 @@ namespace Mirror
         public int PingCalculationInterval = 3;
 
         // version of this transport
-        private readonly string Version = "1.3.7";
+        private readonly string Version = "1.3.8";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -275,14 +267,10 @@ namespace Mirror
             if (ENETHost == null || !ENETHost.IsSet) ENETHost = new Host();
 
             // Go go go! Clear those corners!
-            // Fun fact: The author of the ENET Wrapper implemented packet size limits in ENET after we implemented them in Mirror.
-            // *thinking emoji*
-            ENETHost.Create(ENETAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0, PacketCache.Length);
+            ENETHost.Create(ENETAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0);
 
             if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Server should be created now... If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
             ServerStarted = true;
-
-            OnIgnoranceServerStartup?.Invoke();
         }
 
         public override void ServerStop()
@@ -305,7 +293,6 @@ namespace Mirror
             }
 
             ServerStarted = false;
-            OnIgnoranceServerShutdown?.Invoke();
         }
         #endregion
 
@@ -402,7 +389,12 @@ namespace Mirror
                                 // invoke on the server.
                                 try
                                 {
-                                    networkEvent.Packet.CopyTo(PacketCache);
+                                    byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(networkEvent.Packet.Length);
+                                    networkEvent.Packet.CopyTo(rentedBuffer);
+                                    networkEvent.Packet.Dispose();
+                                    OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(rentedBuffer, 0, networkEvent.Packet.Length), networkEvent.ChannelID);
+                                    System.Buffers.ArrayPool<byte>.Shared.Return(rentedBuffer, true);
+
                                 }
                                 catch (Exception e)
                                 {
@@ -410,13 +402,11 @@ namespace Mirror
                                         $"Exception returned was: {e.Message}\n" +
                                         $"Debug details: {(PacketCache == null ? "packet buffer was NULL" : $"{PacketCache.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
                                         $"Stack Trace: {e.StackTrace}");
-                                    networkEvent.Packet.Dispose();
                                     break;
                                 }
 
-                                int spLength = networkEvent.Packet.Length;
+                                // Dispose of the packet, we're done.
                                 networkEvent.Packet.Dispose();
-                                OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
                             }
                         }
                         else
@@ -492,7 +482,11 @@ namespace Mirror
                             // invoke on the client.
                             try
                             {
-                                networkEvent.Packet.CopyTo(PacketCache);
+                                byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(networkEvent.Packet.Length);
+                                networkEvent.Packet.CopyTo(rentedBuffer);
+
+                                OnClientDataReceived.Invoke(new ArraySegment<byte>(rentedBuffer, 0, networkEvent.Packet.Length), networkEvent.ChannelID);
+                                System.Buffers.ArrayPool<byte>.Shared.Return(rentedBuffer, true);
                             }
                             catch (Exception e)
                             {
@@ -504,9 +498,8 @@ namespace Mirror
                                 break;
                             }
 
-                            int spLength = networkEvent.Packet.Length;
                             networkEvent.Packet.Dispose();
-                            OnClientDataReceived.Invoke(new ArraySegment<byte>(PacketCache, 0, spLength), networkEvent.ChannelID);
+
                         }
                         break;
                 }
@@ -652,10 +645,12 @@ namespace Mirror
         #region Mirror 6.2+ - URI Support
         public override Uri ServerUri()
         {
-            UriBuilder builder = new UriBuilder();
-            builder.Scheme = Scheme;
-            builder.Host = ServerBindAddress;
-            builder.Port = CommunicationPort;
+            UriBuilder builder = new UriBuilder
+            {
+                Scheme = Scheme,
+                Host = ServerBindAddress,
+                Port = CommunicationPort
+            };
             return builder.Uri;
         }
 

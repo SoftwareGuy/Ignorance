@@ -380,7 +380,7 @@ namespace ENet {
 			nativePacket = Native.enet_packet_create_offset(data, (IntPtr)length, (IntPtr)offset, flags);
 		}
 
-		public void CopyTo(byte[] destination) {
+		public void CopyTo(byte[] destination, int startPos = 0) {
             if (destination == null)
                 throw new ArgumentNullException("destination");
             
@@ -391,7 +391,7 @@ namespace ENet {
                 return;
             }
 			
-            Marshal.Copy(Data, destination, 0, Length);
+            Marshal.Copy(Data, destination, startPos, Length);
 		}
 	}
 

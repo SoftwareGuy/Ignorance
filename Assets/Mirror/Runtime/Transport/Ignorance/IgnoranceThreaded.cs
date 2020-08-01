@@ -28,7 +28,7 @@ using EventType = ENet.EventType;
 
 namespace Mirror
 {
-    public class IgnoranceThreaded : Transport, ISegmentTransport
+    public class IgnoranceThreaded : Transport
     {
         // DO NOT TOUCH THIS.
         public const string Scheme = "enet";
@@ -148,6 +148,7 @@ namespace Mirror
                         break;
                     case MirrorPacketType.ServerClientSentData:
                         OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data), pkt.channelId);
+                        System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
                         break;
                     default:
                         // Nothing to see here.
@@ -185,6 +186,7 @@ namespace Mirror
                         break;
                     case MirrorPacketType.ClientGotData:
                         OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
+                        System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
                         break;
                 }
                 
@@ -403,7 +405,7 @@ namespace Mirror
                 catch (Exception e)
                 {
                     Debug.LogError("Ignorance encountered a fatal exception. To help debug the issue, use a Debug DLL of ENET and look for a 'enet_log.txt' file in the root of your " +
-                        $"application folder.\nIf you believe you found a bug, please report it on the GitHub issue tracker. The exception returned was: {e.ToString()}");
+                        $"application folder.\nIf you believe you found a bug, please report it on the GitHub issue tracker. The exception returned was: {e}");
                     return;
                 }
 
@@ -471,7 +473,15 @@ namespace Mirror
                                     // invoke on the client.
                                     try
                                     {
-                                        networkEvent.Packet.CopyTo(workerPacketBuffer);
+                                        IncomingPacket dataPkt = default;
+                                        dataPkt.type = MirrorPacketType.ClientGotData;
+                                        dataPkt.channelId = networkEvent.ChannelID;
+
+                                        byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(networkEvent.Packet.Length);
+                                        networkEvent.Packet.CopyTo(rentedBuffer);                                                                                                                      
+                                        dataPkt.data = rentedBuffer;
+
+                                        MirrorClientIncomingQueue.Enqueue(dataPkt);
                                     }
                                     catch (Exception e)
                                     {
@@ -479,24 +489,13 @@ namespace Mirror
                                             $"Exception returned was: {e.Message}\n" +
                                             $"Debug details: {(workerPacketBuffer == null ? "packet buffer was NULL" : $"{workerPacketBuffer.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
                                             $"Stack Trace: {e.StackTrace}");
-                                        networkEvent.Packet.Dispose();
                                         break;
                                     }
 
-                                    int spLength = networkEvent.Packet.Length;
-
-                                    IncomingPacket dataPkt = default;
-                                    dataPkt.type = MirrorPacketType.ClientGotData;
-                                    dataPkt.channelId = networkEvent.ChannelID;
-                                    dataPkt.data = new byte[spLength];  // Grrr!!!
-                                    networkEvent.Packet.CopyTo(dataPkt.data);
-
-                                    MirrorClientIncomingQueue.Enqueue(dataPkt);
+                                    networkEvent.Packet.Dispose();
                                 }
                                 break;
                         }
-
-                        networkEvent.Packet.Dispose();
                     }
 
                     // Outgoing stuff
@@ -563,7 +562,7 @@ namespace Mirror
             {
                 try
                 {
-                    serverWorkerHost.Create(eAddress, startupInformation.maxPeers, startupInformation.maxChannels, 0, 0, startupInformation.maxPacketSize);
+                    serverWorkerHost.Create(eAddress, startupInformation.maxPeers, startupInformation.maxChannels, 0, 0);
                     ServerStarted = true;
                 }
                 catch (Exception e)
@@ -685,7 +684,19 @@ namespace Mirror
                                     // Copy to the packet cache.
                                     try
                                     {
-                                        netEvent.Packet.CopyTo(workerPacketBuffer);
+                                        IncomingPacket dataPkt = default;
+                                        dataPkt.connectionId = dataConnID;
+                                        dataPkt.channelId = netEvent.ChannelID;
+                                        dataPkt.type = MirrorPacketType.ServerClientSentData;
+                                        dataPkt.ipAddress = netEvent.Peer.IP;
+
+                                        byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(netEvent.Packet.Length);
+                                        netEvent.Packet.CopyTo(rentedBuffer);
+
+                                        dataPkt.data = rentedBuffer;
+
+                                        MirrorServerIncomingQueue.Enqueue(dataPkt);
+
                                     }
                                     catch (Exception e)
                                     {
@@ -693,38 +704,9 @@ namespace Mirror
                                             $"Exception returned was: {e.Message}\n" +
                                             $"Debug details: {(workerPacketBuffer == null ? "packet buffer was NULL" : $"{workerPacketBuffer.Length} byte work buffer")}, {netEvent.Packet.Length} byte(s) network packet length\n" +
                                             $"Stack Trace: {e.StackTrace}");
-                                        netEvent.Packet.Dispose();
+
                                         return;
                                     }
-
-                                    int spLength = netEvent.Packet.Length;
-
-                                    IncomingPacket dataPkt = default;
-                                    dataPkt.connectionId = dataConnID;
-                                    dataPkt.channelId = (int)netEvent.ChannelID;
-                                    dataPkt.type = MirrorPacketType.ServerClientSentData;
-
-                                    // TODO: Come up with a better method of doing this.
-                                    dataPkt.data = new byte[spLength];
-                                    try
-                                    {
-                                        Array.Copy(workerPacketBuffer, 0, dataPkt.data, 0, spLength);
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Debug.LogError($"Ignorance caught an exception while copying data between buffers: {e.Message}\n" +
-                                            $"Debug details: {(workerPacketBuffer == null ? " packet buffer was NULL" : $"{workerPacketBuffer.Length} byte work buffer")}, {(dataPkt.data == null ? "cache packet buffer was NULL" : $"{dataPkt.data.Length} byte(s) cache packet buffer length")}\n" +
-                                            $"Stack Trace: {e.StackTrace}");
-
-                                        netEvent.Packet.Dispose();
-                                        return;
-                                    }
-
-                                    // Faulty .Array on the end seems to return the rest of the buffer as well instead of just 10 bytes or whatever
-                                    // dataPkt.data = new ArraySegment<byte>(workerPacketBuffer, 0, spLength);
-                                    dataPkt.ipAddress = netEvent.Peer.IP;
-
-                                    MirrorServerIncomingQueue.Enqueue(dataPkt);
                                 }
                                 else
                                 {
@@ -732,6 +714,7 @@ namespace Mirror
                                     netEvent.Peer.DisconnectNow(0);
                                 }
 
+                                // Dispose of the packet - we're done.
                                 netEvent.Packet.Dispose();
                                 break;
                         }
@@ -759,10 +742,12 @@ namespace Mirror
         #region Mirror 6.2+ - URI Support
         public override Uri ServerUri()
         {
-            UriBuilder builder = new UriBuilder();
-            builder.Scheme = Scheme;
-            builder.Host = ServerBindAddress;
-            builder.Port = CommunicationPort;
+            UriBuilder builder = new UriBuilder
+            {
+                Scheme = Scheme,
+                Host = ServerBindAddress,
+                Port = CommunicationPort
+            };
             return builder.Uri;
 		}
 		
