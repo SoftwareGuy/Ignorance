@@ -25,8 +25,9 @@ using System.Collections.Generic;
 using ENet;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+using System.Threading.Tasks;
 
-namespace Mirror
+namespace Mirror.ENet
 {
     public class IgnoranceThreaded : Transport
     {
