@@ -732,7 +732,7 @@ namespace Mirror
         #endregion
 
         #region Mirror 6.2+ - URI Support
-        public override Uri ServerUri()
+        public override IEnumerable<Uri> ServerUri()
         {
             UriBuilder builder = new UriBuilder
             {
@@ -740,8 +740,8 @@ namespace Mirror
                 Host = ServerBindAddress,
                 Port = CommunicationPort
             };
-            return builder.Uri;
-		}
+            return new[] { builder.Uri };
+        }
 		
         public override void ClientConnect(Uri uri)
         {
