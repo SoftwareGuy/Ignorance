@@ -201,12 +201,12 @@ namespace Mirror
         }
 
         // Is the client connected?
-        public override bool ClientConnected()
+        public bool ClientConnected()
         {
             return isClientConnected;
         }
 
-        public override void ClientConnect(string address)
+        public void ClientConnect(string address)
         {
             // initialize
             if (!ENETInitialized)
@@ -254,12 +254,12 @@ namespace Mirror
         }
 
         // Client Sending: ArraySegment and classic byte array versions
-        public override bool ClientSend(int channelId, ArraySegment<byte> data)
+        public bool ClientSend(int channelId, ArraySegment<byte> data)
         {
             return ENETClientQueueInternal(channelId, data);
         }
 
-        public override void ClientDisconnect()
+        public void ClientDisconnect()
         {
             if (DebugEnabled) Debug.Log($"Ignorance: Client disconnection acknowledged");
 
@@ -278,7 +278,7 @@ namespace Mirror
         #endregion
 
         #region Server Portion
-        public override bool ServerActive()
+        public bool ServerActive()
         {
             return ServerStarted;
         }
@@ -298,7 +298,7 @@ namespace Mirror
             return ENETServerQueueInternal(connectionId, channelId, data);
         }
 
-        public override bool ServerDisconnect(int connectionId)
+        public bool ServerDisconnect(int connectionId)
         {
             OutgoingPacket op = default;
             op.connectionId = connectionId;
@@ -308,12 +308,12 @@ namespace Mirror
             return true;
         }
 
-        public override string ServerGetClientAddress(int connectionId)
+        public string ServerGetClientAddress(int connectionId)
         {
             return "UNKNOWN";
         }
 
-        public override void ServerStop()
+        public void ServerStop()
         {
             serverShouldCeaseOperation = true;
             Thread.Sleep(5);    // Allow it to have a micro-sleep
@@ -336,7 +336,7 @@ namespace Mirror
             print($"Ignorance Threaded: Server stopped.");
         }
 
-        public override void Shutdown()
+        public void Shutdown()
         {
             serverShouldCeaseOperation = true;
             clientShouldCeaseOperation = true;
@@ -350,7 +350,7 @@ namespace Mirror
         #endregion
 
         #region General Purpose
-        public override int GetMaxPacketSize(int channelId = 0)
+        public int GetMaxPacketSize(int channelId = 0)
         {
             return MaxPacketSizeInKb * 1024;
         }
@@ -785,7 +785,7 @@ namespace Mirror
                 };
             }
         }
-        public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
+        public bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
         {
             if (!ServerStarted)
             {
@@ -922,6 +922,4 @@ namespace Mirror
         }
         #endregion
     }
-
-
 }
