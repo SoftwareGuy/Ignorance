@@ -160,6 +160,19 @@ namespace Mirror.ENet
             return true;
         }
 
+        public override void Disconnect()
+        {
+            if (ClientStarted)
+            {
+                ClientDisconnect();
+            }
+
+            if (ServerStarted)
+            {
+                ServerStop();
+            }
+        }
+
         #region Client Portion
         private bool ProcessClientMessages()
         {
