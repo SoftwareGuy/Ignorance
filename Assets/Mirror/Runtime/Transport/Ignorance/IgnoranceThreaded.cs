@@ -31,7 +31,7 @@ namespace Mirror
     public class IgnoranceThreaded : Transport
     {
         // DO NOT TOUCH THIS.
-        public const string Scheme = "enet";
+        public override IEnumerable<string> Scheme => new[] { "enet" };
 
         // Client Queues
         static ConcurrentQueue<IncomingPacket> MirrorClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
@@ -744,7 +744,7 @@ namespace Mirror
         {
             UriBuilder builder = new UriBuilder
             {
-                Scheme = Scheme,
+                Scheme = "enet",
                 Host = ServerBindAddress,
                 Port = CommunicationPort
             };
@@ -753,7 +753,7 @@ namespace Mirror
 		
         public override void ClientConnect(Uri uri)
         {
-            if (uri.Scheme != Scheme)
+            if (uri.Scheme != "enet")
                 throw new ArgumentException($"Invalid uri {uri}, use {Scheme}://host:port instead", nameof(uri));
 
             if (!uri.IsDefaultPort)
