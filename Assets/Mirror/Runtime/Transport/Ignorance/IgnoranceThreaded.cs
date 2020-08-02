@@ -33,6 +33,8 @@ namespace Mirror
         // DO NOT TOUCH THIS.
         public override IEnumerable<string> Scheme => new[] { "enet" };
 
+        public override bool Supported => Application.platform != RuntimePlatform.WebGLPlayer;
+
         // Client Queues
         static ConcurrentQueue<IncomingPacket> MirrorClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
         static ConcurrentQueue<OutgoingPacket> MirrorClientOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();
@@ -98,16 +100,6 @@ namespace Mirror
                 Debug.LogWarning("Do not file a bug report regarding this. There's a valid reason why 4096 is the maximum limit.");
                 MaximumPeerCCU = 4095;
             }
-        }
-
-        public override bool Available()
-        {
-#if UNITY_WEBGL
-            // Ignorance is not available on these platforms.
-            return false;
-#else
-            return true;
-#endif
         }
 
         public override string ToString()
