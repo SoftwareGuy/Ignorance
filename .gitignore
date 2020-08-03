@@ -331,9 +331,24 @@ ASALocalRun/
 .mfractor/
 
 # Dependencies so that people don't get import issues.
-[Aa]ssets/Mirror/
-![Aa]ssets/Mirror/Runtime/Transport/Ignorance
-![Aa]ssets/Mirror/Runtime/Transport/ISegmentTransport.*
+
+[Aa]ssets/Mirror/Authenticators
+[Aa]ssets/Mirror/Cloud
+[Aa]ssets/Mirror/CompilerSymbols
+[Aa]ssets/Mirror/Components
+[Aa]ssets/Mirror/Editor
+[Aa]ssets/Mirror/Examples
+[Aa]ssets/Mirror/Icon
+[Aa]ssets/Mirror/Plugins
+[Aa]ssets/Mirror/Runtime/*.cs
+[Aa]ssets/Mirror/Runtime/*.meta
+[Aa]ssets/Mirror/Runtime/Logging/
+[Aa]ssets/Mirror/Runtime/Transport/*.cs
+[Aa]ssets/Mirror/Runtime/Transport/*.meta
+[Aa]ssets/Mirror/Runtime/Transport/Telepathy
+[Aa]ssets/Mirror/Runtime/Transport/Websocket/
+![Aa]ssets/Mirror/Runtime/Transport/Ignorance/
+![Aa]ssets/Mirror/Runtime/Transport/Ignorance/Dependencies/
 
 #[Aa]ssets/Mirror/Editor
 #[Aa]ssets/Mirror/Examples
@@ -369,3 +384,12 @@ Assets/Mirror/Icon/
 LinuxBuild/
 Assets/Mirror/CompilerSymbols/
 Assets/NotFucked
+Assets/Plugins
+Assets/Plugins.meta
+Assets/NotFucked.meta
+Assets/Mirror/Runtime/Mirror.asmdef
+Assets/Mirror/*.meta
+Assets/Mirror/Readme.txt
+Assets/Mirror/version.txt
+Assets/StreamingAssets.meta
+enet_log.txt
