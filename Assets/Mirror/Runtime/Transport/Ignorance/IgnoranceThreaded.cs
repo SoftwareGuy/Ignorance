@@ -289,7 +289,20 @@ namespace Mirror.ENet
             return ServerStarted;
         }
 
-        public override void ServerStart()
+        public override Task ListenAsync()
+        {
+            ServerStart();
+            return Task.CompletedTask;
+        }
+
+        public override async Task<IConnection> AcceptAsync()
+        {
+            //TODO
+            await Task.CompletedTask;
+            return null;
+        }
+
+        public void ServerStart()
         {
             print($"Ignorance Threaded: Starting server worker.");
 
@@ -757,7 +770,7 @@ namespace Mirror.ENet
             return new[] { builder.Uri };
         }
 		
-        public override void ClientConnect(Uri uri)
+        public override async Task<IConnection> ConnectAsync(Uri uri)
         {
             if (uri.Scheme != "enet")
                 throw new ArgumentException($"Invalid uri {uri}, use {Scheme}://host:port instead", nameof(uri));
@@ -769,6 +782,10 @@ namespace Mirror.ENet
             }
 
             ClientConnect(uri.Host);
+
+            await Task.CompletedTask; //TODO
+
+            return new ENetConnection(null); //TODO
         }
         #endregion
 
