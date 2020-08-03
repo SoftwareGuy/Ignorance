@@ -115,8 +115,8 @@ namespace Mirror.ENet
             if (enabled)
             {
                 // Server will pump itself...
-                if (ServerStarted) ProcessServerMessages();
-                if (ClientStarted) ProcessClientMessages();
+                //if (ServerStarted) ProcessServerMessages();
+                //if (ClientStarted) ProcessClientMessages();
             }
         }
 
@@ -125,40 +125,43 @@ namespace Mirror.ENet
             return Library.Initialize();
         }
 
+
+        //TODO: ProcessMessages is part of NetworkConnection (INetworkConnection) now
+        //Should a new INetworkConnection implementation be made for Ignorance?
         // Server processing loop.
-        private bool ProcessServerMessages()
-        {
-            // Get to the queue! Check those corners!
-            while (MirrorServerIncomingQueue.TryDequeue(out IncomingPacket pkt))
-            {
-                switch (pkt.type)
-                {
-                    case MirrorPacketType.ServerClientConnected:
-                        OnServerConnected?.Invoke(pkt.connectionId);
-                        break;
-                    case MirrorPacketType.ServerClientDisconnected:
-                        OnServerDisconnected?.Invoke(pkt.connectionId);
-                        break;
-                    case MirrorPacketType.ServerClientSentData:
-                        OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data), pkt.channelId);
-                        System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
-                        break;
-                    default:
-                        // Nothing to see here.
-                        break;
-                }
+        //private bool ProcessServerMessages()
+        //{
+        //    // Get to the queue! Check those corners!
+        //    while (MirrorServerIncomingQueue.TryDequeue(out IncomingPacket pkt))
+        //    {
+        //        switch (pkt.type)
+        //        {
+        //            case MirrorPacketType.ServerClientConnected:
+        //                OnServerConnected?.Invoke(pkt.connectionId);
+        //                break;
+        //            case MirrorPacketType.ServerClientDisconnected:
+        //                OnServerDisconnected?.Invoke(pkt.connectionId);
+        //                break;
+        //            case MirrorPacketType.ServerClientSentData:
+        //                OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data), pkt.channelId);
+        //                System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
+        //                break;
+        //            default:
+        //                // Nothing to see here.
+        //                break;
+        //        }
 
-                // Some messages can disable the transport
-                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-                if (!enabled)
-                {
-                    break;
-                }
-            }
+        //        // Some messages can disable the transport
+        //        // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+        //        if (!enabled)
+        //        {
+        //            break;
+        //        }
+        //    }
 
-            // Flashbang though the window and race to the finish.
-            return true;
-        }
+        //    // Flashbang though the window and race to the finish.
+        //    return true;
+        //}
 
         public override void Disconnect()
         {
@@ -174,37 +177,39 @@ namespace Mirror.ENet
         }
 
         #region Client Portion
-        private bool ProcessClientMessages()
-        {
-            while (MirrorClientIncomingQueue.TryDequeue(out IncomingPacket pkt))
-            {
-                switch (pkt.type)
-                {
-                    case MirrorPacketType.ClientConnected:
-                        if (DebugEnabled) print($"Ignorance: We have connected!");
-                        isClientConnected = true;
-                        OnClientConnected?.Invoke();
-                        break;
-                    case MirrorPacketType.ClientDisconnected:
-                        if (DebugEnabled) print($"Ignorance: We have been disconnected.");
-                        isClientConnected = false;
-                        OnClientDisconnected?.Invoke();
-                        break;
-                    case MirrorPacketType.ClientGotData:
-                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
-                        System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
-                        break;
-                }
+        //TODO: ProcessMessages is part of NetworkConnection (INetworkConnection) now
+        //Should a new INetworkConnection implementation be made for Ignorance?
+        //private bool ProcessClientMessages()
+        //{
+        //    while (MirrorClientIncomingQueue.TryDequeue(out IncomingPacket pkt))
+        //    {
+        //        switch (pkt.type)
+        //        {
+        //            case MirrorPacketType.ClientConnected:
+        //                if (DebugEnabled) print($"Ignorance: We have connected!");
+        //                isClientConnected = true;
+        //                OnClientConnected?.Invoke();
+        //                break;
+        //            case MirrorPacketType.ClientDisconnected:
+        //                if (DebugEnabled) print($"Ignorance: We have been disconnected.");
+        //                isClientConnected = false;
+        //                OnClientDisconnected?.Invoke();
+        //                break;
+        //            case MirrorPacketType.ClientGotData:
+        //                OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
+        //                System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
+        //                break;
+        //        }
                 
-                // Some messages can disable the transport
-                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-                if (!enabled)
-                {
-                    break;
-                }
-            }
-            return true;
-        }
+        //        // Some messages can disable the transport
+        //        // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+        //        if (!enabled)
+        //        {
+        //            break;
+        //        }
+        //    }
+        //    return true;
+        //}
 
         // Is the client connected?
         public bool ClientConnected()
