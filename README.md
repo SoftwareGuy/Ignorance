@@ -8,16 +8,22 @@ Ignorance 1.3
 *If you feel so inclined, I'd appreciate* [a coffee to keep me
 caffeinated](https://ko-fi.com/coburn) *if you use this transport.*
 
-Welcome to Ignorance, a plug-in Transport system for [Mirror
-Networking](https://github.com/vis2k/Mirror) that allows you to harness reliable
-UDP communications over the vast seas that is the internet. Harnessing the ENET
-Backend, it provides reliable and unreliable UDP packet delivery with up to 255
-individual channels and 4096 theortical maximum clients connected at any time.
+Welcome to Ignorance, a Enet-powered Transport system for the [Mirror
+Networking](https://github.com/vis2k/Mirror) project. By utilizing the tried
+and true Enet native C library, Ignorance provides reliable UDP communications 
+for your game projects where the default Telepathy TCP transport would choke.
 
-Let's face the music: Unity's Low-level API networking sucks. Ignorance aims to
-do what LLAPI did... and a little bit more.
+Ignorance scales up to 4096 theortical CCU with up to 255 channels per client. Channels 
+allow you to split up network communications so you can have channels for data that are 
+mission critical as well as non-essential data. Mirror, and by extension, Unity, would choke 
+before hitting that CCU mark in the real world without optimizing your network code carefully.
 
-Please read the FAQ (towards the bottom of this wall of text) before using the
+Ignorance was used in a recent "Vinesauce is Hope" walking simulation demo which had multiple 
+server instances running with over 300 CCU each. [Video clips available here.](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu)
+
+Ignorance was originally intended to replace Unity's LLAPI Transport that ships with
+Mirror. Over it's development, it has been proven to literally wipe the floor compared 
+against Unity LLAPI. Please read the FAQ (towards the bottom of this wall of text) before using the
 Ignorance Transport.
 
 Compatiblity
