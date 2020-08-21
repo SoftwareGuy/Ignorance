@@ -53,12 +53,12 @@ namespace Mirror
         public uint CustomTimeoutMultiplier = 3;
         // ping calculation timer
         [Header("Ping Calculation")]
-        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the ENET world. Note that too low values can actually harm performance due to excessive polling. " +
+        [Tooltip("This value (in seconds) controls how often the client peer ping value will be retrieved from the Enet world. Note that too low values can actually harm performance due to excessive polling. " +
             "Keep it frequent, but not too frequent. 3 - 5 seconds should be OK. 0 to disable.")]
         public int PingCalculationInterval = 3;
 
         // version of this transport
-        private readonly string Version = "1.3.8";
+        private readonly string Version = "1.3.9";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -245,13 +245,22 @@ namespace Mirror
                 {
                     // Looks good to us. Let's use it.
                     if (DebugEnabled) print($"Ignorance: Valid IP Address {ServerBindAddress}");
-                    ENETAddress.SetIP(ServerBindAddress);
+                    if (!ENETAddress.SetIP(ServerBindAddress))
+                    {
+                        Debug.LogError("Ignorance was unable to set the hostname or address. Was this even valid? Please check it and try again.");
+                        return;
+                    }
+
                 }
                 else
                 {
                     // Might be a hostname.
                     if (DebugEnabled) print($"Ignorance: Doesn't look like a valid IP address, assuming it's a hostname?");
-                    ENETAddress.SetHost(ServerBindAddress);
+                    if (!ENETAddress.SetHost(ServerBindAddress))
+                    {
+                        Debug.LogError("Ignorance was unable to set the hostname or address. Was this even valid? Please check it and try again.");
+                        return;
+                    }
                 }
             }
             else
@@ -277,8 +286,7 @@ namespace Mirror
         {
             if (DebugEnabled)
             {
-                Debug.Log("[DEBUGGING MODE] Ignorance: ServerStop()");
-                Debug.Log("[DEBUGGING MODE] Ignorance: Cleaning the packet cache...");
+                Debug.Log("[DEBUGGING MODE] Ignorance: ServerStop(). Cleaning the packet cache...");
             }
 
             PacketCache = new byte[MaxPacketSizeInKb * 1024];

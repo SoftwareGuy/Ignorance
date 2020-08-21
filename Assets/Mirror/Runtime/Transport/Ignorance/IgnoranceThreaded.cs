@@ -404,13 +404,18 @@ namespace Mirror
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("Ignorance encountered a fatal exception. To help debug the issue, use a Debug DLL of ENET and look for a 'enet_log.txt' file in the root of your " +
-                        $"application folder.\nIf you believe you found a bug, please report it on the GitHub issue tracker. The exception returned was: {e}");
+                    Debug.LogError("Ignorance encountered a fatal exception. To help debug the issue, use a Debug DLL of ENet and look for a logfile in the root of your " +
+                        $"application's folder.\nIf you believe you found a bug, please report it on the GitHub issue tracker. The exception returned was: {e}");
                     return;
                 }
 
                 // Attempt to start connection...
-                cAddress.SetHost(startupInfo.hostAddress);
+                if(!cAddress.SetHost(startupInfo.hostAddress))
+                {
+                    Debug.LogError("Ignorance was unable to set the hostname or address. Was this string even valid? Please check it and try again.");
+                    return;
+                }
+
                 cAddress.Port = startupInfo.port;
                 Peer cPeer = cHost.Connect(cAddress, startupInfo.maxChannels);
 
@@ -567,13 +572,13 @@ namespace Mirror
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("Ignorance encountered a fatal exception. I'm sorry, but I gotta bail - if you believe you found a bug, please report it on the GitHub.\n" +
+                    Debug.LogError("Ignorance encountered a fatal exception. You might have found a bug. Please report this on the GitHub Issue tracker and provide details as to what happened.\n" +
                         $"The exception returned was: {e}");
                     return;
                 }
 
-                Debug.Log($"Ignorance Server worker thread is ready for connections! I'm listening on UDP port {startupInformation.port}.\n" +
-                    $"Capacity: {startupInformation.maxPeers} peers with {startupInformation.maxChannels} channels. My buffer size is {startupInformation.maxPacketSize} bytes");
+                Debug.Log($"Ignorance server thread ready for connections. Listening on UDP port {startupInformation.port}.\n" +
+                    $"Capacity: {startupInformation.maxPeers} peers with {startupInformation.maxChannels} channels. Max packet size: {startupInformation.maxPacketSize} bytes");
 
                 // The meat and potatoes.
                 while (!serverShouldCeaseOperation)
