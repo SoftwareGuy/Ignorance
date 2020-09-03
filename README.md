@@ -5,25 +5,26 @@ Ignorance 1.3
 [![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg)](https://github.com/SoftwareGuy/Ignorance/issues)
 ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
 
-*If you feel so inclined, I'd appreciate* [a coffee to keep me
-caffeinated](https://ko-fi.com/coburn) *if you use this transport.*
+_If you feel so inclined, I'd appreciate [**a coffee** to keep me
+caffeinated](https://ko-fi.com/coburn) if you use this transport._
 
 Welcome to Ignorance, a Enet-powered Transport system for the [Mirror
 Networking](https://github.com/vis2k/Mirror) project. By utilizing the tried
 and true Enet native C library, Ignorance provides reliable UDP communications 
 for your game projects where the default Telepathy TCP transport would choke.
 
-Ignorance scales up to 4096 theortical CCU with up to 255 channels per client. Channels 
+Ignorance scales up to 4096 theortical CCU with up to 255 channels per client (also known as a peer in Enet terms). Channels 
 allow you to split up network communications so you can have channels for data that are 
-mission critical as well as non-essential data. Mirror, and by extension, Unity, would choke 
-before hitting that CCU mark in the real world without optimizing your network code carefully.
+mission critical as well as non-essential data. Mirror and by extension, Unity, choke 
+before hitting that CCU mark in the real world unless one carefully optimizes their network code carefully.
 
 Ignorance was used in a recent "Vinesauce is Hope" walking simulation demo which had multiple 
 server instances running with over 300 CCU each. [Video clips available here.](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu)
 
 Ignorance was originally intended to replace Unity's LLAPI Transport that ships with
-Mirror. Over it's development, it has been proven to literally wipe the floor compared 
-against Unity LLAPI. Please read the FAQ (towards the bottom of this wall of text) before using the
+Mirror, however since it uses native libraries it was deemed too risky to ship with Mirror itself.
+
+Enet has been proven to be superior when compared to Unity LLAPI. Please read the FAQ (towards the bottom of this wall of text) before using the
 Ignorance Transport.
 
 Compatiblity
@@ -31,31 +32,28 @@ Compatiblity
 
 ### Desktop
 
--   Windows 7 x64 onwards, **however...**
-
-    -   32bit Windows ENET Blobs are included, however they should be treated as
-        experimental. I am doing this because I get quite a lot of people in
-        countries where 32bit computers are more common than 64bit computers
-        (Russia, Brazil, etc).
-
-    -   If you have found a quirk in the 32bit blobs, you will be required to
-        build a 64bit version of your game and test to see if the quirk exists.
-        If it does, then you qualify for a bug report.
-
-    -   If the quirk exists in 32bit blobs but does not exist in 64bit blobs,
-        then you can file a bug report but it’ll be lower priority.
-
--   macOS 10.12 onwards. El Captain and below **ARE NOT** supported.
-
+-   **x64 Windows editions, starting from Windows 7**
+    -   As of Ignorance 1.3.8, 32bit Windows Enet native blobs are no longer included. There was not enough reasoning to
+        include 32bit native blobs since 32bit Windows is a platform that Unity is slowly phasing out. As such, if you 
+        really need 32bit native blobs then you can use my ENet-CSharp repositories' build system on your copy of 32bit Windows,
+        or ask for a 32bit binary blob.
+        
+    -   In addition to the above dot point, the only real places that I know of where 32bit is still common is Russia, Brazil and
+        some other countries.
+        
+-   **macOS 10.12 onwards**
+    -   El Captain and below **ARE NOT** supported.
+    
+    -   Compiled on a GitHub autobuilder Ubuntu instance.
+    
     -   Tested and confirmed working on High Sierra, Mojave, Catalina.   
 
--   Linux
+-   **Linux x64**
 
-    -   x86_64 libraries are included, compiled on a Ubuntu 18.04 LTS instance
-        (Bionic Beaver).
+    -   x86_64 libraries are included, compiled on a GitHub autobuilder Ubuntu instance.
 
     -   Should *just work* on various Linux distros, as long as they aren’t too
-        exotic. Main testing has been done on Debian/Ubuntu/Fedora/CentOS.
+        exotic. Main testing has been done on Debian/Ubuntu/Fedora/CentOS/Arch.
 
     -   If your distro uses a different C library instead of GNU C then you’ll
         need to recompile the blobs manually. See the ENet-CSharp repository for
@@ -63,35 +61,36 @@ Compatiblity
 
 ### Console
 
--   Nintendo Switch: Manual compile required - [see this document from the ENet-CSharp
-    repository.](https://github.com/SoftwareGuy/ENet-CSharp/blob/master/BUILD-FOR-SWITCH.txt)
+-   **Nintendo Switch**
+    
+    -   Manual compile of Enet native binaries required, [see this document from the ENet-CSharp
+        repository.](https://github.com/SoftwareGuy/ENet-CSharp/blob/master/BUILD-FOR-SWITCH.txt)
 
--   Xbox One
+-   **Xbox One**
 
     -   UWP: Tested and confirmed working for **LAN Client only**. LAN Host doesn't work.
 
     -   Native: Possibly, however I don’t have development kit or license to
         test.
 
--   PlayStation
+-   **PlayStation**
 
-    -   Vita: Possibly. Would require me having access to the Vita SDK and C compiler.
+    -   Vita: Dead platform.
 
-    -   PS4: Falls into the same boat as Vita (above)
-
-    -   Both systems will probably require some patches in ENET to commodate the OS
-        differences that Vita/PS4 have (as they are \*BSD based).
-
+    -   PS4: Likely would require custom version of Enet due to the console using a BSD-based OS.
+    
 ### Mobile
 
--   Android 4.4 "KitKat" onwards.
+-   **Android**
 
+    -   Android 4.4 "KitKat" onwards.
+    
     -   ARMv7, ARM64 and x86 blobs are included.
 
     -   x86_64 Blobs are not included since Unity 2018.4 LTS does not support
         that platform yet.
 
--   Apple iOS
+-   **Apple iOS**
 
     -   System version 8.0 minimum
 
@@ -103,19 +102,15 @@ Compatiblity
 Dependencies
 ------------
 
+-   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp)
+
 -   [Mirror Networking](https://github.com/vis2k/Mirror)
-
--   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp) (custom fork, NOT
-    compatible with upstream)
-
--   ENET Native C Library Blobs (included)
 
 Mirror Compatibility
 --------------------
 
 Please use the Mirror Asset Store releases. The master branch of Mirror can also
-be used but please beware that it's bleeding edge and massive breakage can be
-expected on a bad day.
+be used but please beware that it's bleeding edge.
 
 Installation
 ------------
@@ -127,18 +122,8 @@ How to use
 ----------
 
 As of Ignorance 1.3, I have included a pre-configured sample scene so you can
-get started easily.
-
-**Hard mode:**
-
-- If you haven't already, make a empty GameObject with the Mirror **Network
-Manager**. 
-- It will automatically add Telepathy as the default transport. 
-- Add a **new component** and look for **Ignorance Classic** or **Ignorance Threaded**.
-- You will have Ignorance added as a transport, but it will not be activated.
-- Remove the Telepathy transport.
-- Now **drag the Ignorance (Classic/Threaded) component** into the **Transport** field of the **Network Manager** inspector. 
-- If all goes well, you should see `**Game Object Name (Ignorance Classic/Threaded)` in that field.
+get started easily. Otherwise add the script called **Ignorance Threaded** to your NetworkManager object,
+removing any TCP-based or other UDP-based transport. Then set the script to be used in NetworkManagers' "Transport" field.
 
 FAQ (aka Please Read This First)
 --------------------------------
@@ -149,45 +134,37 @@ Unity LLAPI is old, obsolete and no longer mantained by Unity Technologies. It
 is currently on heavy life-support until they get their act together with the
 new Unity Multiplay system. Plus, it was held together by bandaids and
 bubble-gum. Depending on what you threw over the network, you'd get random
-latency spikes and packets would go missing even in Reliable delivery mode.
+latency spikes and packets would go missing even in reliable delivery mode.
 
 Ignorance aims to replace it with a stable and high performance transport system
 that allows you to forget about low-level networking stress and spend more time
-focusing on the gameplay.
+focusing on the gameplay of your game.
 
-### Ignorance Classic vs Ignorance Threaded
+### Classic vs Threaded
 
-As of the latest version of Ignorance, there are two versions included in
-releases and this repository. They are as follows:
+For high performance networking, use Ignorance Threaded. Ignorance Classic is now deprecated 
+and will be removed fully from Ignorance 1.4.0.
 
--   Classic: This one pumps the ENET Backend every LateUpdate tick, and if any
-    events come in, they will be fired all in that tick. This is the "tried and
-    true" transport pumping method.
-
--   Threaded: This one pumps the ENET Backend with a configurable timeout and
-    uses seperate server and client incoming and outgoing queues. Network Events
-    get placed into their respective queues and are pumped until the server or
-    client is disconnected respectively. During every LateUpdate tick, the
-    incoming queues are drained, ready for more network activity. This allows
-    maximum performance, at the expense of some stability as Unity threading can
-    be very tempermental at times.
-
-If performance is essential for you, use the **Ignorance Threaded** version of
-Ignorance. This will give you maximum networking performance. If stability is
-essential, use the **Ignorance Classic** version of Ignorance.
+Ignorance Threaded puts Enet inside its own thread, allowing Enet to pump the network as much 
+as it can, queuing new events to Mirror as they are received. Events are sent and received using
+high performance ConcurrentQueues. The threaded version of Ignorance was deemed risky before Unity released
+their 2018.4 LTS branch, but it's now the go-to version for high performance UDP networking.
 
 ### Important note
 
 Since Mirror and all transports use LateUpdate to process their network code,
 there might be a chance that at very low framerate (ie. you are really stressing
 the server or creating lots of GameObjects in which Unity has to load from disk)
-that the networking gets overwhelmed, regardless of classic or threaded versions
-of Ignorance. It is essential to keep your server's frame rate running as high
+that the networking gets overwhelmed, regardless of how Enet is coping in the 
+native world. 
+
+It is essential to keep your server's frame rate running as high
 as possible as this will reduce latency and in-game lag. You will be able to
 tell when the server is under heavy stress when networked objects get very
 choppy and/or the client starts hanging.
 
-Until Mirror changes how they manage their transport code, we are stuck with
+Mirror using LateUpdate for polling is a design flaw that the main developers have
+little interest in fixing. Until they decide to change it, we are stuck with
 having to deal with this design issue.
 
 ### I have a bug!
@@ -249,11 +226,13 @@ Credits
 ### Previous hall of fame:
 -   [FSE_Vincenzo](https://github.com/Vincenz099): Providing insight into proper
     usage of ENET, rebuttal, improvements, etc.
+    
 -   [shiena](https://github.com/shiena): Pull requests for bug fixes and
     oversights.
+    
 -   [Draknith](https://github.com/FizzCube): Testing and mapping
     Reliable/Unreliable channels in Mirror to ENET Channels, testing.
-
-### And last but not least...
+    
 -   [nxrighthere](https://github.com/nxrighthere): Helped debug some things in
-    early versions of Ignorance, before blacklisting everyone on the Mirror team from his repos. His funeral.
+    early versions of Ignorance, author of the upstream ENet-CSharp repository 
+    my fork is based on
