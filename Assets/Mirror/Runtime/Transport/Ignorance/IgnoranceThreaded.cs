@@ -512,7 +512,7 @@ namespace Mirror
                             return;
                         }
 
-                        int returnCode = cPeer.SendAndReturnStatusCode(opkt.channelId, ref opkt.payload);
+                        int returnCode = cPeer.Send(opkt.channelId, ref opkt.payload);
                         if (returnCode != 0) print($"Ignorance: Could not send {opkt.payload.Length} bytes to server on channel {opkt.channelId}, error code {returnCode}");
                     }
                 }
@@ -599,7 +599,7 @@ namespace Mirror
                             default:
                                 if (ConnectionIDToPeers.TryGetValue(opkt.connectionId, out Peer target))
                                 {                                    
-                                    returnCode = target.SendAndReturnStatusCode(opkt.channelId, ref opkt.payload);
+                                    returnCode = target.Send(opkt.channelId, ref opkt.payload);
                                     if (returnCode != 0) print($"Error code {returnCode} returned trying to send {opkt.payload.Length} bytes to Peer {target.ID} on channel {opkt.channelId}");
                                 }
                                 break;
