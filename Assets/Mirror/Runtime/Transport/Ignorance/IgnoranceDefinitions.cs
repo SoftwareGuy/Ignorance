@@ -14,7 +14,7 @@ namespace Mirror {
             UnreliableFragmented = PacketFlags.UnreliableFragmented,                // Pure UDP, but fragmented.
             UnreliableSequenced = PacketFlags.None,                                 // Pure UDP, but sequenced.
             UnbundledInstant = PacketFlags.Instant,                                 // Instant packet, will not be bundled with others.
-			Unthrottled = PacketFlags.Unthrottled,									// ???			
+			Crucial = PacketFlags.Crucial,											// ???			
         }
 		
 		[Serializable]

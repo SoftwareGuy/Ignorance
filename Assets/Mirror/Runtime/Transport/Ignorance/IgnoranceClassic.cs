@@ -203,7 +203,7 @@ namespace Mirror
             if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer targetPeer))
             {
                 payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-                int returnCode = targetPeer.Send((byte)channelId, ref payload);
+                int returnCode = targetPeer.SendAndReturnStatusCode((byte)channelId, ref payload);
 
                 if (returnCode == 0)
                 {
@@ -637,7 +637,7 @@ namespace Mirror
 
             Packet payload = default;
             payload.Create(dataPayload.Array, dataPayload.Offset, dataPayload.Count + dataPayload.Offset, (PacketFlags)Channels[channelId]);
-            int returnCode = ENETPeer.Send((byte)channelId, ref payload);
+            int returnCode = ENETPeer.SendAndReturnStatusCode((byte)channelId, ref payload);
             if (returnCode == 0)
             {
                 if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} OK");
