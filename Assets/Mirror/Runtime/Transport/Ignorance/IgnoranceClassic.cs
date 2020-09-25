@@ -24,9 +24,6 @@ namespace Mirror
 {
     public class IgnoranceClassic : Transport
     {
-        // DO NOT TOUCH THIS.
-        public const string Scheme = "enet";
-
         // debug
         [Header("Debug Options")]
         public bool DebugEnabled = false;
@@ -57,8 +54,6 @@ namespace Mirror
             "Keep it frequent, but not too frequent. 3 - 5 seconds should be OK. 0 to disable.")]
         public int PingCalculationInterval = 3;
 
-        // version of this transport
-        private readonly string Version = "1.3.9";
         // enet engine related things
         private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
         private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
@@ -203,7 +198,7 @@ namespace Mirror
             if (ConnectionIDToPeers.TryGetValue(connectionId, out Peer targetPeer))
             {
                 payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
-                int returnCode = targetPeer.SendAndReturnStatusCode((byte)channelId, ref payload);
+                int returnCode = targetPeer.Send((byte)channelId, ref payload);
 
                 if (returnCode == 0)
                 {
@@ -577,12 +572,12 @@ namespace Mirror
             // A little complicated if else mess.
             if (ServerActive())
             {
-                if (NetworkClient.active) return $"Ignorance {Version} (HostClient)";      // HostClient Mode
-                else return $"Ignorance {Version} (Dedicated Server)";                    // Dedicated server masterrace mode
+                if (NetworkClient.active) return $"Ignorance {IgnoranceInternals.Version} (HostClient)";      // HostClient Mode
+                else return $"Ignorance {IgnoranceInternals.Version} (Dedicated Server)";                    // Dedicated server masterrace mode
             }
             else
             {
-                return $"Ignorance {Version} (ClientOnly)";                                   // Client mode
+                return $"Ignorance {IgnoranceInternals.Version} (Client)";                                   // Client mode
             }
         }
 
@@ -637,7 +632,7 @@ namespace Mirror
 
             Packet payload = default;
             payload.Create(dataPayload.Array, dataPayload.Offset, dataPayload.Count + dataPayload.Offset, (PacketFlags)Channels[channelId]);
-            int returnCode = ENETPeer.SendAndReturnStatusCode((byte)channelId, ref payload);
+            int returnCode = ENETPeer.Send((byte)channelId, ref payload);
             if (returnCode == 0)
             {
                 if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} OK");
@@ -655,7 +650,7 @@ namespace Mirror
         {
             UriBuilder builder = new UriBuilder
             {
-                Scheme = Scheme,
+                Scheme = IgnoranceInternals.Scheme,
                 Host = ServerBindAddress,
                 Port = CommunicationPort
             };
@@ -664,8 +659,8 @@ namespace Mirror
 
         public override void ClientConnect(Uri uri)
         {
-            if (uri.Scheme != Scheme)
-                throw new ArgumentException($"Invalid uri {uri}, use {Scheme}://host:port instead", nameof(uri));
+            if (uri.Scheme != IgnoranceInternals.Scheme)
+                throw new ArgumentException($"Invalid uri {uri}, use {IgnoranceInternals.Scheme}://host:port instead", nameof(uri));
 
             if (!uri.IsDefaultPort)
             {

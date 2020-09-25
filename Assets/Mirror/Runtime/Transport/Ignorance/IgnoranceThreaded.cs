@@ -31,7 +31,7 @@ namespace Mirror
     public class IgnoranceThreaded : Transport
     {
         // DO NOT TOUCH THIS.
-        public const string Scheme = "enet";
+        
 
         // Client Queues
         static ConcurrentQueue<IncomingPacket> MirrorClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
@@ -57,7 +57,6 @@ namespace Mirror
         static volatile string clientConnectionAddress = string.Empty;
 
         // Standard stuffs
-        private bool ENETInitialized = false;
         // Properties
         public bool DebugEnabled;
 
@@ -65,14 +64,14 @@ namespace Mirror
         public bool ServerBindAll = true;
         public string ServerBindAddress = "127.0.0.1";
         public int CommunicationPort = 7777;
-        public int MaximumPeerCCU = 4095;
+        public int MaximumPeerCCU = 100;
 
         [Header("Thread Settings")]
         public int EnetPollTimeout = 1;
 
         [Header("Security")]
         [UnityEngine.Serialization.FormerlySerializedAs("MaxPacketSize")]
-        public int MaxPacketSizeInKb = 16;
+        public int MaxPacketSizeInKb = 4;
 
         [Header("Channel Definitions")]
         public IgnoranceChannelTypes[] Channels;
@@ -90,7 +89,7 @@ namespace Mirror
         // Standard things
         public void Awake()
         {
-            print("Thanks for using Ignorance Threaded Edition! If you experience bugs with this version, please file a GitHub support ticket. https://github.com/SoftwareGuy/Ignorance");
+            print("Thanks for using Ignorance Threaded Edition! Experience a bug? Report it here on GitHub => https://github.com/SoftwareGuy/Ignorance.");
 
             if (MaximumPeerCCU > 4095)
             {
@@ -112,7 +111,7 @@ namespace Mirror
 
         public override string ToString()
         {
-            return "Ignorance Threaded";
+            return $"Ignorance Threaded v{IgnoranceInternals.Version}";
         }
 
         // TODO: Don't use LateUpdate, because all network stuff will be 1 frame late.
@@ -125,11 +124,6 @@ namespace Mirror
                 if (ServerStarted) ProcessServerMessages();
                 if (ClientStarted) ProcessClientMessages();
             }
-        }
-
-        private bool InitializeENET()
-        {
-            return Library.Initialize();
         }
 
         // Server processing loop.
@@ -189,7 +183,7 @@ namespace Mirror
                         System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
                         break;
                 }
-                
+
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
                 if (!enabled)
@@ -208,21 +202,6 @@ namespace Mirror
 
         public override void ClientConnect(string address)
         {
-            // initialize
-            if (!ENETInitialized)
-            {
-                if (InitializeENET())
-                {
-                    Debug.Log($"Ignorance successfully initialized ENET.");
-                    ENETInitialized = true;
-                }
-                else
-                {
-                    Debug.LogError($"Ignorance failed to initialize ENET! Cannot continue.");
-                    return;
-                }
-            }
-
             if (Channels.Length > 255)
             {
                 Debug.LogError($"Ignorance: Too many channels. Channel limit is 255, you have {Channels.Length}. Aborting connection.");
@@ -343,9 +322,6 @@ namespace Mirror
 
             if (serverWorker != null && serverWorker.IsAlive) serverWorker.Join();
             if (clientWorker != null && clientWorker.IsAlive) clientWorker.Join();
-
-            if (ENETInitialized) Library.Deinitialize();
-            ENETInitialized = false;
         }
         #endregion
 
@@ -379,8 +355,6 @@ namespace Mirror
         {
             // Setup...
             uint nextStatsUpdate = 0;
-
-            byte[] workerPacketBuffer = new byte[startupInfo.maxPacketSize];
             Address cAddress = new Address();
 
             // Drain anything in the queues...
@@ -394,12 +368,22 @@ namespace Mirror
                 ;
             }
 
+            // Thread Safety: Initialize ENet in its own thread.
+            if(Library.Initialize())
+            {
+                Debug.Log("Ignorance has initialized ENet.");
+            } else
+            {
+                Debug.LogError("Ignorance has failed to initialize ENet.");
+                return;
+            }
+
             // This comment was actually left blank, but now it's not. You're welcome.
             using (Host cHost = new Host())
             {
                 try
                 {
-                    cHost.Create(null, 1, startupInfo.maxChannels, 0, 0, startupInfo.maxPacketSize);
+                    cHost.Create(null, 1, startupInfo.maxChannels, 0, 0);
                     ClientStarted = true;
                 }
                 catch (Exception e)
@@ -410,7 +394,7 @@ namespace Mirror
                 }
 
                 // Attempt to start connection...
-                if(!cAddress.SetHost(startupInfo.hostAddress))
+                if (!cAddress.SetHost(startupInfo.hostAddress))
                 {
                     Debug.LogError("Ignorance was unable to set the hostname or address. Was this string even valid? Please check it and try again.");
                     return;
@@ -423,7 +407,7 @@ namespace Mirror
                 {
                     bool clientWasPolled = false;
 
-                    if(Library.Time >= nextStatsUpdate)
+                    if (Library.Time >= nextStatsUpdate)
                     {
                         statistics.CurrentPing = cPeer.RoundTripTime;
                         statistics.BytesReceived = cPeer.BytesReceived;
@@ -438,13 +422,13 @@ namespace Mirror
 
                     while (!clientWasPolled)
                     {
-                        if (cHost.CheckEvents(out Event networkEvent) <= 0)
+                        if (cHost.CheckEvents(out Event netEvent) <= 0)
                         {
-                            if (cHost.Service(startupInfo.threadPumpTimeout, out networkEvent) <= 0) break;
+                            if (cHost.Service(startupInfo.threadPumpTimeout, out netEvent) <= 0) break;
                             clientWasPolled = true;
                         }
 
-                        switch (networkEvent.Type)
+                        switch (netEvent.Type)
                         {
                             case EventType.Connect:
                                 // Client connected.
@@ -461,16 +445,16 @@ namespace Mirror
                                 break;
                             case EventType.Receive:
                                 // Client recieving some data.
-                                if (!networkEvent.Packet.IsSet)
+                                if (!netEvent.Packet.IsSet)
                                 {
                                     print("Ignorance WARNING: A incoming packet is not set correctly.");
                                     break;
                                 }
 
-                                if (networkEvent.Packet.Length > workerPacketBuffer.Length)
+                                if (netEvent.Packet.Length > startupInfo.maxPacketSize)
                                 {
-                                    print($"Ignorance: Packet too big to fit in buffer. {networkEvent.Packet.Length} packet bytes vs {workerPacketBuffer.Length} cache bytes {networkEvent.Peer.ID}.");
-                                    networkEvent.Packet.Dispose();
+                                    print($"Ignorance: Packet dropped as it was too large from Peer {netEvent.Peer.ID}! {netEvent.Packet.Length} packet bytes > allowed size of {startupInfo.maxPacketSize} bytes.");
+                                    netEvent.Packet.Dispose();
                                     break;
                                 }
                                 else
@@ -480,24 +464,24 @@ namespace Mirror
                                     {
                                         IncomingPacket dataPkt = default;
                                         dataPkt.type = MirrorPacketType.ClientGotData;
-                                        dataPkt.channelId = networkEvent.ChannelID;
+                                        dataPkt.channelId = netEvent.ChannelID;
 
-                                        byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(networkEvent.Packet.Length);
-                                        networkEvent.Packet.CopyTo(rentedBuffer);                                                                                                                      
+                                        byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(netEvent.Packet.Length);
+                                        netEvent.Packet.CopyTo(rentedBuffer);
                                         dataPkt.data = rentedBuffer;
 
                                         MirrorClientIncomingQueue.Enqueue(dataPkt);
                                     }
                                     catch (Exception e)
                                     {
-                                        Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENET) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
+                                        Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENet) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
                                             $"Exception returned was: {e.Message}\n" +
-                                            $"Debug details: {(workerPacketBuffer == null ? "packet buffer was NULL" : $"{workerPacketBuffer.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
+                                            $"Debug details: {(netEvent.Packet.Data == null ? "NetEvent Packet payload was NULL" : $"NetEvent Packet payload was valid")}, {netEvent.Packet.Length} byte(s) packet\n" +
                                             $"Stack Trace: {e.StackTrace}");
                                         break;
                                     }
 
-                                    networkEvent.Packet.Dispose();
+                                    netEvent.Packet.Dispose();
                                 }
                                 break;
                         }
@@ -512,7 +496,7 @@ namespace Mirror
                             return;
                         }
 
-                        int returnCode = cPeer.SendAndReturnStatusCode(opkt.channelId, ref opkt.payload);
+                        int returnCode = cPeer.Send(opkt.channelId, ref opkt.payload);
                         if (returnCode != 0) print($"Ignorance: Could not send {opkt.payload.Length} bytes to server on channel {opkt.channelId}, error code {returnCode}");
                     }
                 }
@@ -521,6 +505,9 @@ namespace Mirror
                 cHost.Flush();
                 ClientStarted = false;
             }
+
+            Library.Deinitialize();
+            Debug.Log("Ignorance has deinitialized ENet.");
         }
         #endregion
 
@@ -546,13 +533,20 @@ namespace Mirror
 
         private static void ServerWorkerThread(ThreadBootstrapStruct startupInformation)
         {
-            // Worker buffer.
-            byte[] workerPacketBuffer = new byte[startupInformation.maxPacketSize];
+            // Thread Safety: Initialize ENet in it's own thread.
+            if (Library.Initialize())
+            {
+                Debug.Log("Ignorance has initialized ENet.");
+            }
+            else
+            {
+                Debug.LogError("Ignorance has failed to initialize ENet.");
+                return;
+            }
+
             // Connection ID.
             // TODO: Change the name of this.
             int nextConnectionId = 1;
-            // Return code from the send function
-            int returnCode = 0;
 
             // Server address properties
             Address eAddress = new Address()
@@ -578,7 +572,7 @@ namespace Mirror
                 }
 
                 Debug.Log($"Ignorance server thread ready for connections. Listening on UDP port {startupInformation.port}.\n" +
-                    $"Capacity: {startupInformation.maxPeers} peers with {startupInformation.maxChannels} channels. Max packet size: {startupInformation.maxPacketSize} bytes");
+                    $"Capacity: {startupInformation.maxPeers} peers with {startupInformation.maxChannels} channels each. Max packet size: {startupInformation.maxPacketSize} bytes");
 
                 // The meat and potatoes.
                 while (!serverShouldCeaseOperation)
@@ -598,8 +592,9 @@ namespace Mirror
                             case CommandPacketType.Nothing:
                             default:
                                 if (ConnectionIDToPeers.TryGetValue(opkt.connectionId, out Peer target))
-                                {                                    
-                                    returnCode = target.SendAndReturnStatusCode(opkt.channelId, ref opkt.payload);
+                                {
+                                    // Return code from the send function
+                                    int returnCode = target.Send(opkt.channelId, ref opkt.payload);
                                     if (returnCode != 0) print($"Error code {returnCode} returned trying to send {opkt.payload.Length} bytes to Peer {target.ID} on channel {opkt.channelId}");
                                 }
                                 break;
@@ -628,8 +623,6 @@ namespace Mirror
                                 break;
 
                             case EventType.Connect:
-                                // int connectionId = nextConnectionId;
-
                                 // Add to dictionaries.
                                 if (!PeersToConnectionIDs.TryAdd(netEvent.Peer, nextConnectionId))
                                 {
@@ -662,10 +655,10 @@ namespace Mirror
                                     disconnectionPkt.ipAddress = netEvent.Peer.IP;
 
                                     MirrorServerIncomingQueue.Enqueue(disconnectionPkt);
-                                    ConnectionIDToPeers.TryRemove(deadPeer, out Peer _);
+                                    ConnectionIDToPeers.TryRemove(deadPeer, out _);
                                 }
 
-                                PeersToConnectionIDs.TryRemove(netEvent.Peer, out int _);
+                                PeersToConnectionIDs.TryRemove(netEvent.Peer, out _);
                                 break;
 
                             case EventType.Receive:
@@ -705,11 +698,10 @@ namespace Mirror
                                     }
                                     catch (Exception e)
                                     {
-                                        Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENET) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
+                                        Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENet) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
                                             $"Exception returned was: {e.Message}\n" +
-                                            $"Debug details: {(workerPacketBuffer == null ? "packet buffer was NULL" : $"{workerPacketBuffer.Length} byte work buffer")}, {netEvent.Packet.Length} byte(s) network packet length\n" +
+                                            $"Debug details: {(netEvent.Packet.Data == null ? "NetEvent Packet payload was NULL" : $"NetEvent Packet payload was valid")}, {netEvent.Packet.Length} byte(s) packet\n" +
                                             $"Stack Trace: {e.StackTrace}");
-
                                         return;
                                     }
                                 }
@@ -740,6 +732,9 @@ namespace Mirror
 
                 // Server is no longer started.
                 ServerStarted = false;
+
+                Library.Deinitialize();
+                Debug.Log("Ignorance has deinitialized ENet.");
             }
         }
         #endregion
@@ -749,17 +744,17 @@ namespace Mirror
         {
             UriBuilder builder = new UriBuilder
             {
-                Scheme = Scheme,
+                Scheme = IgnoranceInternals.Scheme,
                 Host = ServerBindAddress,
                 Port = CommunicationPort
             };
             return builder.Uri;
-		}
-		
+        }
+
         public override void ClientConnect(Uri uri)
         {
-            if (uri.Scheme != Scheme)
-                throw new ArgumentException($"Invalid uri {uri}, use {Scheme}://host:port instead", nameof(uri));
+            if (uri.Scheme != IgnoranceInternals.Scheme)
+                throw new ArgumentException($"Invalid uri {uri}, use {IgnoranceInternals.Scheme}://host:port instead", nameof(uri));
 
             if (!uri.IsDefaultPort)
             {
