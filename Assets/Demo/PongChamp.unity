@@ -1094,8 +1094,9 @@ MonoBehaviour:
   ServerBindAddress: 127.0.0.1
   CommunicationPort: 7777
   MaximumPeerCCU: 100
-  EnetPollTimeout: 1
-  MaxPacketSizeInKb: 4
+  EnetServerPollTimeout: 3
+  EnetClientPollTimeout: 1
+  MaximumPacketSize: 1200
   Channels: 0100000002000000
   StatisticsCalculationInterval: 3
 --- !u!1001 &543632697568170294
@@ -1129,6 +1130,11 @@ PrefabInstance:
         type: 3}
       propertyPath: syncInterval
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 520653813702449573, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: m_Interpolate
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 542835289192032773, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}

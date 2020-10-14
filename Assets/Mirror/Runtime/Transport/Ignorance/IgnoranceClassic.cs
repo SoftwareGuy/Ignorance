@@ -2,12 +2,9 @@
 // A Unity LLAPI Replacement Transport for Mirror Networking
 // https://github.com/SoftwareGuy/Ignorance
 // -----------------
-// Ignorance Transport is licensed under the MIT license, however
-// it comes with no warranty what-so-ever. However, if you do
-// encounter a problem with Ignorance you can get support by
-// dropping past the Mirror discord's #ignorance channel. Otherwise,
-// open a issue ticket on the GitHub issues page. Ensure you provide
-// lots of detail of what you were doing and the error/stack trace.
+// Copyright (c) 2019 - 2020 Matt Coburn (SoftwareGuy/Coburn64)
+// Ignorance Transport is licensed under the MIT license. Refer
+// to the LICENSE file for more information.
 // -----------------
 // Ignorance Classic. This version uses LateUpdate polling for both
 // server and client hot paths.

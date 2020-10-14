@@ -30,7 +30,7 @@ namespace Mirror
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.3.9";
+        public const string Version = "1.3.10";
         public const string Scheme = "enet";
     }
 }
