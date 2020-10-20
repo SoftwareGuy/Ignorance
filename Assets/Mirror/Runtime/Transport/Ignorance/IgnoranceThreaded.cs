@@ -126,13 +126,13 @@ namespace Mirror
                 switch (pkt.type)
                 {
                     case QueuePacketType.Server_ClientConnect:
-                        OnServerConnected?.Invoke(pkt.connectionId);
+                        OnServerConnected?.Invoke(pkt.mirrorClientId);
                         break;
-                    case QueuePacketType.Server_Disconnect:
-                        OnServerDisconnected?.Invoke(pkt.connectionId);
+                    case QueuePacketType.Server_ClientDisconnect:
+                        OnServerDisconnected?.Invoke(pkt.mirrorClientId);
                         break;
                     case QueuePacketType.Server_IncomingData:
-                        OnServerDataReceived?.Invoke(pkt.connectionId, new ArraySegment<byte>(pkt.data), pkt.channelId);
+                        OnServerDataReceived?.Invoke(pkt.mirrorClientId, new ArraySegment<byte>(pkt.data), pkt.channelId);
                         System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
                         break;
                     default:
@@ -266,13 +266,13 @@ namespace Mirror
         // Can't deprecate this due to Dissonance...
         public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
-            return ENETServerQueueInternal(connectionId, channelId, data);
+            return EnqueuePacketForDelivery(connectionId, channelId, data);
         }
 
         public override bool ServerDisconnect(int connectionId)
         {
             OutgoingPacket op = default;
-            op.connectionId = connectionId;
+            op.mirrorClientId = connectionId;
             op.commandType = CommandPacketType.Server_ClientKick;
 
             ServerOutgoingQueue.Enqueue(op);
@@ -590,7 +590,7 @@ namespace Mirror
                                 break;
 
                             case CommandPacketType.Server_SendData:
-                                if (ConnectionIDToPeers.TryGetValue(opkt.connectionId, out Peer target))
+                                if (ConnectionIDToPeers.TryGetValue(opkt.mirrorClientId, out Peer target))
                                 {
                                     // Return code from the send function
                                     int returnCode = target.Send(opkt.channelId, ref opkt.payload);
@@ -599,7 +599,7 @@ namespace Mirror
                                 break;
 
                             case CommandPacketType.Server_ClientKick:
-                                if (ConnectionIDToPeers.TryGetValue(opkt.connectionId, out Peer bootedPeer))
+                                if (ConnectionIDToPeers.TryGetValue(opkt.mirrorClientId, out Peer bootedPeer))
                                 {
                                     bootedPeer.DisconnectLater(0);
                                 }
@@ -647,7 +647,7 @@ namespace Mirror
 
                                 // Send a message back to mirror.
                                 IncomingPacket newConnectionPkt = default;
-                                newConnectionPkt.connectionId = nextConnectionId;
+                                newConnectionPkt.mirrorClientId = nextConnectionId;
                                 newConnectionPkt.type = QueuePacketType.Server_ClientConnect;
                                 newConnectionPkt.ipAddress = netEvent.Peer.IP;
 
@@ -660,8 +660,8 @@ namespace Mirror
                                 if (PeersToConnectionIDs.TryGetValue(netEvent.Peer, out int deadPeer))
                                 {
                                     IncomingPacket disconnectionPkt = default;
-                                    disconnectionPkt.connectionId = deadPeer;
-                                    disconnectionPkt.type = QueuePacketType.Server_Disconnect;
+                                    disconnectionPkt.mirrorClientId = deadPeer;
+                                    disconnectionPkt.type = QueuePacketType.Server_ClientDisconnect;
                                     disconnectionPkt.ipAddress = netEvent.Peer.IP;
 
                                     ServerIncomingQueue.Enqueue(disconnectionPkt);
@@ -694,7 +694,7 @@ namespace Mirror
                                     {
                                         // Pack it up and ready to ship it to Mirror.
                                         IncomingPacket dataPkt = default;
-                                        dataPkt.connectionId = dataConnID;
+                                        dataPkt.mirrorClientId = dataConnID;
                                         dataPkt.channelId = netEvent.ChannelID;
 
                                         dataPkt.type = QueuePacketType.Server_IncomingData;
@@ -814,7 +814,7 @@ namespace Mirror
             foreach (int conn in connectionIds)
             {
                 // Another sneaky hack
-                ENETServerQueueInternal(conn, channelId, segment);
+                EnqueuePacketForDelivery(conn, channelId, segment);
             }
 
             return true;
@@ -849,11 +849,11 @@ namespace Mirror
             return true;
         }
 
-        private bool ENETServerQueueInternal(int connectionId, int channelId, ArraySegment<byte> data)
+        private bool EnqueuePacketForDelivery(int connectionId, int channelId, ArraySegment<byte> data)
         {
             if (!ServerStarted)
             {
-                Debug.LogError("Attempted to send while the server was not active");
+                Debug.LogError("Ignorance: Attempted to send while the server was not active");
                 return false;
             }
 
@@ -866,7 +866,7 @@ namespace Mirror
             OutgoingPacket op = default;
 
             op.commandType = CommandPacketType.Server_SendData;
-            op.connectionId = connectionId;
+            op.mirrorClientId = connectionId;
             op.channelId = (byte)channelId;
 
             Packet dataPayload = default;
@@ -883,29 +883,30 @@ namespace Mirror
         // Incoming packet struct.
         private struct IncomingPacket
         {
-            public int connectionId;
-            public int channelId;
-            public QueuePacketType type;
-            public byte[] data;
-            public string ipAddress;
+            public int mirrorClientId;              // Which Mirror connection did this come from?
+            public int enetPeerId;                  // (Not yet used.)
+            public int channelId;                   // What channel is this coming in on?
+            public QueuePacketType type;            // What type of packet is this?
+            public byte[] data;                     // The packet data payload (later recycled via BufferPool)
+            public string ipAddress;                // The IP address of the client that sent us the packet.
         }
 
         // Outgoing packet struct
         private struct OutgoingPacket
         {
-            public int connectionId;
-            public byte channelId;
-            public Packet payload;
-            public CommandPacketType commandType;
+            public int mirrorClientId;              // Which connection is this going to?
+            public byte channelId;                  // Which channel was this received on?
+            public Packet payload;                  // Packet payload.
+            public CommandPacketType commandType;   // What was the packet telling us?
         }
 
-        // Packet Type Struct. Not to be confused with the ENET Packet Type.
+        // Queue Packet Type Struct. Not to be confused with the ENET Packet Type.
         [Serializable]
         public enum QueuePacketType
         {
             // Server Messages
             Server_ClientConnect,
-            Server_Disconnect,
+            Server_ClientDisconnect,
             Server_IncomingData,
 
             // Client Messages
@@ -927,21 +928,6 @@ namespace Mirror
         }
 
         // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
-
-        public struct ThreadBootstrapStruct
-        {
-            public string hostAddress;
-            public ushort port;
-
-            public int threadPumpTimeout;
-
-            public int maxPacketSize;
-            public int maxChannels;
-            public int maxPeers;
-
-            // Client only
-            public int pingUpdateInterval;
-        }
         #endregion
     }
 
