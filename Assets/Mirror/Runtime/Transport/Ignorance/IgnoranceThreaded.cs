@@ -1,5 +1,5 @@
 // Ignorance 1.3.x
-// A Unity LLAPI Replacement Transport for Mirror Networking
+// Ignorance. It really kicks the Unity LLAPIs ass.
 // https://github.com/SoftwareGuy/Ignorance
 // -----------------
 // Copyright (c) 2019 - 2020 Matt Coburn (SoftwareGuy/Coburn64)

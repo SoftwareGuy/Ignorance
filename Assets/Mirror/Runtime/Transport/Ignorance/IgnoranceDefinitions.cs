@@ -32,5 +32,13 @@ namespace Mirror
     {
         public const string Version = "1.3.10";
         public const string Scheme = "enet";
+        public const string BindAllIPv4 = "0.0.0.0";
+        public const string BindAllFuckingAppleMacs = "::0";
+    }
+
+    public struct IgnorancePacket
+    {
+        // TO BE CONTINUED...
+        // <------
     }
 }
