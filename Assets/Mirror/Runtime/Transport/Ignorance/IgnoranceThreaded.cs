@@ -225,11 +225,14 @@ namespace Mirror
         }
 
         // Client Sending: ArraySegment and classic byte array versions
+#if MIRROR_26_0_OR_NEWER
+        public override void ClientSend(int channel, ArraySegment<byte> data) => ENetClientQueueInternal(channel, data);
+#else
         public override bool ClientSend(int channelId, ArraySegment<byte> data)
         {
-            return ENETClientQueueInternal(channelId, data);
+            return ENetClientQueueInternal(channelId, data);
         }
-
+#endif
         public override void ClientDisconnect()
         {
             if (DebugEnabled) Debug.Log($"Ignorance: Client disconnection acknowledged");
@@ -263,12 +266,6 @@ namespace Mirror
             serverWorker.Start();
         }
 
-        // Can't deprecate this due to Dissonance...
-        public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
-        {
-            return EnqueuePacketForDelivery(connectionId, channelId, data);
-        }
-
         public override bool ServerDisconnect(int connectionId)
         {
             OutgoingPacket op = default;
@@ -283,6 +280,48 @@ namespace Mirror
         {
             return "UNKNOWN";
         }
+
+#if MIRROR_26_0_OR_NEWER
+        public override void ServerSend(int connection, int channelId, ArraySegment<byte> segment)
+        {
+            if (!ServerStarted)
+            {
+                Debug.LogError("Ignorance: Attempted to send while the server was not active");
+                return;
+            }
+
+            if (channelId > Channels.Length)
+            {
+                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+                return;
+            }
+
+            EnqueuePacketForDelivery(connection, channelId, segment);
+        }
+#else
+        public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
+        {
+            if (!ServerStarted)
+            {
+                Debug.LogError("Attempted to send while the server was not active");
+                return false;
+            }
+
+            if (channelId > Channels.Length)
+            {
+                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+                return false;
+            }
+
+            foreach (int conn in connectionIds)
+            {
+                // Another sneaky hack
+                EnqueuePacketForDelivery(conn, channelId, segment);
+            }
+
+            return true;
+        }
+#endif
 
         public override void ServerStop()
         {
@@ -316,16 +355,16 @@ namespace Mirror
             if (serverWorker != null && serverWorker.IsAlive) serverWorker.Join();
             if (clientWorker != null && clientWorker.IsAlive) clientWorker.Join();
         }
-        #endregion
+#endregion
 
-        #region General Purpose
+#region General Purpose
         public override int GetMaxPacketSize(int channelId = 0)
         {
             return MaximumPacketSize;
         }
-        #endregion
+#endregion
 
-        #region Client Threading
+#region Client Threading
         private Thread IgnoranceClientThread()
         {
             statistics = new PeerStatistics();
@@ -503,7 +542,7 @@ namespace Mirror
                     }
                 }
 
-                if(cPeer.State != PeerState.Disconnected) cPeer.DisconnectNow(0);
+                if (cPeer.State != PeerState.Disconnected) cPeer.DisconnectNow(0);
                 cHost.Flush();
                 ClientStarted = false;
             }
@@ -512,15 +551,15 @@ namespace Mirror
 
             Debug.Log("Ignorance: ENet Deinitialized.");
         }
-        #endregion
+#endregion
 
-        #region Server Threading
+#region Server Threading
         // Server thread.
         private Thread IgnoranceServerThread()
         {
             string bindAddress = string.Empty;
 
-            if(!ServerBindAll)
+            if (!ServerBindAll)
             {
                 bindAddress = ServerBindAddress;
             }
@@ -749,9 +788,9 @@ namespace Mirror
                 Debug.Log("Ignorance has deinitialized ENet.");
             }
         }
-        #endregion
+#endregion
 
-        #region Mirror 6.2+ - URI Support
+#region Mirror 6.2+ - URI Support
         public override Uri ServerUri()
         {
             UriBuilder builder = new UriBuilder
@@ -776,9 +815,9 @@ namespace Mirror
 
             ClientConnect(uri.Host);
         }
-        #endregion
+#endregion
 
-        #region Unity Editor and Sanity Checks
+#region Unity Editor and Sanity Checks
         // Sanity checks.
         private void OnValidate()
         {
@@ -797,28 +836,6 @@ namespace Mirror
                 };
             }
         }
-        public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
-        {
-            if (!ServerStarted)
-            {
-                Debug.LogError("Attempted to send while the server was not active");
-                return false;
-            }
-
-            if (channelId > Channels.Length)
-            {
-                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
-                return false;
-            }
-
-            foreach (int conn in connectionIds)
-            {
-                // Another sneaky hack
-                EnqueuePacketForDelivery(conn, channelId, segment);
-            }
-
-            return true;
-        }
 
         /// <summary>
         /// Enqueues a packet for ENET worker to pick up and dispatch.
@@ -827,7 +844,7 @@ namespace Mirror
         /// <param name="channelId">The channel id you wish to send the packet on. Must be within 0 and the count of the channels array.</param>
         /// <param name="dataPayload">The array segment containing the data to send to ENET.</param>
         /// <returns></returns>
-        private bool ENETClientQueueInternal(int channelId, ArraySegment<byte> dataPayload)
+        private bool ENetClientQueueInternal(int channelId, ArraySegment<byte> dataPayload)
         {
             if (channelId > Channels.Length)
             {
@@ -878,6 +895,16 @@ namespace Mirror
             return true;
         }
         #endregion
+
+
+        // Deprecated shit.
+#if !MIRROR_26_0_OR_NEWER
+        // Can't deprecate this due to Dissonance...
+        public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
+        {
+            return EnqueuePacketForDelivery(connectionId, channelId, data);
+        }
+#endif
 
         #region Structs, classes, etc
         // Incoming packet struct.

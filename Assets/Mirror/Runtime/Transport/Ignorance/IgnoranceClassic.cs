@@ -33,7 +33,7 @@ namespace Mirror
         // maximum packet sizes
         [Header("Security")]
         [UnityEngine.Serialization.FormerlySerializedAs("MaxPacketSize")]
-        public int MaxPacketSizeInKb = 16;
+        public int MaxPacketSizeInKb = 4;
         // Channels
         [Header("Channel Definitions")]
         public IgnoranceChannelTypes[] Channels;
@@ -101,7 +101,7 @@ namespace Mirror
                 return;
             }
 
-            if (ENETClientHost == null || !ENETClientHost.IsSet) ENETClientHost.Create(null, 1, Channels.Length, 0, 0, PacketCache.Length);
+            if (ENETClientHost == null || !ENETClientHost.IsSet) ENETClientHost.Create(null, 1, Channels.Length, 0, 0);
             if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Created ENET Host object");
 
             ENETAddress.SetHost(address);
@@ -141,16 +141,17 @@ namespace Mirror
             }
         }
 
-        public override bool ClientSend(int channelId, ArraySegment<byte> data)
-        {
-            return ENETClientSendInternal(channelId, data);
-        }
+#if MIRROR_26_0_OR_NEWER
+        public override void ClientSend(int channelId, ArraySegment<byte> data) => ENETClientSendInternal(channelId, data);
+#else
+        public override bool ClientSend(int channelId, ArraySegment<byte> data) => ENETClientSendInternal(channelId, data);
+#endif
 
         public string GetClientPing()
         {
             return CurrentClientPing.ToString();
         }
-        #endregion
+#endregion
 
         public override int GetMaxPacketSize(int channelId = 0)
         {
@@ -158,7 +159,7 @@ namespace Mirror
         }
 
         // Server
-        #region Server
+#region Server
         public override bool ServerActive()
         {
             return IsValid(ENETHost);
@@ -181,13 +182,18 @@ namespace Mirror
         }
 
         // Can't deprecate this because I believe Dissonance uses it still...
-        public bool ServerSend(int connectionId, int channelId, ArraySegment<byte> data)
+        public void DoServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
-            if (!ENETHost.IsSet) return false;
-            if (channelId > Channels.Length)
+            if (!ENETHost.IsSet)
             {
-                Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
-                return false;
+                Debug.LogError("Ignorance: ENet Server Host Object is not set.");
+                return;
+            }
+
+            if (channelId < 0 || channelId > Channels.Length)
+            {
+                Debug.LogWarning($"Ignorance: Channel out of bounds. Channel {channelId} is either above the maximum allowed channel count of {Channels.Length} or negative.");
+                return;
             }
 
             Packet payload = default;
@@ -197,20 +203,16 @@ namespace Mirror
                 payload.Create(data.Array, data.Offset, data.Count + data.Offset, (PacketFlags)Channels[channelId]);
                 int returnCode = targetPeer.Send((byte)channelId, ref payload);
 
-                if (returnCode == 0)
+                if (returnCode != 0)
                 {
-                    return true;
-                }
-                else
-                {
-                    if (DebugEnabled) Debug.LogWarning($"Ignorance: Failed sending outgoing packet on channel {channelId} to connection id {connectionId}. Code {returnCode}");
-                    return false;
+                    Debug.LogWarning($"Ignorance: Outgoing packet send failure: Connection {connectionId}, Channel {channelId}, ENet returned {returnCode}.");
+                    return;
                 }
             }
             else
             {
-                if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Unknown connection id {connectionId}");
-                return false;
+                Debug.LogWarning("Ignorance: Why are we sending data to unknown connections?");
+                return;
             }
         }
 
@@ -281,7 +283,7 @@ namespace Mirror
                 Debug.Log("[DEBUGGING MODE] Ignorance: ServerStop(). Cleaning the packet cache...");
             }
 
-            PacketCache = new byte[MaxPacketSizeInKb * 1024];
+            PacketCache = null;
 
             if (DebugEnabled) Debug.Log("Ignorance: Cleaning up lookup dictonaries");
             ConnectionIDToPeers.Clear();
@@ -294,7 +296,7 @@ namespace Mirror
 
             ServerStarted = false;
         }
-        #endregion
+#endregion
 
         public override void Shutdown()
         {
@@ -311,7 +313,7 @@ namespace Mirror
         }
 
         // core
-        #region Core Transport
+#region Core Transport
         private bool InitializeENET()
         {
             PacketCache = new byte[MaxPacketSizeInKb * 1024];
@@ -520,7 +522,7 @@ namespace Mirror
         {
             return host != null && host.IsSet;
         }
-        #endregion
+#endregion
 
         // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
 
@@ -597,11 +599,11 @@ namespace Mirror
             }
         }
 
-        // Mirror 4.x specific: ServerSend to more than one connection id
+#if MIRROR_26_0_OR_NEWER
+        public override void ServerSend(int target, int channelId, ArraySegment<byte> segment) => DoServerSend(target, channelId, segment);
+#else
         public override bool ServerSend(List<int> connectionIds, int channelId, ArraySegment<byte> segment)
         {
-            if (!ENETHost.IsSet) return false;
-
             foreach (int conn in connectionIds)
             {
                 // Cheeky hack?
@@ -610,7 +612,7 @@ namespace Mirror
 
             return true;
         }
-
+#endif
         /// <summary>
         /// Interal function used by the transport to carry data to the actual sending functions of the wrapper.
         /// Hopefully should make it easier to fix things.
@@ -642,7 +644,7 @@ namespace Mirror
             }
         }
 
-        #region Mirror 6.2+ - URI Support
+#region Mirror 6.2+ - URI Support
         public override Uri ServerUri()
         {
             UriBuilder builder = new UriBuilder
@@ -667,6 +669,6 @@ namespace Mirror
 
             ClientConnect(uri.Host);
         }
-        #endregion
+#endregion
     }
 }
