@@ -607,7 +607,7 @@ namespace Mirror
             foreach (int conn in connectionIds)
             {
                 // Cheeky hack?
-                ServerSend(conn, channelId, segment);
+                DoServerSend(conn, channelId, segment);
             }
 
             return true;
