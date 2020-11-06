@@ -4,17 +4,11 @@ This folder contains pre-compiled binaries for a variety of different platforms.
 
 A brief summary of these folders are as follows:
 
-- Windows
+- Windows, Mac, Linux
 -- 64bit (x64)
 
-- macOS
--- 64bit (x86_64)
-
-- Linux
-- 64bit (x86_64)
-
 - Android (Kitkat 4.4 minimum target OS)
--- ARMv7 (armeabi-v7a), ARMv8/AArch64 (arm64-v8a), x86 (32bit, Left here for legacy reasons)
+-- ARMv7 (armeabi-v7a), ARMv8/AArch64 (arm64-v8a)
 
 - iOS 
 -- FAT Library (armv7 + arm64). Targeted for iOS 8 minimum. Unsigned library.
