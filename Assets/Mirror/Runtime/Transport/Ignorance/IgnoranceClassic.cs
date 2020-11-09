@@ -16,6 +16,7 @@ using ENet;
 using UnityEngine;
 using Event = ENet.Event;
 using EventType = ENet.EventType;
+using System.Buffers;
 
 namespace Mirror
 {
@@ -32,8 +33,7 @@ namespace Mirror
         public int CommunicationPort = 7777;
         // maximum packet sizes
         [Header("Security")]
-        [UnityEngine.Serialization.FormerlySerializedAs("MaxPacketSize")]
-        public int MaxPacketSizeInKb = 4;
+        public int MaxPacketSize = 1200;
         // Channels
         [Header("Channel Definitions")]
         public IgnoranceChannelTypes[] Channels;
@@ -52,42 +52,43 @@ namespace Mirror
         public int PingCalculationInterval = 3;
 
         // enet engine related things
-        private bool ENETInitialized = false, ServerStarted = false, ClientStarted = false;
-        private Host ENETHost = new Host(), ENETClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
-        private Peer ENETPeer = new Peer();
-        private Address ENETAddress = new Address();
+        private bool HasInitializedENet = false, ServerStarted = false, ClientStarted = false;
+        private Host ENetHost = new Host(), ENetClientHost = new Host();                    // Didn't want to have to do this but i don't want to risk crashes.
+        private Peer ENetPeer = new Peer();
+        private Address ENetAddress = new Address();
+
         // lookup and reverse lookup dictionaries
         private Dictionary<int, Peer> ConnectionIDToPeers = new Dictionary<int, Peer>();
         private Dictionary<Peer, int> PeersToConnectionIDs = new Dictionary<Peer, int>();
+
         // mirror related things
-        private byte[] PacketCache;
-        private int NextConnectionID = 1; // DO NOT MODIFY "NextConnectionID"
+        private int NextConnectionID = 1; // No touchy touchy.
         private uint NextPingCalculationTime = 0, CurrentClientPing = 0;
 
         private void Awake()
         {
             // Deprecation warning. Comment it out if desired; better to say it now rather than have a rude awakening.
-            Debug.LogWarning("Ignorance Classic will be REMOVED with the release of Ignorance v1.4. Please migrate to Ignorance Threaded. If for some reason you can't, drop by the Discord and explain why.");    
+            Debug.LogWarning("Ignorance Classic will be REMOVED with the release of Ignorance v1.4. Please migrate to Ignorance Threaded.");    
         }
 
         #region Client
         public override void ClientConnect(string address)
         {
-            if (!ENETInitialized)
+            if (!HasInitializedENet)
             {
-                if (InitializeENET())
+                if (InitENet())
                 {
-                    Debug.Log($"Ignorance successfully initialized ENET.");
-                    ENETInitialized = true;
+                    Debug.Log($"Ignorance successfully initialized ENet.");
+                    HasInitializedENet = true;
                 }
                 else
                 {
-                    Debug.LogError($"Ignorance failed to initialize ENET! Cannot continue.");
+                    Debug.LogError($"Ignorance failed to initialize ENet! Cannot continue.");
                     return;
                 }
             }
 
-            if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: ClientConnect({address})");
+            if (DebugEnabled) Debug.Log($"Ignorance: ClientConnect({address})");
 
             if (Channels.Length > 255)
             {
@@ -101,14 +102,14 @@ namespace Mirror
                 return;
             }
 
-            if (ENETClientHost == null || !ENETClientHost.IsSet) ENETClientHost.Create(null, 1, Channels.Length, 0, 0);
+            if (ENetClientHost == null || !ENetClientHost.IsSet) ENetClientHost.Create(null, 1, Channels.Length, 0, 0);
             if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Created ENET Host object");
 
-            ENETAddress.SetHost(address);
-            ENETAddress.Port = (ushort)CommunicationPort;
+            ENetAddress.SetHost(address);
+            ENetAddress.Port = (ushort)CommunicationPort;
 
-            ENETPeer = ENETClientHost.Connect(ENETAddress, Channels.Length);
-            if (CustomTimeoutLimit) ENETPeer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
+            ENetPeer = ENetClientHost.Connect(ENetAddress, Channels.Length);
+            if (CustomTimeoutLimit) ENetPeer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
             ClientStarted = true;
 
             if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Client has been started!");
@@ -117,7 +118,7 @@ namespace Mirror
         public override bool ClientConnected()
         {
             // No debug here. this gets spammed many times a tick
-            return ENETPeer.IsSet && ENETPeer.State == PeerState.Connected;
+            return ENetPeer.IsSet && ENetPeer.State == PeerState.Connected;
         }
 
         public override void ClientDisconnect()
@@ -130,14 +131,14 @@ namespace Mirror
                 return;
             }
 
-            if (!IsValid(ENETClientHost)) return;
-            if (ENETPeer.IsSet) ENETPeer.DisconnectNow(0);
+            if (!IsValid(ENetClientHost)) return;
+            if (ENetPeer.IsSet) ENetPeer.DisconnectNow(0);
 
             // Flush and free resources.
-            if (IsValid(ENETClientHost))
+            if (IsValid(ENetClientHost))
             {
-                ENETClientHost.Flush();
-                ENETClientHost.Dispose();
+                ENetClientHost.Flush();
+                ENetClientHost.Dispose();
             }
         }
 
@@ -151,18 +152,15 @@ namespace Mirror
         {
             return CurrentClientPing.ToString();
         }
-#endregion
+        #endregion
 
-        public override int GetMaxPacketSize(int channelId = 0)
-        {
-            return PacketCache.Length;
-        }
+        public override int GetMaxPacketSize(int channelId = 0) => MaxPacketSize;
 
         // Server
 #region Server
         public override bool ServerActive()
         {
-            return IsValid(ENETHost);
+            return IsValid(ENetHost);
         }
 
         public override bool ServerDisconnect(int connectionId)
@@ -184,7 +182,7 @@ namespace Mirror
         // Can't deprecate this because I believe Dissonance uses it still...
         public void DoServerSend(int connectionId, int channelId, ArraySegment<byte> data)
         {
-            if (!ENETHost.IsSet)
+            if (!ENetHost.IsSet)
             {
                 Debug.LogError("Ignorance: ENet Server Host Object is not set.");
                 return;
@@ -218,12 +216,12 @@ namespace Mirror
 
         public override void ServerStart()
         {
-            if (!ENETInitialized)
+            if (!HasInitializedENet)
             {
-                if (InitializeENET())
+                if (InitENet())
                 {
                     Debug.Log($"Ignorance successfully initialized ENET.");
-                    ENETInitialized = true;
+                    HasInitializedENet = true;
                 }
                 else
                 {
@@ -239,7 +237,7 @@ namespace Mirror
                 {
                     // Looks good to us. Let's use it.
                     if (DebugEnabled) print($"Ignorance: Valid IP Address {ServerBindAddress}");
-                    if (!ENETAddress.SetIP(ServerBindAddress))
+                    if (!ENetAddress.SetIP(ServerBindAddress))
                     {
                         Debug.LogError("Ignorance was unable to set the hostname or address. Was this even valid? Please check it and try again.");
                         return;
@@ -250,7 +248,7 @@ namespace Mirror
                 {
                     // Might be a hostname.
                     if (DebugEnabled) print($"Ignorance: Doesn't look like a valid IP address, assuming it's a hostname?");
-                    if (!ENETAddress.SetHost(ServerBindAddress))
+                    if (!ENetAddress.SetHost(ServerBindAddress))
                     {
                         Debug.LogError("Ignorance was unable to set the hostname or address. Was this even valid? Please check it and try again.");
                         return;
@@ -262,15 +260,15 @@ namespace Mirror
                 if (DebugEnabled) print($"Ignorance: Setting address to all interfaces, port {CommunicationPort}");
 #if UNITY_IOS
                 // Coburn: temporary fix until I figure out if this is similar to the MacOS bug again...
-                ENETAddress.SetIP("::0");
+                ENetAddress.SetIP("::0");
 #endif
             }
 
-            ENETAddress.Port = (ushort)CommunicationPort;
-            if (ENETHost == null || !ENETHost.IsSet) ENETHost = new Host();
+            ENetAddress.Port = (ushort)CommunicationPort;
+            if (ENetHost == null || !ENetHost.IsSet) ENetHost = new Host();
 
             // Go go go! Clear those corners!
-            ENETHost.Create(ENETAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0);
+            ENetHost.Create(ENetAddress, CustomMaxPeerLimit ? CustomMaxPeers : (int)Library.maxPeers, Channels.Length, 0, 0);
 
             if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Server should be created now... If Ignorance immediately crashes after this line, please file a bug report on the GitHub.");
             ServerStarted = true;
@@ -283,15 +281,13 @@ namespace Mirror
                 Debug.Log("[DEBUGGING MODE] Ignorance: ServerStop(). Cleaning the packet cache...");
             }
 
-            PacketCache = null;
-
             if (DebugEnabled) Debug.Log("Ignorance: Cleaning up lookup dictonaries");
             ConnectionIDToPeers.Clear();
             PeersToConnectionIDs.Clear();
 
-            if (IsValid(ENETHost))
+            if (IsValid(ENetHost))
             {
-                ENETHost.Dispose();
+                ENetHost.Dispose();
             }
 
             ServerStarted = false;
@@ -305,7 +301,7 @@ namespace Mirror
             ServerStarted = false;
             ClientStarted = false;
 
-            ENETInitialized = false;
+            HasInitializedENet = false;
             Library.Deinitialize();
 
             // Reset the next ping calculation timer
@@ -314,10 +310,9 @@ namespace Mirror
 
         // core
 #region Core Transport
-        private bool InitializeENET()
+        private bool InitENet()
         {
-            PacketCache = new byte[MaxPacketSizeInKb * 1024];
-            if (DebugEnabled) Debug.Log($"Initialized new packet cache, {MaxPacketSizeInKb * 1024} bytes capacity.");
+            if (DebugEnabled) Debug.Log($"Ignorance is attempting to Initialize ENet.");
 
             return Library.Initialize();
         }
@@ -326,9 +321,9 @@ namespace Mirror
         private bool ProcessServerMessages()
         {
             // Never attempt process anything if we're not initialized
-            if (!ENETInitialized) return false;
+            if (!HasInitializedENet) return false;
             // Never attempt to process anything if the server is not valid.
-            if (!IsValid(ENETHost)) return false;
+            if (!IsValid(ENetHost)) return false;
             // Never attempt to process anything if the server is not active.
             if (!ServerStarted) return false;
 
@@ -337,28 +332,28 @@ namespace Mirror
 
             while (!serverWasPolled)
             {
-                if (ENETHost.CheckEvents(out Event networkEvent) <= 0)
+                if (ENetHost.CheckEvents(out Event netEvent) <= 0)
                 {
-                    if (ENETHost.Service(0, out networkEvent) <= 0) break;
+                    if (ENetHost.Service(0, out netEvent) <= 0) break;
 
                     serverWasPolled = true;
                 }
 
-                switch (networkEvent.Type)
+                switch (netEvent.Type)
                 {
                     case EventType.Connect:
                         // A client connected to the server. Assign a new ID to them.
                         if (DebugEnabled)
                         {
-                            Debug.Log($"Ignorance: New connection from {networkEvent.Peer.IP}:{networkEvent.Peer.Port}");
-                            Debug.Log($"Ignorance: Map {networkEvent.Peer.IP}:{networkEvent.Peer.Port} (ENET Peer {networkEvent.Peer.ID}) => Mirror World Connection {newConnectionID}");
+                            Debug.Log($"Ignorance: New connection from {netEvent.Peer.IP}:{netEvent.Peer.Port}");
+                            Debug.Log($"Ignorance: Map {netEvent.Peer.IP}:{netEvent.Peer.Port} (ENET Peer {netEvent.Peer.ID}) => Mirror World Connection {newConnectionID}");
                         }
 
-                        if (CustomTimeoutLimit) networkEvent.Peer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
+                        if (CustomTimeoutLimit) netEvent.Peer.Timeout(Library.throttleScale, CustomTimeoutBaseTicks, CustomTimeoutBaseTicks * CustomTimeoutMultiplier);
 
                         // Map them into our dictonaries.
-                        PeersToConnectionIDs.Add(networkEvent.Peer, newConnectionID);
-                        ConnectionIDToPeers.Add(newConnectionID, networkEvent.Peer);
+                        PeersToConnectionIDs.Add(netEvent.Peer, newConnectionID);
+                        ConnectionIDToPeers.Add(newConnectionID, netEvent.Peer);
 
                         OnServerConnected.Invoke(newConnectionID);
                         NextConnectionID++;
@@ -367,55 +362,61 @@ namespace Mirror
                     case EventType.Disconnect:
                     case EventType.Timeout:
                         // A client disconnected.
-                        if (PeersToConnectionIDs.TryGetValue(networkEvent.Peer, out int deadPeerConnID))
+                        if (PeersToConnectionIDs.TryGetValue(netEvent.Peer, out int deadPeerConnID))
                         {
-                            if (DebugEnabled) Debug.Log($"Ignorance: Dead Peer. {networkEvent.Peer.ID} (Mirror connection {deadPeerConnID}) died.");
+                            if (DebugEnabled) Debug.Log($"Ignorance: Dead Peer. {netEvent.Peer.ID} (Mirror connection {deadPeerConnID}) died.");
                             OnServerDisconnected.Invoke(deadPeerConnID);
                             // cleanup
-                            PeersToConnectionIDs.Remove(networkEvent.Peer);
+                            PeersToConnectionIDs.Remove(netEvent.Peer);
                             ConnectionIDToPeers.Remove(deadPeerConnID);
                         }
                         // We don't give a shit about any other connections. if they are bogus then Mirror doesn't need to know about them. Could be a performance impact.
                         break;
                     case EventType.Receive:
                         // Only process data from known peers.
-                        if (PeersToConnectionIDs.TryGetValue(networkEvent.Peer, out int knownConnectionID))
+                        if (PeersToConnectionIDs.TryGetValue(netEvent.Peer, out int knownConnectionID))
                         {
-                            if (networkEvent.Packet.Length > PacketCache.Length)
+                            if (netEvent.Packet.Length > MaxPacketSize)
                             {
-                                if (DebugEnabled) Debug.Log($"Ignorance: Packet too big to fit in buffer. {networkEvent.Packet.Length} packet bytes vs {PacketCache.Length} cache bytes {networkEvent.Peer.ID}.");
-                                networkEvent.Packet.Dispose();
+                                Debug.LogWarning($"Ignorance: Received a packet that is too big ({netEvent.Packet.Length} byte(s) vs {MaxPacketSize} byte(s) limit).\n" +
+                                    $"You can increase MaxPacketSize to avoid this warning. Please consider optimizing your packets to fit under the UDP MTU of 1200.");
+                                netEvent.Packet.Dispose();
                             }
                             else
                             {
                                 // invoke on the server.
+                                if(netEvent.Packet.Length <= 0)
+                                {
+                                    Debug.LogError("Ignorance: This packet was negative in length or zero length! Refusing to process packet.");
+                                    netEvent.Packet.Dispose();
+                                }
+
                                 try
                                 {
-                                    byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(networkEvent.Packet.Length);
-                                    networkEvent.Packet.CopyTo(rentedBuffer);
-                                    networkEvent.Packet.Dispose();
-                                    OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(rentedBuffer, 0, networkEvent.Packet.Length), networkEvent.ChannelID);
-                                    System.Buffers.ArrayPool<byte>.Shared.Return(rentedBuffer, true);
+                                    byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(netEvent.Packet.Length);
+                                    netEvent.Packet.CopyTo(rentedBuffer);
+                                    netEvent.Packet.Dispose();
+                                    OnServerDataReceived.Invoke(knownConnectionID, new ArraySegment<byte>(rentedBuffer, 0, netEvent.Packet.Length), netEvent.ChannelID);
+
+                                    ArrayPool<byte>.Shared.Return(rentedBuffer, true);
 
                                 }
                                 catch (Exception e)
                                 {
-                                    Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENET) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
-                                        $"Exception returned was: {e.Message}\n" +
-                                        $"Debug details: {(PacketCache == null ? "packet buffer was NULL" : $"{PacketCache.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
+                                    Debug.LogError($"Ignorance: Exception caught while trying to copy data from Native to Managed. You probably found a bug.\n" +
+                                        $"A {netEvent.Packet.Length} byte(s) packet triggered the following exception: {e.Message}\n" +
                                         $"Stack Trace: {e.StackTrace}");
-                                    break;
                                 }
 
                                 // Dispose of the packet, we're done.
-                                networkEvent.Packet.Dispose();
+                                netEvent.Packet.Dispose();
                             }
                         }
                         else
                         {
                             // Emit a warning and clean the packet. We don't want it in memory.
-                            if (DebugEnabled) Debug.LogWarning($"Ignorance: Unknown packet from Peer {networkEvent.Peer.ID}. Be cautious - if you get this error too many times, you're likely being attacked.");
-                            networkEvent.Packet.Dispose();
+                            if (DebugEnabled) Debug.LogWarning($"Ignorance: Unknown packet from Peer {netEvent.Peer.ID}. Be cautious - if you get this error too many times, you're likely being attacked.");
+                            netEvent.Packet.Dispose();
                         }
                         break;
                 }
@@ -436,13 +437,13 @@ namespace Mirror
         private bool ProcessClientMessages()
         {
             // Never do anything when ENET is not initialized
-            if (!ENETInitialized)
+            if (!HasInitializedENet)
             {
                 return false;
             }
 
             // Never do anything when ENET is in a different mode
-            if (!IsValid(ENETClientHost) || ENETPeer.State == PeerState.Uninitialized || !ClientStarted)
+            if (!IsValid(ENetClientHost) || ENetPeer.State == PeerState.Uninitialized || !ClientStarted)
             {
                 return false;
             }
@@ -452,15 +453,15 @@ namespace Mirror
             // Only process messages if the client is valid.
             while (!clientWasPolled)
             {
-                if (!IsValid(ENETClientHost)) return false;
+                if (!IsValid(ENetClientHost)) return false;
 
-                if (ENETClientHost.CheckEvents(out Event networkEvent) <= 0)
+                if (ENetClientHost.CheckEvents(out Event netEvent) <= 0)
                 {
-                    if (ENETClientHost.Service(0, out networkEvent) <= 0) break;
+                    if (ENetClientHost.Service(0, out netEvent) <= 0) break;
                     clientWasPolled = true;
                 }
 
-                switch (networkEvent.Type)
+                switch (netEvent.Type)
                 {
                     case EventType.Connect:
                         // Client connected.
@@ -474,33 +475,31 @@ namespace Mirror
                     case EventType.Receive:
                         // Client recieving some data.
                         // Debug.Log("Data");
-                        if (networkEvent.Packet.Length > PacketCache.Length)
+                        if (netEvent.Packet.Length > MaxPacketSize)
                         {
-                            if (DebugEnabled) Debug.Log($"Ignorance: Packet too big to fit in buffer. {networkEvent.Packet.Length} packet bytes vs {PacketCache.Length} cache bytes {networkEvent.Peer.ID}.");
-                            networkEvent.Packet.Dispose();
+                            Debug.LogWarning($"Ignorance: Received a packet that is too big ({netEvent.Packet.Length} byte(s) vs {MaxPacketSize} byte(s) limit).\n" +
+                                $"You can increase MaxPacketSize to avoid this warning. Please consider optimizing your packets to fit under the UDP MTU of 1200.");
+                            netEvent.Packet.Dispose();
                         }
                         else
                         {
                             // invoke on the client.
                             try
                             {
-                                byte[] rentedBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(networkEvent.Packet.Length);
-                                networkEvent.Packet.CopyTo(rentedBuffer);
+                                byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(netEvent.Packet.Length);
+                                netEvent.Packet.CopyTo(rentedBuffer);
 
-                                OnClientDataReceived.Invoke(new ArraySegment<byte>(rentedBuffer, 0, networkEvent.Packet.Length), networkEvent.ChannelID);
-                                System.Buffers.ArrayPool<byte>.Shared.Return(rentedBuffer, true);
+                                OnClientDataReceived.Invoke(new ArraySegment<byte>(rentedBuffer, 0, netEvent.Packet.Length), netEvent.ChannelID);
+                                ArrayPool<byte>.Shared.Return(rentedBuffer, true);
                             }
                             catch (Exception e)
                             {
-                                Debug.LogError($"Ignorance caught an exception while trying to copy data from the unmanaged (ENET) world to managed (Mono/IL2CPP) world. Please consider reporting this to the Ignorance developer on GitHub.\n" +
-                                    $"Exception returned was: {e.Message}\n" +
-                                    $"Debug details: {(PacketCache == null ? "packet buffer was NULL" : $"{PacketCache.Length} byte work buffer")}, {networkEvent.Packet.Length} byte(s) network packet length\n" +
+                                Debug.LogError($"Ignorance: Exception caught while trying to copy data from Native to Managed. You probably found a bug.\n" +
+                                    $"A {netEvent.Packet.Length} byte(s) packet triggered the following exception: {e.Message}\n" +
                                     $"Stack Trace: {e.StackTrace}");
-                                networkEvent.Packet.Dispose();
-                                break;
                             }
 
-                            networkEvent.Packet.Dispose();
+                            netEvent.Packet.Dispose();
 
                         }
                         break;
@@ -546,7 +545,7 @@ namespace Mirror
                         if (NextPingCalculationTime >= Library.Time)
                         {
                             // If the peer is set, then poll it. Otherwise it might not be time to do that.
-                            if (ENETPeer.IsSet) CurrentClientPing = ENETPeer.RoundTripTime;
+                            if (ENetPeer.IsSet) CurrentClientPing = ENetPeer.RoundTripTime;
                             NextPingCalculationTime = (uint)(Library.Time + (PingCalculationInterval * 1000));
                         }
                     }
@@ -622,7 +621,7 @@ namespace Mirror
         /// <returns></returns>
         private bool ENETClientSendInternal(int channelId, ArraySegment<byte> dataPayload)
         {
-            if (!ENETClientHost.IsSet) return false;
+            if (!ENetClientHost.IsSet) return false;
             if (channelId > Channels.Length)
             {
                 Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
@@ -631,7 +630,7 @@ namespace Mirror
 
             Packet payload = default;
             payload.Create(dataPayload.Array, dataPayload.Offset, dataPayload.Count + dataPayload.Offset, (PacketFlags)Channels[channelId]);
-            int returnCode = ENETPeer.Send((byte)channelId, ref payload);
+            int returnCode = ENetPeer.Send((byte)channelId, ref payload);
             if (returnCode == 0)
             {
                 if (DebugEnabled) Debug.Log($"[DEBUGGING MODE] Ignorance: Outgoing packet on channel {channelId} OK");
