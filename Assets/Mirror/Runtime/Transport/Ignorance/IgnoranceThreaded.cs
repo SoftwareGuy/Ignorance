@@ -45,7 +45,7 @@ namespace Mirror
         static volatile bool isClientConnected = false;
 
         // Various properties.
-        static volatile string clientConnectionAddress = string.Empty;
+        static string clientConnectionAddress = string.Empty;
 
         public bool DebugEnabled = false;
 
@@ -160,12 +160,12 @@ namespace Mirror
                 switch (pkt.type)
                 {
                     case QueuePacketType.Client_ConnectedToServer:
-                        if (DebugEnabled) print($"Ignorance: We have connected!");
+                        if (DebugEnabled) print($"Ignorance: Client connected to server.");
                         isClientConnected = true;
                         OnClientConnected?.Invoke();
                         break;
                     case QueuePacketType.Client_DisconnectedFromServer:
-                        if (DebugEnabled) print($"Ignorance: We have been disconnected.");
+                        if (DebugEnabled) print($"Ignorance: Client disconnected from server.");
                         isClientConnected = false;
                         OnClientDisconnected?.Invoke();
                         break;
@@ -213,10 +213,6 @@ namespace Mirror
 
             clientConnectionAddress = address;
             clientShouldCeaseOperation = false;
-
-            // Important: clean the concurrentqueues
-            // ClientIncomingQueue = new ConcurrentQueue<IncomingPacket>();
-            // ClientOutgoingQueue = new ConcurrentQueue<OutgoingPacket>();
 
             print($"Ignorance: Starting connection to {clientConnectionAddress}...");
 
@@ -417,7 +413,7 @@ namespace Mirror
                 }
 
                 // Attempt to start connection...
-                if (!cAddress.SetHost(clientConnectionAddress))
+                if (!cAddress.SetHost(connectionAddress))
                 {
                     Debug.LogError("Ignorance: Unable to set the hostname or address. Was this string even valid? Please check it and try again.");
                     return;
