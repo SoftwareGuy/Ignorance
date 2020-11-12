@@ -62,8 +62,13 @@ namespace Mirror
 
         public override void ClientConnect(string address)
         {
-            throw new NotImplementedException();
+            // Initialize.
+            InitializeClientBackend();
+
+            // Get going.
+            // ...
         }
+
         public override void ClientConnect(Uri uri)
         {
             if (uri.Scheme != IgnoranceInternals.Scheme)
@@ -97,7 +102,7 @@ namespace Mirror
 
         public override bool ServerActive()
         {
-            throw new NotImplementedException();
+            return Server != null ? Server.Active : false;
         }
 
         public override bool ServerDisconnect(int connectionId)
@@ -117,6 +122,8 @@ namespace Mirror
 
         public override void ServerStart()
         {
+            InitializeServerBackend();
+
             throw new NotImplementedException();
         }
 
@@ -159,6 +166,52 @@ namespace Mirror
                 };
             }
         }
+
+        #region Inner workings
+        private string cachedConnectionAddress = string.Empty;
+        private IgnoranceServer Server = new IgnoranceServer();
+        private IgnoranceClient Client = new IgnoranceClient();
+
+        private void InitializeServerBackend()
+        {
+            if (Server == null)
+            {
+                Debug.LogWarning("Ignorance: IgnoranceServer reference for Server mode was null. This shouldn't happen, but to be safe we'll reinitialize it.");
+                Server = new IgnoranceServer();
+            }
+
+            // Set up the new IgnoranceServer reference.
+            if (serverBindsAll)
+            {
+                // MacOS is special. It's also a massive thorn in my backside.
+                Server.BindAddress = IgnoranceInternals.BindAllFuckingAppleMacs;
+            }
+            else
+            {
+                // Use the supplied bind address.
+                Server.BindAddress = serverBindAddress;
+            }
+
+            Server.BindPort = port;
+            Server.MaximumPeers = serverMaxPeerCapacity;
+            Server.MaximumChannels = Channels.Length;
+            Server.PollTime = serverMaxNativeWaitTime;
+        }
+
+        private void InitializeClientBackend()
+        {
+            if (Client == null)
+            {
+                Debug.LogWarning("Ignorance: IgnoranceClient reference for Client mode was null. This shouldn't happen, but to be safe we'll reinitialize it.");
+                Client = new IgnoranceClient();
+            }
+
+            Client.ConnectAddress = cachedConnectionAddress;
+            Client.ConnectPort = port;
+            Client.ExpectedChannels = Channels.Length;
+            Client.PollTime = clientMaxNativeWaitTime;
+        }
+        #endregion
 #endif
     }
 }

@@ -14,7 +14,6 @@ namespace Mirror
     {
         // Server Properties
         // - Bind Settings
-        public bool BindAll = true;
         public string BindAddress = "127.0.0.1";
         public int BindPort = 7777;
         // - Maximum allowed channels, peers, etc.
@@ -24,10 +23,21 @@ namespace Mirror
         public int PollTime = 1;
 
         public volatile bool CeaseOperation = false;
+        public volatile bool Active = false;
 
         // Queues
         public ConcurrentQueue<IgnorancePacket> Incoming;
         public ConcurrentQueue<IgnorancePacket> Outgoing;
+
+        public void Start()
+        {
+            CeaseOperation = false;
+        }
+
+        public void Stop()
+        {
+            CeaseOperation = true;
+        }
 
         // TO BE CONTINUED...
         // <------
