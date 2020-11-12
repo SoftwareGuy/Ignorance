@@ -14,7 +14,7 @@
 
 namespace Mirror
 {
-    public class Ignorance : IgnoranceClassic
+    public class Ignorance : IgnoranceThreaded
     {
         // Purposefully left blank.
     }
