@@ -170,7 +170,7 @@ namespace Mirror
                         OnClientDisconnected?.Invoke();
                         break;
                     case QueuePacketType.Client_IncomingData:
-                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data), pkt.channelId);
+                        OnClientDataReceived?.Invoke(new ArraySegment<byte>(pkt.data, 0, pkt.length), pkt.channelId);
                         System.Buffers.ArrayPool<byte>.Shared.Return(pkt.data, true);
                         break;
                 }
@@ -740,6 +740,7 @@ namespace Mirror
                                         netEvent.Packet.CopyTo(rentedBuffer);
 
                                         dataPkt.data = rentedBuffer;
+                                        dataPkt.length = netEvent.Packet.Length;
 
                                         ServerIncomingQueue.Enqueue(dataPkt);
 
