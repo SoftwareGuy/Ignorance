@@ -913,6 +913,7 @@ namespace Mirror
             public QueuePacketType type;            // What type of packet is this?
             public byte[] data;                     // The packet data payload (later recycled via BufferPool)
             public string ipAddress;                // The IP address of the client that sent us the packet.
+            internal int length;
         }
 
         // Outgoing packet struct
