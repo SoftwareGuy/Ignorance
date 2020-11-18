@@ -1098,7 +1098,7 @@ MonoBehaviour:
   EnetClientPollTimeout: 1
   MaximumPacketSize: 1200
   Channels: 0100000002000000
-  StatisticsCalculationInterval: 3
+  StatisticsCalculationInterval: 0
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0
