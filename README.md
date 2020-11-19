@@ -10,7 +10,7 @@ caffeinated](https://ko-fi.com/coburn) if you use this transport._
 
 Welcome to Ignorance, a Enet-powered Transport system for the [Mirror
 Networking](https://github.com/vis2k/Mirror) project. By utilizing the tried
-and true Enet native C library, Ignorance provides reliable UDP communications 
+and true ENet native C library, Ignorance provides reliable UDP communications 
 for your game projects where the default Telepathy TCP transport would choke.
 
 Ignorance scales up to 4096 theortical CCU with up to 255 channels per client (also known as a peer in Enet terms). Channels 
@@ -32,25 +32,21 @@ Compatiblity
 
 ### Desktop
 
--   **x64 Windows editions, starting from Windows 7**
-    -   As of Ignorance 1.3.8, 32bit Windows Enet native blobs are no longer included. There was not enough reasoning to
-        include 32bit native blobs since 32bit Windows is a platform that Unity is slowly phasing out. As such, if you 
-        really need 32bit native blobs then you can use my ENet-CSharp repositories' build system on your copy of 32bit Windows,
-        or ask for a 32bit binary blob.
-        
-    -   In addition to the above dot point, the only real places that I know of where 32bit is still common is Russia, Brazil and
-        some other countries.
+-   **Windows 7, 8.1, 10 x64**
+    -   32bit (x86) Environments not supported. **Use 64bit instead.**
+    
+    -   ARM64 Environments not currently supported (ie. Windows 10 on Raspberry Pi 4)
         
 -   **macOS 10.12 onwards**
     -   El Captain and below **ARE NOT** supported.
     
-    -   Compiled on a GitHub autobuilder Ubuntu instance.
+    -   Compiled on a GitHub autobuilder MacOS instance.
     
-    -   Tested and confirmed working on High Sierra, Mojave, Catalina.   
+    -   Tested and confirmed working on High Sierra, Mojave, Catalina. Big Sur probably works too?
 
 -   **Linux x64**
 
-    -   x86_64 libraries are included, compiled on a GitHub autobuilder Ubuntu instance.
+    -   GCC-compiled x86_64 libraries are included, compiled on a Ubuntu buildbot.
 
     -   Should *just work* on various Linux distros, as long as they aren’t too
         exotic. Main testing has been done on Debian/Ubuntu/Fedora/CentOS/Arch.
@@ -130,32 +126,27 @@ FAQ (aka Please Read This First)
 
 ### Why should I use Ignorance over Unity LLAPI?
 
-Unity LLAPI is old, obsolete and no longer mantained by Unity Technologies. It
-is currently on heavy life-support until they get their act together with the
-new Unity Multiplay system. Plus, it was held together by bandaids and
-bubble-gum. Depending on what you threw over the network, you'd get random
-latency spikes and packets would go missing even in reliable delivery mode.
+Don't even talk about Unity LLAPI - it's obsolete and dead in the eyes of Unity Technologies.
+Depending on what you threw over the network, you'd get random latency spikes and packets would 
+go missing even in reliable delivery mode.
 
-Ignorance aims to replace it with a stable and high performance transport system
-that allows you to forget about low-level networking stress and spend more time
-focusing on the gameplay of your game.
+Ignorance aimed to be the LLAPI replacement that harnesses ENet's stable and high performance 
+networking so you can forget about low-level networking stress and spend more time
+focusing on development of the high-level portion of your networked game.
 
-### Classic vs Threaded
+### Ignorance Classic is no more. Ignorance Threaded is here to take its place.
 
-For high performance networking, use Ignorance Threaded. Ignorance Classic is now deprecated 
-and will be removed fully from Ignorance 1.4.0.
+As of Ignorance 1.3.9.2, Ignorance Classic is no longer in this repo. It was causing Access Violations and
+since it was on the chopping block for quite some time, I decided it was dead weight and gave it the axe.
 
-Ignorance Threaded puts Enet inside its own thread, allowing Enet to pump the network as much 
-as it can, queuing new events to Mirror as they are received. Events are sent and received using
-high performance ConcurrentQueues. The threaded version of Ignorance was deemed risky before Unity released
-their 2018.4 LTS branch, but it's now the go-to version for high performance UDP networking.
+In short, use Ignorance Threaded and enjoy high performance threaded networking.
 
 ### Important note
 
 Since Mirror and all transports use LateUpdate to process their network code,
 there might be a chance that at very low framerate (ie. you are really stressing
 the server or creating lots of GameObjects in which Unity has to load from disk)
-that the networking gets overwhelmed, regardless of how Enet is coping in the 
+that the networking gets overwhelmed, regardless of how ENet is coping in the 
 native world. 
 
 It is essential to keep your server's frame rate running as high
