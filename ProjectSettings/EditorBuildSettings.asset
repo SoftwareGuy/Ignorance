@@ -5,7 +5,10 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Demo/PongChamp.unity
     guid: 1839e1cfa0cc43642a0878a2b83f889c
+  - enabled: 1
+    path: Assets/Demo/PongChampNew.unity
+    guid: c63e1eea85874ae43a7fdd723a38741e
   m_configObjects: {}

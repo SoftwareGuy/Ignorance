@@ -36,9 +36,41 @@ namespace Mirror
         public const string BindAllFuckingAppleMacs = "::0";
     }
 
+    public enum IgnorancePacketType
+    {
+        ServerConnect,      // Server had a new connection.
+        ServerDisconnect,   // Server had an existing connection die.
+        ServerData,         // Server has an existing connection send data to us.
+
+        ServerClientKick,   // Mirror wants to boot a client off the server.
+
+        ClientConnect,      // Client connected to server.           
+        ClientDisconnect,   // Client disconnected from server.
+        ClientData          // Client received from server.
+    }
+
     public struct IgnorancePacket
     {
+        public IgnorancePacketType Type;
+        public PeerConnectionData PeerData;
+
+        public bool Outgoing;
+
+        public byte Channel;
+        public int Length;
+        public byte[] RentedByteArray;
+
+        public PacketFlags Flags;
+
         // TO BE CONTINUED...
         // <------
+    }
+
+    public struct PeerConnectionData
+    {
+        public uint NativePeerId;
+
+        public string IP;
+        public ushort Port;
     }
 }

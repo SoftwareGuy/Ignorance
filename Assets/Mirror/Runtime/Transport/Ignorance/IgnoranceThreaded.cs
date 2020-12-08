@@ -842,12 +842,20 @@ namespace Mirror
         /// <param name="channelId">The channel id you wish to send the packet on. Must be within 0 and the count of the channels array.</param>
         /// <param name="dataPayload">The array segment containing the data to send to ENET.</param>
         /// <returns></returns>
+#if MIRROR_26_0_OR_NEWER
+        private void ENetClientQueueInternal(int channelId, ArraySegment<byte> dataPayload)
+#else
         private bool ENetClientQueueInternal(int channelId, ArraySegment<byte> dataPayload)
+#endif
         {
             if (channelId > Channels.Length)
             {
                 Debug.LogWarning($"Ignorance: Attempted to send data on channel {channelId} when we only have {Channels.Length} channels defined");
+#if MIRROR_26_0_OR_NEWER
+                return;
+#else
                 return false;
+#endif
             }
 
             OutgoingPacket opkt = default;
@@ -860,8 +868,9 @@ namespace Mirror
 
             // Enqueue it.
             ClientOutgoingQueue.Enqueue(opkt);
-
+#if !MIRROR_26_0_OR_NEWER
             return true;
+#endif
         }
 
         private bool EnqueuePacketForDelivery(int connectionId, int channelId, ArraySegment<byte> data)
@@ -892,7 +901,7 @@ namespace Mirror
             ServerOutgoingQueue.Enqueue(op);
             return true;
         }
-        #endregion
+#endregion
 
 
         // Deprecated shit.
@@ -904,7 +913,7 @@ namespace Mirror
         }
 #endif
 
-        #region Structs, classes, etc
+#region Structs, classes, etc
         // Incoming packet struct.
         private struct IncomingPacket
         {
@@ -954,7 +963,7 @@ namespace Mirror
         }
 
         // -> Moved ChannelTypes enum to it's own file, so it's easier to maintain.
-        #endregion
+#endregion
     }
 
 
