@@ -1048,7 +1048,7 @@ MonoBehaviour:
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
   authenticator: {fileID: 0}
-  playerPrefab: {fileID: 1240244544407914, guid: b1651eaf8c7564a1c86031dfbb8a7b28,
+  playerPrefab: {fileID: 1240244544407914, guid: fc744e9b3ae659b46b9de85e41f0c9ab,
     type: 3}
   autoCreatePlayer: 1
   playerSpawnMethod: 1
@@ -1065,30 +1065,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec862738267237f4d91e6454ff15f4ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  OnClientConnected:
-    m_PersistentCalls:
-      m_Calls: []
-  OnClientDataReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  OnClientError:
-    m_PersistentCalls:
-      m_Calls: []
-  OnClientDisconnected:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerConnected:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerDataReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerError:
-    m_PersistentCalls:
-      m_Calls: []
-  OnServerDisconnected:
-    m_PersistentCalls:
-      m_Calls: []
   DebugEnabled: 0
   ServerBindAll: 1
   ServerBindAddress: 127.0.0.1
@@ -1108,33 +1084,13 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
-      propertyPath: m_AssetId
-      value: 5339554c46006dd4e91cae9ff34c095d
-      objectReference: {fileID: 0}
-    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_SceneId
-      value: 3089825571
-      objectReference: {fileID: 0}
-    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
       propertyPath: sceneId
       value: 1882393603
       objectReference: {fileID: 0}
-    - target: {fileID: 440842259441939327, guid: 5339554c46006dd4e91cae9ff34c095d,
+    - target: {fileID: 440601958556739609, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
-      propertyPath: compressRotation
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 440842259441939327, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: syncInterval
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 520653813702449573, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_Interpolate
-      value: 2
+      propertyPath: m_AssetId
+      value: 5339554c46006dd4e91cae9ff34c095d
       objectReference: {fileID: 0}
     - target: {fileID: 542835289192032773, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
