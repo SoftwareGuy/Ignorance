@@ -46,7 +46,9 @@ namespace Mirror
 
         ClientConnect,      // Client connected to server.           
         ClientDisconnect,   // Client disconnected from server.
-        ClientData          // Client received from server.
+        ClientData,         // Client received from server.
+
+        ClientWantsToStop   // Client thread needs to pack up and go home.
     }
 
     public struct IgnorancePacket
