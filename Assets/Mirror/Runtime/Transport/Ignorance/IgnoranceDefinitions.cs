@@ -48,13 +48,24 @@ namespace Mirror
         ClientDisconnect,   // Client disconnected from server.
         ClientData,         // Client received from server.
 
+        ClientStatusUpdateRequest, // Main thread asking client thread to report various statistics.
+        ClientStatusUpdateResponse, // Client thread reporting various statistics to main thread.
+
         ClientWantsToStop   // Client thread needs to pack up and go home.
+    }
+
+    public enum IgnoranceLogType
+    {
+        Nothing,
+        Standard,
+        Verbose
     }
 
     public struct IgnorancePacket
     {
         public IgnorancePacketType Type;
         public PeerConnectionData PeerData;
+        public PeerHealth StatusData;
 
         public bool Outgoing;
 
@@ -74,5 +85,19 @@ namespace Mirror
 
         public string IP;
         public ushort Port;
+    }
+
+    public struct PeerHealth
+    {
+        // Packet statistics
+        public ulong PacketsSent;
+        // public ulong PacketsReceived;
+
+        // Data transmission statistics
+        public ulong BytesSent;
+        public ulong BytesReceived;
+
+        // Ping (RTT)
+        public uint RTT;
     }
 }
