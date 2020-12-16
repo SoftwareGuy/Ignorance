@@ -33,8 +33,10 @@ namespace Mirror
         public int Verbosity = 1;
 
         // Queues
-        public ConcurrentQueue<IgnorancePacket> Incoming = new ConcurrentQueue<IgnorancePacket>();
-        public ConcurrentQueue<IgnorancePacket> Outgoing = new ConcurrentQueue<IgnorancePacket>();
+        public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
+        public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
+        public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
+        public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
 
         public bool IsAlive => WorkerThread != null ? WorkerThread.IsAlive : false;
 
@@ -69,6 +71,8 @@ namespace Mirror
             // Drain queues.
             if (Incoming != null) while (Incoming.TryDequeue(out _)) ;
             if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
+            if (Commands != null) while (Commands.TryDequeue(out _)) ;
+            if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _)) ;
 
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
@@ -86,7 +90,7 @@ namespace Mirror
         // or you may get an AccessViolation/crash.
         private void ThreadWorker(Object parameters)
         {
-            if(Verbosity > 0) Debug.Log("Client Work Thread: Startup");
+            if (Verbosity > 0) Debug.Log("Client Work Thread: Startup");
 
             ThreadParamInfo setupInfo;
             Address clientAddress = new Address();
@@ -130,15 +134,27 @@ namespace Mirror
                 {
                     bool pollComplete = false;
 
-                    // Sending
-                    while (Outgoing.TryDequeue(out IgnorancePacket outgoingPacket))
+                    // Step 1: Send out data.
+                    // ---> Sending to Server
+                    while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outPacket))
                     {
-                        if (!outgoingPacket.Outgoing) continue;
+                        // TODO: outPacket.Flags.HasFlag(PacketFlags.None) = Unreliable mode?
+                        if (setupInfo.Verbosity > 1 && outPacket.Length > 1200 && outPacket.Flags.HasFlag(PacketFlags.None))
+                            Debug.LogWarning("Client Worker Thread: This packet is larger than the recommended ENet 1200 byte MTU. It will be sent as Reliable Fragmented.");
 
                         // TODO: Revise this, could we tell the Peer to disconnect right here?                       
                         // Stop early if we get a client stop packet.
-                        if (outgoingPacket.Type == IgnorancePacketType.ClientWantsToStop) break;
+                        // if (outgoingPacket.Type == IgnorancePacketType.ClientWantsToStop) break;
+                        // Create the packet.
+                        Packet packet = default;
+                        packet.Create(outPacket.RentedArray, outPacket.Length, outPacket.Flags);
 
+                        int ret = clientPeer.Send(outPacket.Channel, ref packet);
+                        if (ret < 0 && setupInfo.Verbosity > 1) Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
+
+                        if (outPacket.WasRented)
+                            ArrayPool<byte>.Shared.Return(outPacket.RentedArray, true);
+                        /*
                         // It's time to play, guess the packet!
                         switch (outgoingPacket.Type)
                         {
@@ -152,8 +168,6 @@ namespace Mirror
                                 break;
 
                             default:
-                                Packet packet = default;
-                                packet.Create(outgoingPacket.RentedByteArray, outgoingPacket.Length, outgoingPacket.Flags);
 
                                 // This can be spammy, so best to make it only if set to verbose.
                                 if (setupInfo.Verbosity > 1 && outgoingPacket.Length > 1200)
@@ -163,9 +177,10 @@ namespace Mirror
 
                                 if (ret < 0 && setupInfo.Verbosity > 1) Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
 
-                                ArrayPool<byte>.Shared.Return(outgoingPacket.RentedByteArray, true);
+
                                 break;
                         }
+                        */
                     }
 
                     // TODO: This might not even be used in 1.4.0.
@@ -177,6 +192,8 @@ namespace Mirror
                         break;
                     }
 
+                    // Step 2:
+                    // <----- Receive Data packets
                     // This loops until polling is completed. It may take a while, if it's
                     // a slow networking day.
                     while (!pollComplete)
@@ -199,29 +216,26 @@ namespace Mirror
                                 break;
 
                             case EventType.Connect:
-                                Incoming.Enqueue(new IgnorancePacket()
+                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
                                 {
-                                    Type = IgnorancePacketType.ClientConnect,
-                                    PeerData = new PeerConnectionData()
-                                    {
-                                        IP = clientENetEvent.Peer.IP,
-                                        Port = clientENetEvent.Peer.Port
-                                    }
+                                    NativePeerId = clientENetEvent.Peer.ID,
+                                    IP = clientENetEvent.Peer.IP,
+                                    Port = clientENetEvent.Peer.Port
                                 });
                                 break;
 
                             case EventType.Disconnect:
                             case EventType.Timeout:
-                                Incoming.Enqueue(new IgnorancePacket()
+                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
                                 {
-                                    Type = IgnorancePacketType.ClientDisconnect
+                                    WasDisconnect = true
                                 });
                                 break;
 
 
                             case EventType.Receive:
                                 // Never consume more than we can have capacity for.
-                                if(clientENetEvent.Packet.Length > setupInfo.PacketSizeLimit)
+                                if (clientENetEvent.Packet.Length > setupInfo.PacketSizeLimit)
                                 {
                                     if (setupInfo.Verbosity > 0)
                                         Debug.LogWarning($"Client Worker Thread: Received a packet too large, {clientENetEvent.Packet.Length} bytes while our limit was {setupInfo.PacketSizeLimit} bytes.");
@@ -231,27 +245,65 @@ namespace Mirror
                                 }
 
                                 // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
-                                byte[] storageBuffer = ArrayPool<byte>.Shared.Rent(clientENetEvent.Packet.Length);
+                                byte[] storageBuffer;
+                                if (clientENetEvent.Packet.Length <= 1200)
+                                {
+                                    // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
+                                    // from ArrayPool's 2048 byte bucket.
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
+                                }
+                                else if (clientENetEvent.Packet.Length <= 102400)
+                                {
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(102400);
+                                }
+                                else
+                                {
+                                    // If you get down here what the heck are you doing with UDP packets...
+                                    // Let Unity GC spike and reap it later.
+                                    storageBuffer = new byte[clientENetEvent.Packet.Length];
+                                }
+
+                                IgnoranceIncomingPacket incomePacket = new IgnoranceIncomingPacket
+                                {
+                                    NativePeerId = clientENetEvent.Peer.ID,
+                                    Channel = clientENetEvent.ChannelID,
+                                    Length = clientENetEvent.Packet.Length,
+                                    WasRented = clientENetEvent.Packet.Length <= 102400 ? true : false,
+                                    RentedArray = storageBuffer
+                                };
 
                                 // Copy the packet to the fresh array.
-                                clientENetEvent.Packet.CopyTo(storageBuffer);
+                                clientENetEvent.Packet.CopyTo(incomePacket.RentedArray);
 
-                                Incoming.Enqueue(new IgnorancePacket()
-                                {
-                                    Type = IgnorancePacketType.ClientData,
-                                    Length = clientENetEvent.Packet.Length,
-                                    RentedByteArray = storageBuffer
-                                });
-
+                                // Dispose of the original packet. We've got the data and everything, no need to hold onto it.
                                 clientENetEvent.Packet.Dispose();
+
+                                Incoming.Enqueue(incomePacket);
+                                break;
+                        }
+                    }
+
+                    // Step 3: Handle commands.
+                    while(Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
+                    {
+                        switch(commandPacket.Type)
+                        {
+                            default:
+                                break;
+
+                            case IgnoranceCommandType.ClientWantsToStop:
+                                break;
+
+                            case IgnoranceCommandType.ClientRequestsStatusUpdate:
+                                // TODO.
                                 break;
                         }
                     }
                 }
 
                 // Flush the client and disconnect.
+                clientPeer.Disconnect(0);
                 clientENetHost.Flush();
-                clientPeer.DisconnectNow(0);
             }
 
             // Deinitialize
