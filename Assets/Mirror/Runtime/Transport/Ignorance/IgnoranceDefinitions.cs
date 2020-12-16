@@ -61,6 +61,51 @@ namespace Mirror
         Verbose
     }
 
+    public struct IgnoranceIncomingPacket
+    {
+        public uint NativePeerId;
+        public int Channel;
+
+        public int Length;
+        public byte[] RentedArray;
+        public bool WasRented;
+    }
+
+    public struct IgnoranceOutgoingPacket
+    {
+        public uint NativePeerId;
+        public byte Channel;
+
+        public int Length;
+        public byte[] RentedArray;
+        public bool WasRented;
+        
+        public PacketFlags Flags;
+    }
+
+    public struct IgnoranceCommandPacket
+    {
+        public IgnoranceCommandType Type;
+        public uint PeerId;
+    }
+
+    public enum IgnoranceCommandType
+    {
+        // Client
+        ClientWantsToStop,
+        // Server
+        ServerKickPeer
+    }
+
+    public struct IgnoranceConnectionEvent
+    {
+        public bool WasDisconnect;
+        public uint NativePeerId;
+
+        public string IP;
+        public ushort Port;
+    }
+
     public struct IgnorancePacket
     {
         public IgnorancePacketType Type;

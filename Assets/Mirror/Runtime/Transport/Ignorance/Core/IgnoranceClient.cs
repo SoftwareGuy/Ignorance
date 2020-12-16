@@ -28,7 +28,7 @@ namespace Mirror
         // Native poll waiting time
         public int PollTime = 1;
         // Maximum Packet Size
-        public int MaximumPacketSize = 1200;
+        public int MaximumPacketSize = 33554432;
         // General Verbosity by default.
         public int Verbosity = 1;
 
@@ -68,7 +68,7 @@ namespace Mirror
 
             // Drain queues.
             if (Incoming != null) while (Incoming.TryDequeue(out _)) ;
-            if (Outgoing != null) while (Incoming.TryDequeue(out _)) ;
+            if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
 
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
@@ -95,15 +95,13 @@ namespace Mirror
             Event clientENetEvent;
 
             // Grab the setup information.
-            try
+            if (parameters.GetType() == typeof(ThreadParamInfo))
             {
-                // Attempt to cast it back into our setupInfo
-                // This helps avoid a lot of other bullshit.
                 setupInfo = (ThreadParamInfo)parameters;
             }
-            catch (InvalidCastException)
+            else
             {
-                // Failure.
+                Debug.LogError("Thread worker startup failure: Invalid thread parameters. Aborting.");
                 return;
             }
 

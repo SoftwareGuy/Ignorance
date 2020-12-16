@@ -27,7 +27,7 @@ namespace Mirror
         // - Maximum allowed channels, peers, etc.
         public int MaximumChannels = 2;
         public int MaximumPeers = 100;
-        public int MaximumPacketSize = 1200;
+        public int MaximumPacketSize = 33554432;    // ENet.cs: uint maxPacketSize = 32 * 1024 * 1024 = 33554432
         // - Native poll waiting time
         public int PollTime = 1;
         public int Verbosity = 1;
@@ -37,8 +37,10 @@ namespace Mirror
         private volatile bool CeaseOperation = false;
 
         // Queues
-        public ConcurrentQueue<IgnorancePacket> Incoming = new ConcurrentQueue<IgnorancePacket>();
-        public ConcurrentQueue<IgnorancePacket> Outgoing = new ConcurrentQueue<IgnorancePacket>();
+        public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
+        public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
+        public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
+        public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
 
         // Thread
         private Thread WorkerThread;
@@ -66,7 +68,9 @@ namespace Mirror
 
             // Drain queues.
             if (Incoming != null) while (Incoming.TryDequeue(out _)) ;
-            if (Outgoing != null) while (Incoming.TryDequeue(out _)) ;
+            if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
+            if (Commands != null) while (Commands.TryDequeue(out _)) ;
+            if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _));
 
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
@@ -85,7 +89,8 @@ namespace Mirror
 
         private void ThreadWorker(Object parameters)
         {
-            Debug.Log("Server thread startup.");
+            if (Verbosity > 0)
+                Debug.Log("Server thread has begun startup.");
 
             ThreadParamInfo setupInfo;
             Address serverAddress = new Address();
@@ -94,15 +99,13 @@ namespace Mirror
             Peer[] serverPeerArray;
 
             // Grab the setup information.
-            try
+            if (parameters.GetType() == typeof(ThreadParamInfo))
             {
-                // Attempt to cast it back into our setupInfo
-                // This helps avoid a lot of other bullshit.
                 setupInfo = (ThreadParamInfo)parameters;
             }
-            catch (InvalidCastException)
+            else
             {
-                // Failure.
+                Debug.LogError("Thread worker startup failure: Invalid thread parameters. Aborting.");
                 return;
             }
 
@@ -131,51 +134,38 @@ namespace Mirror
                 // Loop until we're told to cease operations.
                 while (!CeaseOperation)
                 {
-                    bool pollComplete = false;
-
+                    // Step One:
                     // ---> Sending to peers
-                    while (Outgoing.TryDequeue(out IgnorancePacket outgoingPacket))
+                    while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
                     {
-                        if (!outgoingPacket.Outgoing) continue;
-
-                        // Debug.Log($"Okay, got one packet to dispatch - {outgoingPacket.Type}");
-
-                        switch (outgoingPacket.Type)
+                        // Only create a packet if the server knows the peer.
+                        if (serverPeerArray[outgoingPacket.NativePeerId].IsSet)
                         {
-                            case IgnorancePacketType.ServerClientKick:
-                                // Boot the peer off the server.
-                                uint kickee = outgoingPacket.PeerData.NativePeerId;
-                                if (serverPeerArray[kickee].IsSet)
-                                    serverPeerArray[kickee].DisconnectNow(0);
-                                break;
+                            // Standard packet.
+                            Packet packet = default;
+                            packet.Create(outgoingPacket.RentedArray, outgoingPacket.Length, outgoingPacket.Flags);
 
-                            default:
-                                // Standard packet.
-                                Packet packet = default;
-                                packet.Create(outgoingPacket.RentedByteArray, outgoingPacket.Length, outgoingPacket.Flags);
-
-                                if (serverPeerArray[outgoingPacket.PeerData.NativePeerId].IsSet)
-                                {
-                                    // Send it to the peer.
-                                    int ret = serverPeerArray[outgoingPacket.PeerData.NativePeerId].Send(outgoingPacket.Channel, ref packet);
-                                    if (ret < 0 && setupInfo.Verbosity > 0)
-                                        Debug.LogWarning($"Server Worker Thread: Failed sending a packet to Peer {outgoingPacket.PeerData.NativePeerId}, error code {ret}");
-
-                                    // Debug.Log("Dispatch OK");
-                                }
-                                else
-                                {
-                                    if (setupInfo.Verbosity > 0)
-                                        Debug.LogWarning("Server Worker Thread: Can't send packet, a native peer is not set.");
-                                }
-
-                                // Cleanup.
-                                ArrayPool<byte>.Shared.Return(outgoingPacket.RentedByteArray, true);
-                                break;
+                            // Send it to the peer.
+                            int ret = serverPeerArray[outgoingPacket.NativePeerId].Send(outgoingPacket.Channel, ref packet);
+                            if (ret < 0 && setupInfo.Verbosity > 0)
+                                Debug.LogWarning($"Server Worker Thread: Failed sending a packet to Peer {outgoingPacket.NativePeerId}, error code {ret}");
                         }
+                        else
+                        {
+                            if (setupInfo.Verbosity > 0)
+                                Debug.LogWarning("Server Worker Thread: Can't send packet, a native peer is not set.");
+                        }
+
+                        // Cleanup.
+                        if(outgoingPacket.WasRented)
+                            ArrayPool<byte>.Shared.Return(outgoingPacket.RentedArray, true);
+                        break;
                     }
 
+                    // Step 2
                     // <--- Receiving from peers
+                    bool pollComplete = false;
+
                     while (!pollComplete)
                     {
                         // Any events happening?
@@ -189,35 +179,31 @@ namespace Mirror
 
                         switch (serverENetEvent.Type)
                         {
+                            // Idle.
                             case EventType.None:
                             default:
                                 break;
 
+                            // Connection Event.
                             case EventType.Connect:
-                                Incoming.Enqueue(new IgnorancePacket()
+                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
-                                    Type = IgnorancePacketType.ServerConnect,
-                                    PeerData = new PeerConnectionData
-                                    {
-                                        NativePeerId = serverENetEvent.Peer.ID,
-                                        IP = serverENetEvent.Peer.IP,
-                                        Port = serverENetEvent.Peer.Port
-                                    }
+                                    NativePeerId = serverENetEvent.Peer.ID,
+                                    IP = serverENetEvent.Peer.IP,
+                                    Port = serverENetEvent.Peer.Port
                                 });
 
+                                // Assign a reference to the Peer.
                                 serverPeerArray[serverENetEvent.Peer.ID] = serverENetEvent.Peer;
-
                                 break;
 
+                            // Disconnect/Timeout. Mirror doesn't care if it's either, so we lump them together.
                             case EventType.Disconnect:
                             case EventType.Timeout:
-                                Incoming.Enqueue(new IgnorancePacket
+                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
-                                    Type = IgnorancePacketType.ServerDisconnect,
-                                    PeerData = new PeerConnectionData
-                                    {
-                                        NativePeerId = serverENetEvent.Peer.ID
-                                    }
+                                    WasDisconnect = true,
+                                    NativePeerId = serverENetEvent.Peer.ID
                                 });
 
                                 // Can't null a Peer struct, but we can reset it, I guess.
@@ -229,51 +215,90 @@ namespace Mirror
                                 // Firstly check if the packet is too big. If it is, do not process it - drop it.
                                 if (serverENetEvent.Packet.Length > setupInfo.PacketSizeLimit)
                                 {
-                                    if(setupInfo.Verbosity > 0)
+                                    if (setupInfo.Verbosity > 0)
                                         Debug.LogWarning($"Server Worker Thread: Received a packet too big to process: {serverENetEvent.Packet.Length} bytes; limit: {setupInfo.PacketSizeLimit} byte(s).");
 
                                     serverENetEvent.Packet.Dispose();
                                     break;
                                 }
 
-                                // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.                         
-                                byte[] storageBuffer = ArrayPool<byte>.Shared.Rent(serverENetEvent.Packet.Length > 1200 ? serverENetEvent.Packet.Length : 1200);
+                                // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
+                                // Try for 1200 (2048) pooled items first. If not, then we should try for 100KB (131072).
+                                // Failing that, it's Unity's funeral. 1200 is the sane UDP packet buffer size. (source: FSE_Vincenzo, Mirror Discord)
+                                // I could probably do that if in a one-liner but I'll leave it with commentary to explain what's going on (also stops me going insane debugging)
+                                byte[] storageBuffer;
+                                if (serverENetEvent.Packet.Length <= 1200)
+                                {
+                                    // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
+                                    // from ArrayPool's 2048 byte bucket.
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
+                                }
+                                else if (serverENetEvent.Packet.Length <= 102400)
+                                {
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(102400);
+                                }
+                                else
+                                {
+                                    // If you get down here what the heck are you doing with UDP packets...
+                                    // Let Unity GC spike and reap it later.
+                                    storageBuffer = new byte[serverENetEvent.Packet.Length];
+                                }
 
                                 // Grab a fresh struct.
-                                IgnorancePacket dispatchPacket = new IgnorancePacket
+                                IgnoranceIncomingPacket incomePacket = new IgnoranceIncomingPacket
                                 {
-                                    Type = IgnorancePacketType.ServerData,
+                                    NativePeerId = serverENetEvent.Peer.ID,
+                                    Channel = serverENetEvent.ChannelID,
                                     Length = serverENetEvent.Packet.Length,
-                                    PeerData = new PeerConnectionData {
-                                        NativePeerId = serverENetEvent.Peer.ID
-                                    }
+                                    WasRented = serverENetEvent.Packet.Length <= 102400 ? true : false
                                 };
 
                                 // Copy the packet to the fresh array.
                                 serverENetEvent.Packet.CopyTo(storageBuffer);
-                                dispatchPacket.RentedByteArray = storageBuffer;
+                                incomePacket.RentedArray = storageBuffer;
 
                                 // Dispose of the original packet. We've got the data and everything, no need to hold onto it.
                                 serverENetEvent.Packet.Dispose();
 
                                 // Enqueue.
-                                Incoming.Enqueue(dispatchPacket);
+                                Incoming.Enqueue(incomePacket);
+                                break;
+                        }
+                    }
+
+                    // Step 3
+                    // Command Handling
+                    while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
+                    {
+                        switch (commandPacket.Type)
+                        {
+                            default:
+                                break;
+
+                            // Boot a Peer off the Server.
+                            case IgnoranceCommandType.ServerKickPeer:
+                                if (!serverPeerArray[commandPacket.PeerId].IsSet) continue;
+                                serverPeerArray[commandPacket.PeerId].DisconnectNow(0);
                                 break;
                         }
                     }
                 }
 
+                if (Verbosity > 0)
+                    Debug.Log("Server thread is finishing up.");
+
                 // Cleanup and flush everything.
                 serverENetHost.Flush();
+
                 // Kick everyone.
-                for (int i = 0; i < serverPeerArray.Length; i++) 
+                for (int i = 0; i < serverPeerArray.Length; i++)
                 {
                     if (!serverPeerArray[i].IsSet) continue;
                     serverPeerArray[i].DisconnectNow(0);
                 }
             }
-            
-            if(setupInfo.Verbosity > 0)
+
+            if (setupInfo.Verbosity > 0)
                 Debug.Log("Server Worker Thread: Shutdown.");
             Library.Deinitialize();
         }
