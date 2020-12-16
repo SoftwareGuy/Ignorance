@@ -93,6 +93,9 @@ namespace Mirror
     {
         // Client
         ClientWantsToStop,
+        ClientRequestsStatusUpdate,
+        // ENet internal
+        ResponseToClientStatusRequest,
         // Server
         ServerKickPeer
     }

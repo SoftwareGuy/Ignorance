@@ -152,8 +152,9 @@ namespace Mirror
                         }
                         else
                         {
+                            // A peer might have disconnected, this is OK - just log the packet.
                             if (setupInfo.Verbosity > 0)
-                                Debug.LogWarning("Server Worker Thread: Can't send packet, a native peer is not set.");
+                                Debug.LogWarning("Server Worker Thread: Can't send packet, a native peer is not set. This may be normal if the Peer has disconnected before this send cycle.");
                         }
 
                         // Cleanup.
@@ -302,9 +303,6 @@ namespace Mirror
                 Debug.Log("Server Worker Thread: Shutdown.");
             Library.Deinitialize();
         }
-
-        // TO BE CONTINUED...
-        // <------
 
         private struct ThreadParamInfo
         {
