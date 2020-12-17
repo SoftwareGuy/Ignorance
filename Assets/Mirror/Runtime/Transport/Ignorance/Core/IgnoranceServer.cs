@@ -236,7 +236,7 @@ namespace Mirror
                                 }
                                 else if (serverENetEvent.Packet.Length <= 102400)
                                 {
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(102400);
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(serverENetEvent.Packet.Length);
                                 }
                                 else
                                 {
