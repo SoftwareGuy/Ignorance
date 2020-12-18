@@ -195,7 +195,8 @@ namespace Mirror
 
                         // Setup the packet references.
                         incomingPacket = clientENetEvent.Packet;
-                        incomingPacketLength = incomingPacket.Length;
+                        if(incomingPacket.IsSet())
+                            incomingPacketLength = incomingPacket.Length;
                         incomingPeer = clientENetEvent.Peer;
                         
                         // Now, let's handle those events.
@@ -225,7 +226,7 @@ namespace Mirror
 
                             case EventType.Receive:
                                 // Never consume more than we can have capacity for.
-                                if (clientENetEvent.Packet.Length > setupInfo.PacketSizeLimit)
+                                if (incomingPacketLength > setupInfo.PacketSizeLimit)
                                 {
                                     if (setupInfo.Verbosity > 0)
                                         Debug.LogWarning($"Client Worker Thread: Received a packet too large, {incomingPacketLength} bytes while our limit was {setupInfo.PacketSizeLimit} bytes.");
@@ -236,13 +237,13 @@ namespace Mirror
 
                                 // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
                                 byte[] storageBuffer;
-                                if (clientENetEvent.Packet.Length <= 1200)
+                                if (incomingPacketLength <= 1200)
                                 {
                                     // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
                                     // from ArrayPool's 2048 byte bucket.
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
                                 }
-                                else if (clientENetEvent.Packet.Length <= 102400)
+                                else if (incomingPacketLength <= 102400)
                                 {
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
                                 }
