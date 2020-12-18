@@ -47,7 +47,7 @@ namespace Mirror
 
         [Header("Low-level Tweaking")]
         [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. You can increase this, however beware this may open you up to allocation attacks.")]
-        public int MaximumPacketSize = 33554432;
+        public int MaxAllowedPacketSize = 33554432;
         #endregion
 
         #region Public Statistics
@@ -171,7 +171,7 @@ namespace Mirror
             Client.Outgoing.Enqueue(dispatchPacket);
         }
 
-        public override int GetMaxPacketSize(int channelId = 0) => MaximumPacketSize;
+        public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
 
         public override bool ServerActive()
         {
@@ -234,19 +234,11 @@ namespace Mirror
                 return;
             }
 
-            // Create the dispatch packet.
-            IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
-            {
-                Channel = (byte)channelId,
-
-                Length = segment.Count,
-                Flags = (PacketFlags)Channels[channelId],
-                NativePeerId = ConnectionLookupDict[connectionId].NativePeerId
-            };
-
             // Data portion of the packet.
             // Make sure to rent 1200 (2048) byte arrays minimum to maximum of 100KB.
             // Anything above that, we allocate and let Unity sort it out.
+            bool wasRented = true;
+            byte[] storageBuffer;
 
             // Throw a friendly message telling people to keep packets under 1200 bytes.
             if(segment.Count > 1200)
@@ -257,23 +249,32 @@ namespace Mirror
 
             if (segment.Count <= 1200)
             {
-                dispatchPacket.RentedArray = ArrayPool<byte>.Shared.Rent(1200);
-                dispatchPacket.WasRented = true;
+                storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
             }
             else if (segment.Count <= 102400)
             {
-                dispatchPacket.RentedArray = ArrayPool<byte>.Shared.Rent(segment.Count);
-                dispatchPacket.WasRented = true;
+                storageBuffer = ArrayPool<byte>.Shared.Rent(segment.Count);
             }
             else
             {
-                dispatchPacket.RentedArray = new byte[segment.Count];
-                dispatchPacket.WasRented = false;
+                storageBuffer = new byte[segment.Count];
+                wasRented = false;
             }
 
-            segment.Array.CopyTo(dispatchPacket.RentedArray, 0);
+            segment.Array.CopyTo(storageBuffer, 0);
 
             // Add it to the outgoing queue.
+            // Create the dispatch packet.
+            IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
+            {
+                WasRented = wasRented,
+                Channel = (byte)channelId,
+                NativePeerId = ConnectionLookupDict[connectionId].NativePeerId,
+                Flags = (PacketFlags)Channels[channelId],
+                Length = segment.Count,
+                RentedArray = storageBuffer
+            };
+
             Server.Outgoing.Enqueue(dispatchPacket);
         }
 
@@ -340,7 +341,7 @@ namespace Mirror
             }
 
             // ENet only supports a maximum of 32MB packet size.
-            if (MaximumPacketSize > 33554432) MaximumPacketSize = 33554432;
+            if (MaxAllowedPacketSize > 33554432) MaxAllowedPacketSize = 33554432;
         }
 
         #region Inner workings
@@ -378,7 +379,7 @@ namespace Mirror
             Server.MaximumPeers = serverMaxPeerCapacity;
             Server.MaximumChannels = Channels.Length;
             Server.PollTime = serverMaxNativeWaitTime;
-            Server.MaximumPacketSize = MaximumPacketSize;
+            Server.MaximumPacketSize = MaxAllowedPacketSize;
         }
 
         private void InitializeClientBackend()
@@ -393,7 +394,7 @@ namespace Mirror
             Client.ConnectPort = port;
             Client.ExpectedChannels = Channels.Length;
             Client.PollTime = clientMaxNativeWaitTime;
-            Client.MaximumPacketSize = MaximumPacketSize;
+            Client.MaximumPacketSize = MaxAllowedPacketSize;
             Client.Verbosity = (int)LogType;
         }
 

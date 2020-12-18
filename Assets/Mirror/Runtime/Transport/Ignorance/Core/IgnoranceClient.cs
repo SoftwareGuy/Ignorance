@@ -195,9 +195,9 @@ namespace Mirror
 
                         // Setup the packet references.
                         incomingPacket = clientENetEvent.Packet;
+                        incomingPacketLength = incomingPacket.Length;
                         incomingPeer = clientENetEvent.Peer;
-                        incomingPacketLength = clientENetEvent.Packet.Length;
-
+                        
                         // Now, let's handle those events.
                         switch (clientENetEvent.Type)
                         {
@@ -253,7 +253,7 @@ namespace Mirror
 
                                     // limit it to the maximum packet size set or we'll have an allocation attack vector.
                                     // vincenzo: [...] limit it to max packet size enet supports maybe 32 mb or less
-                                    storageBuffer = new byte[incomingPacketLength > setupInfo.PacketSizeLimit ? setupInfo.PacketSizeLimit : incomingPacketLength];
+                                    storageBuffer = new byte[incomingPacketLength];
                                 }
 
                                 // Copy the packet to the fresh array.
@@ -262,10 +262,10 @@ namespace Mirror
 
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    NativePeerId = incomingPeer.ID,
-                                    Channel = clientENetEvent.ChannelID,
-                                    Length = incomingPacketLength,
                                     WasRented = incomingPacketLength <= 102400 ? true : false,
+                                    Channel = clientENetEvent.ChannelID,
+                                    NativePeerId = incomingPeer.ID,
+                                    Length = incomingPacketLength,
                                     RentedArray = storageBuffer
                                 };
 

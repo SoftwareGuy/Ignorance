@@ -273,7 +273,7 @@ namespace Mirror
 
                                     // limit it to the maximum packet size set or we'll have an allocation attack vector.
                                     // vincenzo: [...] limit it to max packet size enet supports maybe 32 mb or less
-                                    storageBuffer = new byte[incomingPacketLength > setupInfo.PacketSizeLimit ? setupInfo.PacketSizeLimit : incomingPacketLength];
+                                    storageBuffer = new byte[incomingPacketLength];
                                 }
 
                                 incomingPacket.CopyTo(storageBuffer);
@@ -282,10 +282,10 @@ namespace Mirror
                                 // Grab a fresh struct.
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    NativePeerId = incomingPeer.ID,
-                                    Channel = serverENetEvent.ChannelID,
-                                    Length = incomingPacketLength,
                                     WasRented = incomingPacketLength <= 102400 ? true : false,
+                                    Channel = serverENetEvent.ChannelID,
+                                    NativePeerId = incomingPeer.ID,                                    
+                                    Length = incomingPacketLength,
                                     RentedArray = storageBuffer
                                 };
 

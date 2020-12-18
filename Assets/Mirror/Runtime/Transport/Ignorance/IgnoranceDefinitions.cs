@@ -65,23 +65,21 @@ namespace Mirror
     public struct IgnoranceIncomingPacket
     {
         public bool WasRented;
-        public int Channel;
-        public int Length;
+        public byte Channel;
         public uint NativePeerId;
-        public byte[] RentedArray;
+        public int Length;
+        public byte[] RentedArray;        
     }
 
     // TODO: Optimize struct for Cache performance.
     public struct IgnoranceOutgoingPacket
-    {       
-        public byte Channel;
-        public byte[] RentedArray;
+    {
         public bool WasRented;
-
-        public int Length;
+        public byte Channel;
         public uint NativePeerId;
-
         public PacketFlags Flags;
+        public int Length;        
+        public byte[] RentedArray;
     }
 
     // TODO: Optimize struct for Cache performance.
@@ -91,7 +89,6 @@ namespace Mirror
         public ushort Port;
         public uint NativePeerId;
         public string IP;
-
     }
 
     public struct IgnoranceCommandPacket
