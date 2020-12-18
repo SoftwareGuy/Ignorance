@@ -202,9 +202,10 @@ namespace Mirror
 
                         // Setup the packet references.
                         incomingPacket = serverENetEvent.Packet;
+                        if(incomingPacket.IsSet())
+                            incomingPacketLength = serverENetEvent.Packet.Length;        
                         incomingPeer = serverENetEvent.Peer;
-                        incomingPacketLength = serverENetEvent.Packet.Length;
-
+                        
                         switch (serverENetEvent.Type)
                         {
                             // Idle.
