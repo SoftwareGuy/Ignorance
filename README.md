@@ -5,7 +5,7 @@ Ignorance 1.4 Alpha
 [![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg)](https://github.com/SoftwareGuy/Ignorance/issues)
 ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
 
-_I'd appreciate [a coffee]](https://ko-fi.com/coburn) if you use this transport._
+_I'd appreciate [a coffee](https://ko-fi.com/coburn) if you use this transport._
 
 Ignorance 1.4 is a ENet-powered transport that plugs into the [Mirror Networking](https://github.com/vis2k/Mirror) project. It provides a high-performance
 implementation of the tried and true native ENet C library which provides reliable UDP communications for your game projects. Variants of ENet are used by Triple-A
