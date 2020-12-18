@@ -128,12 +128,29 @@ namespace Mirror
             {
                 // TODO: Maybe try catch this
                 clientENetHost.Create();
-                clientPeer = clientENetHost.Connect(clientAddress);
+                clientPeer = clientENetHost.Connect(clientAddress, setupInfo.Channels);
 
                 while (!CeaseOperation)
                 {
                     bool pollComplete = false;
 
+                    // Step 0: Handle commands.
+                    while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
+                    {
+                        switch (commandPacket.Type)
+                        {
+                            default:
+                                break;
+
+                            case IgnoranceCommandType.ClientWantsToStop:
+                                // TODO.
+                                break;
+
+                            case IgnoranceCommandType.ClientRequestsStatusUpdate:
+                                // TODO.
+                                break;
+                        }
+                    }
                     // Step 1: Send out data.
                     // ---> Sending to Server
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outPacket))
@@ -154,42 +171,6 @@ namespace Mirror
 
                         if (outPacket.WasRented)
                             ArrayPool<byte>.Shared.Return(outPacket.RentedArray, true);
-                        /*
-                        // It's time to play, guess the packet!
-                        switch (outgoingPacket.Type)
-                        {
-                            case IgnorancePacketType.ClientStatusUpdateRequest:
-                                // This isn't going to be sent out. This is a request to get stats from Native back to the main thread.
-                                Incoming.Enqueue(new IgnorancePacket
-                                {
-                                    Type = IgnorancePacketType.ClientStatusUpdateResponse,
-                                    StatusData = new PeerHealth { RTT = clientPeer.RoundTripTime, PacketsSent = clientPeer.PacketsSent, BytesSent = clientPeer.BytesSent, BytesReceived = clientPeer.BytesReceived }
-                                });;
-                                break;
-
-                            default:
-
-                                // This can be spammy, so best to make it only if set to verbose.
-                                if (setupInfo.Verbosity > 1 && outgoingPacket.Length > 1200)
-                                    Debug.LogWarning("Client Worker Thread: This packet is larger than the recommended ENet 1200 byte MTU. As such, it will be sent as Reliable Fragmented.");
-
-                                int ret = clientPeer.Send(outgoingPacket.Channel, ref packet);
-
-                                if (ret < 0 && setupInfo.Verbosity > 1) Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
-
-
-                                break;
-                        }
-                        */
-                    }
-
-                    // TODO: This might not even be used in 1.4.0.
-                    // Break out of the loop early if we're shutting down.
-                    // This can happen if main thread flipped our kill switch.
-                    if (CeaseOperation)
-                    {
-                        if (setupInfo.Verbosity > 0) Debug.Log("Client Worker Thread: Killswitch activated, exiting early.");
-                        break;
                     }
 
                     // Step 2:
@@ -198,6 +179,10 @@ namespace Mirror
                     // a slow networking day.
                     while (!pollComplete)
                     {
+                        Packet incomingPacket;
+                        Peer incomingPeer;
+                        int incomingPacketLength;
+
                         // Any events worth checking out?
                         if (clientENetHost.CheckEvents(out clientENetEvent) <= 0)
                         {
@@ -207,6 +192,11 @@ namespace Mirror
                             // Poll is done.
                             pollComplete = true;
                         }
+
+                        // Setup the packet references.
+                        incomingPacket = clientENetEvent.Packet;
+                        incomingPeer = clientENetEvent.Peer;
+                        incomingPacketLength = clientENetEvent.Packet.Length;
 
                         // Now, let's handle those events.
                         switch (clientENetEvent.Type)
@@ -218,9 +208,9 @@ namespace Mirror
                             case EventType.Connect:
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
                                 {
-                                    NativePeerId = clientENetEvent.Peer.ID,
-                                    IP = clientENetEvent.Peer.IP,
-                                    Port = clientENetEvent.Peer.Port
+                                    NativePeerId = incomingPeer.ID,
+                                    IP = incomingPeer.IP,
+                                    Port = incomingPeer.Port
                                 });
                                 break;
 
@@ -238,9 +228,9 @@ namespace Mirror
                                 if (clientENetEvent.Packet.Length > setupInfo.PacketSizeLimit)
                                 {
                                     if (setupInfo.Verbosity > 0)
-                                        Debug.LogWarning($"Client Worker Thread: Received a packet too large, {clientENetEvent.Packet.Length} bytes while our limit was {setupInfo.PacketSizeLimit} bytes.");
+                                        Debug.LogWarning($"Client Worker Thread: Received a packet too large, {incomingPacketLength} bytes while our limit was {setupInfo.PacketSizeLimit} bytes.");
 
-                                    clientENetEvent.Packet.Dispose();
+                                    incomingPacket.Dispose();
                                     break;
                                 }
 
@@ -254,48 +244,32 @@ namespace Mirror
                                 }
                                 else if (clientENetEvent.Packet.Length <= 102400)
                                 {
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(clientENetEvent.Packet.Length);
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
                                 }
                                 else
                                 {
                                     // If you get down here what the heck are you doing with UDP packets...
                                     // Let Unity GC spike and reap it later.
-                                    storageBuffer = new byte[clientENetEvent.Packet.Length];
+
+                                    // limit it to the maximum packet size set or we'll have an allocation attack vector.
+                                    // vincenzo: [...] limit it to max packet size enet supports maybe 32 mb or less
+                                    storageBuffer = new byte[incomingPacketLength > setupInfo.PacketSizeLimit ? setupInfo.PacketSizeLimit : incomingPacketLength];
                                 }
 
-                                IgnoranceIncomingPacket incomePacket = new IgnoranceIncomingPacket
+                                // Copy the packet to the fresh array.
+                                incomingPacket.CopyTo(storageBuffer);
+                                incomingPacket.Dispose();
+
+                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    NativePeerId = clientENetEvent.Peer.ID,
+                                    NativePeerId = incomingPeer.ID,
                                     Channel = clientENetEvent.ChannelID,
-                                    Length = clientENetEvent.Packet.Length,
-                                    WasRented = clientENetEvent.Packet.Length <= 102400 ? true : false,
+                                    Length = incomingPacketLength,
+                                    WasRented = incomingPacketLength <= 102400 ? true : false,
                                     RentedArray = storageBuffer
                                 };
 
-                                // Copy the packet to the fresh array.
-                                clientENetEvent.Packet.CopyTo(incomePacket.RentedArray);
-
-                                // Dispose of the original packet. We've got the data and everything, no need to hold onto it.
-                                clientENetEvent.Packet.Dispose();
-
-                                Incoming.Enqueue(incomePacket);
-                                break;
-                        }
-                    }
-
-                    // Step 3: Handle commands.
-                    while(Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
-                    {
-                        switch(commandPacket.Type)
-                        {
-                            default:
-                                break;
-
-                            case IgnoranceCommandType.ClientWantsToStop:
-                                break;
-
-                            case IgnoranceCommandType.ClientRequestsStatusUpdate:
-                                // TODO.
+                                Incoming.Enqueue(incomingQueuePacket);
                                 break;
                         }
                     }
@@ -312,14 +286,15 @@ namespace Mirror
                 Debug.Log("Client Worker Thread: Shutdown.");
         }
 
+        // TODO: Optimize struct layout.
         private struct ThreadParamInfo
         {
-            public string Address;
             public int Channels;
             public int PollTime;
             public int Port;
             public int PacketSizeLimit;
             public int Verbosity;
+            public string Address;
         }
 
         // TO BE CONTINUED...

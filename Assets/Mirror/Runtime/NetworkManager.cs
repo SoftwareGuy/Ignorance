@@ -204,7 +204,7 @@ namespace Mirror
                 transport = GetComponent<Transport>();
                 if (transport == null)
                 {
-                    transport = gameObject.AddComponent<IgnoranceThreaded>();
+                    transport = gameObject.AddComponent<Ignorance>();
                     logger.Log("NetworkManager: added default Transport because there was none yet.");
                 }
 #if UNITY_EDITOR

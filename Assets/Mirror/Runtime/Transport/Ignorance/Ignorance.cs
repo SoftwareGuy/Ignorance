@@ -16,7 +16,7 @@ using System.Buffers;
 
 namespace Mirror
 {
-    public class IgnoranceNew : Transport
+    public class Ignorance : Transport
     {
         #region Inspector options
         public int port = 7777;
@@ -247,6 +247,14 @@ namespace Mirror
             // Data portion of the packet.
             // Make sure to rent 1200 (2048) byte arrays minimum to maximum of 100KB.
             // Anything above that, we allocate and let Unity sort it out.
+
+            // Throw a friendly message telling people to keep packets under 1200 bytes.
+            if(segment.Count > 1200)
+            {
+                if (LogType >= IgnoranceLogType.Nothing)
+                    Debug.LogWarning("You're sending a packet over 1200 bytes. ENet will send this Reliable Fragmented instead. Consider keeping your packets below 1200 bytes for best performance.");
+            }
+
             if (segment.Count <= 1200)
             {
                 dispatchPacket.RentedArray = ArrayPool<byte>.Shared.Rent(1200);

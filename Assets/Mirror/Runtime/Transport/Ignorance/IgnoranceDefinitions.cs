@@ -61,26 +61,37 @@ namespace Mirror
         Verbose
     }
 
+    // TODO: Optimize struct for Cache performance.
     public struct IgnoranceIncomingPacket
     {
-        public uint NativePeerId;
-        public int Channel;
-
-        public int Length;
-        public byte[] RentedArray;
         public bool WasRented;
+        public int Channel;
+        public int Length;
+        public uint NativePeerId;
+        public byte[] RentedArray;
     }
 
+    // TODO: Optimize struct for Cache performance.
     public struct IgnoranceOutgoingPacket
-    {
-        public uint NativePeerId;
+    {       
         public byte Channel;
-
-        public int Length;
         public byte[] RentedArray;
         public bool WasRented;
-        
+
+        public int Length;
+        public uint NativePeerId;
+
         public PacketFlags Flags;
+    }
+
+    // TODO: Optimize struct for Cache performance.
+    public struct IgnoranceConnectionEvent
+    {
+        public bool WasDisconnect;
+        public ushort Port;
+        public uint NativePeerId;
+        public string IP;
+
     }
 
     public struct IgnoranceCommandPacket
@@ -100,52 +111,11 @@ namespace Mirror
         ServerKickPeer
     }
 
-    public struct IgnoranceConnectionEvent
-    {
-        public bool WasDisconnect;
-        public uint NativePeerId;
-
-        public string IP;
-        public ushort Port;
-    }
-
-    public struct IgnorancePacket
-    {
-        public IgnorancePacketType Type;
-        public PeerConnectionData PeerData;
-        public PeerHealth StatusData;
-
-        public bool Outgoing;
-
-        public byte Channel;
-        public int Length;
-        public byte[] RentedByteArray;
-
-        public PacketFlags Flags;
-
-        // TO BE CONTINUED...
-        // <------
-    }
-
+    // TODO: Optimize struct for Cache performance.
     public struct PeerConnectionData
     {
         public uint NativePeerId;
-
-        public string IP;
         public ushort Port;
-    }
-
-    public struct PeerHealth
-    {
-        // Packet statistics
-        public ulong PacketsSent;
-        // public ulong PacketsReceived;
-
-        // Data transmission statistics
-        public ulong BytesSent;
-        public ulong BytesReceived;
-
-        // Ping (RTT)
-        public uint RTT;
+        public string IP;
     }
 }

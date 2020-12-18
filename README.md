@@ -161,7 +161,7 @@ Credits
 
 -   [vis2k](https://github.com/vis2k) and [Paul](https://github.com/paulpach): Mirror and MirrorNG developers respectively.
 
--   [c6burns](https://github.com/c6burns), [Petris](https://github.com/MichalPetryka), [shiena](https://github.com/shiena), [Draknith](https://github.com/FizzCube),: Former buddies that helped a lot.
+-   [c6burns](https://github.com/c6burns), [Petris](https://github.com/MichalPetryka), [shiena](https://github.com/shiena), [Draknith](https://github.com/FizzCube): Former buddies that helped a lot.
 
 -   [nxrighthere](https://github.com/nxrighthere): Author of ENet-CSharp in which I forked and made custom improvements to it.
 

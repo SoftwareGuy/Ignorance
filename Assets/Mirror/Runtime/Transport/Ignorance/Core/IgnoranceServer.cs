@@ -92,10 +92,12 @@ namespace Mirror
             if (Verbosity > 0)
                 Debug.Log("Server thread has begun startup.");
 
-            ThreadParamInfo setupInfo;
+            // Thread cache items
+            ThreadParamInfo setupInfo;           
             Address serverAddress = new Address();
             Host serverENetHost;
             Event serverENetEvent;
+
             Peer[] serverPeerArray;
 
             // Grab the setup information.
@@ -134,6 +136,22 @@ namespace Mirror
                 // Loop until we're told to cease operations.
                 while (!CeaseOperation)
                 {
+                    // Intermission: Command Handling
+                    while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
+                    {
+                        switch (commandPacket.Type)
+                        {
+                            default:
+                                break;
+
+                            // Boot a Peer off the Server.
+                            case IgnoranceCommandType.ServerKickPeer:
+                                if (!serverPeerArray[commandPacket.PeerId].IsSet) continue;
+                                serverPeerArray[commandPacket.PeerId].DisconnectNow(0);
+                                break;
+                        }
+                    }
+
                     // Step One:
                     // ---> Sending to peers
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
@@ -169,6 +187,10 @@ namespace Mirror
 
                     while (!pollComplete)
                     {
+                        Packet incomingPacket;
+                        Peer incomingPeer;
+                        int incomingPacketLength;
+
                         // Any events happening?
                         if (serverENetHost.CheckEvents(out serverENetEvent) <= 0)
                         {
@@ -177,6 +199,11 @@ namespace Mirror
 
                             pollComplete = true;
                         }
+
+                        // Setup the packet references.
+                        incomingPacket = serverENetEvent.Packet;
+                        incomingPeer = serverENetEvent.Peer;
+                        incomingPacketLength = serverENetEvent.Packet.Length;
 
                         switch (serverENetEvent.Type)
                         {
@@ -189,13 +216,13 @@ namespace Mirror
                             case EventType.Connect:
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
-                                    NativePeerId = serverENetEvent.Peer.ID,
-                                    IP = serverENetEvent.Peer.IP,
-                                    Port = serverENetEvent.Peer.Port
+                                    NativePeerId = incomingPeer.ID,
+                                    IP = incomingPeer.IP,
+                                    Port = incomingPeer.Port
                                 });
 
                                 // Assign a reference to the Peer.
-                                serverPeerArray[serverENetEvent.Peer.ID] = serverENetEvent.Peer;
+                                serverPeerArray[incomingPeer.ID] = incomingPeer;
                                 break;
 
                             // Disconnect/Timeout. Mirror doesn't care if it's either, so we lump them together.
@@ -204,22 +231,22 @@ namespace Mirror
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
                                     WasDisconnect = true,
-                                    NativePeerId = serverENetEvent.Peer.ID
+                                    NativePeerId = incomingPeer.ID
                                 });
 
                                 // Can't null a Peer struct, but we can reset it, I guess.
                                 // TODO: Does default work or can we just use 'new' ??
-                                serverPeerArray[serverENetEvent.Peer.ID] = new Peer();
+                                serverPeerArray[incomingPeer.ID] = new Peer();
                                 break;
 
                             case EventType.Receive:
                                 // Firstly check if the packet is too big. If it is, do not process it - drop it.
-                                if (serverENetEvent.Packet.Length > setupInfo.PacketSizeLimit)
+                                if (incomingPacketLength > setupInfo.PacketSizeLimit)
                                 {
                                     if (setupInfo.Verbosity > 0)
-                                        Debug.LogWarning($"Server Worker Thread: Received a packet too big to process: {serverENetEvent.Packet.Length} bytes; limit: {setupInfo.PacketSizeLimit} byte(s).");
+                                        Debug.LogWarning($"Server Worker Thread: Received a packet too big to process: {incomingPacketLength} bytes; limit: {setupInfo.PacketSizeLimit} byte(s).");
 
-                                    serverENetEvent.Packet.Dispose();
+                                    incomingPacket.Dispose();
                                     break;
                                 }
 
@@ -228,58 +255,42 @@ namespace Mirror
                                 // Failing that, it's Unity's funeral. 1200 is the sane UDP packet buffer size. (source: FSE_Vincenzo, Mirror Discord)
                                 // I could probably do that if in a one-liner but I'll leave it with commentary to explain what's going on (also stops me going insane debugging)
                                 byte[] storageBuffer;
-                                if (serverENetEvent.Packet.Length <= 1200)
+
+                                if (incomingPacketLength <= 1200)
                                 {
                                     // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
                                     // from ArrayPool's 2048 byte bucket.
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
                                 }
-                                else if (serverENetEvent.Packet.Length <= 102400)
+                                else if (incomingPacketLength <= 102400)
                                 {
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(serverENetEvent.Packet.Length);
+                                    storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
                                 }
                                 else
                                 {
                                     // If you get down here what the heck are you doing with UDP packets...
                                     // Let Unity GC spike and reap it later.
-                                    storageBuffer = new byte[serverENetEvent.Packet.Length];
+
+                                    // limit it to the maximum packet size set or we'll have an allocation attack vector.
+                                    // vincenzo: [...] limit it to max packet size enet supports maybe 32 mb or less
+                                    storageBuffer = new byte[incomingPacketLength > setupInfo.PacketSizeLimit ? setupInfo.PacketSizeLimit : incomingPacketLength];
                                 }
 
+                                incomingPacket.CopyTo(storageBuffer);
+                                incomingPacket.Dispose();
+
                                 // Grab a fresh struct.
-                                IgnoranceIncomingPacket incomePacket = new IgnoranceIncomingPacket
+                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    NativePeerId = serverENetEvent.Peer.ID,
+                                    NativePeerId = incomingPeer.ID,
                                     Channel = serverENetEvent.ChannelID,
-                                    Length = serverENetEvent.Packet.Length,
-                                    WasRented = serverENetEvent.Packet.Length <= 102400 ? true : false
+                                    Length = incomingPacketLength,
+                                    WasRented = incomingPacketLength <= 102400 ? true : false,
+                                    RentedArray = storageBuffer
                                 };
 
-                                // Copy the packet to the fresh array.
-                                serverENetEvent.Packet.CopyTo(storageBuffer);
-                                incomePacket.RentedArray = storageBuffer;
-
-                                // Dispose of the original packet. We've got the data and everything, no need to hold onto it.
-                                serverENetEvent.Packet.Dispose();
-
                                 // Enqueue.
-                                Incoming.Enqueue(incomePacket);
-                                break;
-                        }
-                    }
-
-                    // Step 3
-                    // Command Handling
-                    while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
-                    {
-                        switch (commandPacket.Type)
-                        {
-                            default:
-                                break;
-
-                            // Boot a Peer off the Server.
-                            case IgnoranceCommandType.ServerKickPeer:
-                                if (!serverPeerArray[commandPacket.PeerId].IsSet) continue;
-                                serverPeerArray[commandPacket.PeerId].DisconnectNow(0);
+                                Incoming.Enqueue(incomingQueuePacket);
                                 break;
                         }
                     }
@@ -304,15 +315,16 @@ namespace Mirror
             Library.Deinitialize();
         }
 
+        // TODO: Optimize layout.
         private struct ThreadParamInfo
         {
-            public string Address;
             public int Channels;
             public int Peers;
             public int PollTime;
             public int Port;
             public int PacketSizeLimit;
             public int Verbosity;
+            public string Address;
         }
     }
 }
