@@ -194,11 +194,8 @@ namespace Mirror
                         }
 
                         // Setup the packet references.
-                        incomingPacket = clientENetEvent.Packet;
-                        if(incomingPacket.IsSet())
-                            incomingPacketLength = incomingPacket.Length;
                         incomingPeer = clientENetEvent.Peer;
-                        
+
                         // Now, let's handle those events.
                         switch (clientENetEvent.Type)
                         {
@@ -225,11 +222,21 @@ namespace Mirror
 
 
                             case EventType.Receive:
+                                // Receive event type usually includes a packet; so cache its reference.
+                                incomingPacket = clientENetEvent.Packet;
+                                if (!incomingPacket.IsSet)
+                                {
+                                    if (setupInfo.Verbosity > 0)
+                                        Debug.LogWarning($"Client Worker Thread: A receive event did not supply us with a packet to work with. This should never happen.");
+                                    break;
+                                }
+                                incomingPacketLength = incomingPacket.Length;
+
                                 // Never consume more than we can have capacity for.
                                 if (incomingPacketLength > setupInfo.PacketSizeLimit)
                                 {
                                     if (setupInfo.Verbosity > 0)
-                                        Debug.LogWarning($"Client Worker Thread: Received a packet too large, {incomingPacketLength} bytes while our limit was {setupInfo.PacketSizeLimit} bytes.");
+                                        Debug.LogWarning($"Client Worker Thread: Received a packet too large, {incomingPacketLength} bytes while our limit is {setupInfo.PacketSizeLimit} bytes.");
 
                                     incomingPacket.Dispose();
                                     break;

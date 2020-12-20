@@ -201,9 +201,6 @@ namespace Mirror
                         }
 
                         // Setup the packet references.
-                        incomingPacket = serverENetEvent.Packet;
-                        if(incomingPacket.IsSet())
-                            incomingPacketLength = serverENetEvent.Packet.Length;        
                         incomingPeer = serverENetEvent.Peer;
                         
                         switch (serverENetEvent.Type)
@@ -235,12 +232,22 @@ namespace Mirror
                                     NativePeerId = incomingPeer.ID
                                 });
 
-                                // Can't null a Peer struct, but we can reset it, I guess.
-                                // TODO: Does default work or can we just use 'new' ??
-                                serverPeerArray[incomingPeer.ID] = new Peer();
+                                // Reset the peer array's entry for that peer.
+                                serverPeerArray[incomingPeer.ID] = default;
                                 break;
 
                             case EventType.Receive:
+                                // Receive event type usually includes a packet; so cache its reference.
+                                incomingPacket = serverENetEvent.Packet;
+                                if (!incomingPacket.IsSet)
+                                {
+                                    if (setupInfo.Verbosity > 0)
+                                        Debug.LogWarning($"Server Worker Thread: A receive event did not supply us with a packet to work with. This should never happen.");
+                                    break;
+                                }
+
+                                incomingPacketLength = incomingPacket.Length;
+
                                 // Firstly check if the packet is too big. If it is, do not process it - drop it.
                                 if (incomingPacketLength > setupInfo.PacketSizeLimit)
                                 {
