@@ -16,6 +16,7 @@ using System.Buffers;
 
 namespace Mirror
 {
+    [DisallowMultipleComponent]
     public class Ignorance : Transport
     {
         #region Inspector options
