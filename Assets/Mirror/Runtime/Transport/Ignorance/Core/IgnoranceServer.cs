@@ -16,7 +16,7 @@ using Event = ENet.Event;           // fixes CS0104 ambigous reference between t
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using Object = System.Object;       // fixes CS0104 ambigous reference between the same thing in UnityEngine
 
-namespace Mirror
+namespace IgnoranceTransport
 {
     public class IgnoranceServer
     {

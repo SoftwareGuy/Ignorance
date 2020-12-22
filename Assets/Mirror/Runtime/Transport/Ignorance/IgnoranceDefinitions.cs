@@ -1,7 +1,7 @@
 using System;
 using ENet;
 
-namespace Mirror
+namespace IgnoranceTransport
 {
     // Snipped from the transport files, as this will help
     // me keep things up to date.

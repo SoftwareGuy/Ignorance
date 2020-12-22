@@ -10,11 +10,12 @@
 // -----------------
 using UnityEngine;
 using ENet;
+using Mirror;
 using System;
 using System.Collections.Generic;
 using System.Buffers;
 
-namespace Mirror
+namespace IgnoranceTransport
 {
     [DisallowMultipleComponent]
     public class Ignorance : Transport

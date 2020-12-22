@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 
-namespace Mirror
+namespace IgnoranceTransport
 {
     public class IgnoranceToolbox
     {
