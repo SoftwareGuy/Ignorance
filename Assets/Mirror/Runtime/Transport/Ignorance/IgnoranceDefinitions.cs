@@ -30,7 +30,7 @@ namespace IgnoranceTransport
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.3.10";
+        public const string Version = "1.4.0a1";
         public const string Scheme = "enet";
         public const string BindAllIPv4 = "0.0.0.0";
         public const string BindAllFuckingAppleMacs = "::0";
@@ -61,7 +61,7 @@ namespace IgnoranceTransport
         Verbose
     }
 
-    // TODO: Optimize struct for Cache performance.
+    // Struct optimized for cache efficiency. (Thanks Vincenzo!)
     public struct IgnoranceIncomingPacket
     {
         public bool WasRented;
@@ -71,7 +71,7 @@ namespace IgnoranceTransport
         public byte[] RentedArray;        
     }
 
-    // TODO: Optimize struct for Cache performance.
+    // Struct optimized for cache efficiency. (Thanks Vincenzo!)
     public struct IgnoranceOutgoingPacket
     {
         public bool WasRented;
@@ -82,7 +82,7 @@ namespace IgnoranceTransport
         public byte[] RentedArray;
     }
 
-    // TODO: Optimize struct for Cache performance.
+    // Struct optimized for cache efficiency. (Thanks Vincenzo!)
     public struct IgnoranceConnectionEvent
     {
         public bool WasDisconnect;
@@ -95,6 +95,17 @@ namespace IgnoranceTransport
     {
         public IgnoranceCommandType Type;
         public uint PeerId;
+    }
+
+    public struct IgnoranceClientStats
+    {
+        // Stats only - may not always be used!
+        public uint RTT;
+        public ulong BytesReceived;
+        public ulong BytesSent;
+        public ulong PacketsReceived;
+        public ulong PacketsSent;
+        public ulong PacketsLost;
     }
 
     public enum IgnoranceCommandType

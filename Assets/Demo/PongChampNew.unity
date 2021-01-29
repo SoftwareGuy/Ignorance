@@ -1069,12 +1069,12 @@ MonoBehaviour:
   LogType: 1
   serverBindsAll: 1
   serverBindAddress: 
-  serverMaxPeerCapacity: 100
+  serverMaxPeerCapacity: 50
   serverMaxNativeWaitTime: 1
   clientMaxNativeWaitTime: 3
-  clientStatusUpdateInterval: 5
+  clientStatusUpdateInterval: 3
   Channels: 0100000002000000
-  MaximumPacketSize: 1200
+  MaxAllowedPacketSize: 33554432
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -32,6 +32,9 @@ namespace IgnoranceTransport
         // General Verbosity by default.
         public int Verbosity = 1;
 
+        // Fired when status request returns something.
+        public Action<IgnoranceClientStats> StatusUpdate;
+
         // Queues
         public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
         public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
@@ -90,13 +93,15 @@ namespace IgnoranceTransport
         // or you may get an AccessViolation/crash.
         private void ThreadWorker(Object parameters)
         {
-            if (Verbosity > 0) Debug.Log("Client Work Thread: Startup");
+            if (Verbosity > 0)
+                Debug.Log("Client Work Thread: Startup");
 
             ThreadParamInfo setupInfo;
             Address clientAddress = new Address();
             Peer clientPeer;
             Host clientENetHost;
             Event clientENetEvent;
+            IgnoranceClientStats icsu = default;
 
             // Grab the setup information.
             if (parameters.GetType() == typeof(ThreadParamInfo))
@@ -112,11 +117,13 @@ namespace IgnoranceTransport
             // Attempt to initialize ENet inside the thread.
             if (Library.Initialize())
             {
-                if (setupInfo.Verbosity > 0) Debug.Log("Client Work Thread: Initialized ENet.");
+                if (setupInfo.Verbosity > 0)
+                    Debug.Log("Client Work Thread: Initialized ENet.");
             }
             else
             {
-                if (setupInfo.Verbosity > 0) Debug.Log("Client Work Thread: Failed to initialize ENet.");
+                if (setupInfo.Verbosity > 0)
+                    Debug.Log("Client Work Thread: Failed to initialize ENet.");
                 return;
             }
 
@@ -147,7 +154,20 @@ namespace IgnoranceTransport
                                 break;
 
                             case IgnoranceCommandType.ClientRequestsStatusUpdate:
-                                // TODO.
+                                // Respond with statistics so far.
+                                if (!clientPeer.IsSet)
+                                    break;
+
+                                icsu.RTT = clientPeer.RoundTripTime;
+
+                                icsu.BytesReceived = clientPeer.BytesReceived;
+                                icsu.BytesSent = clientPeer.BytesSent;
+
+                                icsu.PacketsReceived = clientENetHost.PacketsReceived;
+                                icsu.PacketsSent = clientPeer.PacketsSent;
+                                icsu.PacketsLost = clientPeer.PacketsLost;
+
+                                StatusUpdate?.Invoke(icsu);
                                 break;
                         }
                     }

@@ -33,7 +33,7 @@ namespace IgnoranceTransport
         [Tooltip("This is only used if Server Binds All is unticked.")]
         public string serverBindAddress = string.Empty;
         [Tooltip("This tells ENet how many Peer slots to create. Helps performance, avoids looping over huge native arrays. Recommended: Max Mirror players, rounded to nearest 10. (Example: 16 -> 20).")]
-        public int serverMaxPeerCapacity = 100;
+        public int serverMaxPeerCapacity = 50;
         [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage. Lower values may/may not impact performance at high packet load.")]
         public int serverMaxNativeWaitTime = 1;
 
@@ -53,7 +53,7 @@ namespace IgnoranceTransport
         #endregion
 
         #region Public Statistics
-        public Stats Statistics;
+        public IgnoranceClientStats ClientStatistics;
         #endregion
 
 #if MIRROR_26_0_OR_NEWER
@@ -76,7 +76,7 @@ namespace IgnoranceTransport
 
         public override string ToString()
         {
-            return "Ignorance 1.4.x Technicial Preview";
+            return $"Ignorance v{IgnoranceInternals.Version}";
         }
 
         public override void ClientConnect(string address)
@@ -89,7 +89,7 @@ namespace IgnoranceTransport
             // Get going.            
             ignoreDataPackets = false;
             NextStatusRequestUpdate = 0f;
-
+            
             // Start!
             Client.Start();
         }
@@ -115,6 +115,7 @@ namespace IgnoranceTransport
             if (Client != null)
             {
                 Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
+                Client.StatusUpdate -= OnClientStatusUpdate;
                 Client.Stop();
             }
 
@@ -139,21 +140,15 @@ namespace IgnoranceTransport
             // Data Storage 
             byte[] storageBuffer;
             if (segment.Count <= 1200)
-            {
                 // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
                 // from ArrayPool's 2048 byte bucket.
                 storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
-            }
             else if (segment.Count <= 102400)
-            {
                 storageBuffer = ArrayPool<byte>.Shared.Rent(102400);
-            }
             else
-            {
                 // If you get down here what the heck are you doing with UDP packets...
                 // Let Unity GC spike and reap it later.
                 storageBuffer = new byte[segment.Count];
-            }
 
             // Copy contents to the rented buffer
             segment.Array.CopyTo(storageBuffer, 0);
@@ -165,7 +160,7 @@ namespace IgnoranceTransport
                 Length = segment.Count,
                 Flags = (PacketFlags)Channels[channelId],
                 RentedArray = storageBuffer,
-                WasRented = segment.Count < 102400 ? true : false
+                WasRented = segment.Count < 102400
             };
 
             // Copy contents to the rented buffer, then assign it to the packet.
@@ -505,34 +500,33 @@ namespace IgnoranceTransport
             }
 
             // Step 2: Handle connection events.
-
             while (Client.ConnectionEvents.TryDequeue(out IgnoranceConnectionEvent connectionEvent))
             {
                 if (connectionEvent.WasDisconnect)
                 {
+                    Client.StatusUpdate -= OnClientStatusUpdate;
+
                     // Disconnected from server.
                     OnClientDisconnected?.Invoke();
 
                     if (LogType != IgnoranceLogType.Nothing)
-                    {
                         print($"Client disconnected from server, {connectionEvent.IP}:{connectionEvent.Port}");
-                        ignoreDataPackets = true;
-                        isClientConnected = false;
-                    }
 
+                    ignoreDataPackets = true;
+                    isClientConnected = false;
                 }
                 else
                 {
                     // Connected to server.
+                    Client.StatusUpdate += OnClientStatusUpdate;
                     OnClientConnected?.Invoke();
 
                     if (LogType != IgnoranceLogType.Nothing)
-                    {
                         print($"Client connected to server, {connectionEvent.IP}:{connectionEvent.Port}");
-                        ignoreDataPackets = false;
-                        isClientConnected = true;
 
-                    }
+                    ignoreDataPackets = false;
+                    isClientConnected = true;
+
                 }
             }
 
@@ -541,14 +535,22 @@ namespace IgnoranceTransport
             {
                 switch (commandPacket.Type)
                 {
-                    default:
-                        break;
+                    // ...
 
-                    case IgnoranceCommandType.ResponseToClientStatusRequest:
-                        // TODO!
+                    default:
                         break;
                 }
             }
+        }
+
+        private void OnClientStatusUpdate(IgnoranceClientStats statusUpdate)
+        {
+            ClientStatistics = statusUpdate;
+
+            // For debugging purposes only.
+            // print($"Status update from ENet: " +
+            //    $"{ClientStatistics.RTT}ms RTT, {statusUpdate.PacketsReceived} Packets Received, {statusUpdate.PacketsSent} Packets Sent, " +
+            //    $"{statusUpdate.BytesReceived} Bytes In, {statusUpdate.BytesSent} Bytes Out");
         }
 
         private void LateUpdate()
@@ -571,14 +573,6 @@ namespace IgnoranceTransport
             }
         }
         #endregion
-
-        public struct Stats
-        {
-            public uint RTT;
-            public ulong SentBytes;
-            public ulong SentPackets;
-            public ulong ReceivedBytes;
-        }
 #endif
     }
 }
