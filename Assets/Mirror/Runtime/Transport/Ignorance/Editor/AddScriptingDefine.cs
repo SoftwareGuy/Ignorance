@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 
-namespace Mirror
+namespace IgnoranceTransport
 {
     /// <summary>
     /// Adds the given define symbols to PlayerSettings define symbols.
@@ -20,7 +20,7 @@ namespace Mirror
         public static readonly string[] Symbols = new string[] {
             "IGNORANCE", // Ignorance exists
             "IGNORANCE_1", // Major version
-            "IGNORANCE_1_3" // Major and minor version
+            "IGNORANCE_1_4" // Major and minor version
         };
 
         /// <summary>
