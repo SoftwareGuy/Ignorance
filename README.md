@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="http://oiran.studio/images/ignorance14.png" alt="Ignorance 1.4 Logo"/>
+</p>
+
 Ignorance 1.4 Alpha
 =============
 [![Ko-Fi](https://img.shields.io/badge/Donate-Ko--Fi-red)](https://ko-fi.com/coburn) 
@@ -9,7 +13,7 @@ _I'd appreciate [a coffee](https://ko-fi.com/coburn) if you use this transport._
 
 Ignorance 1.4 is a ENet-powered transport that plugs into the [Mirror Networking](https://github.com/vis2k/Mirror) project. It provides a high-performance
 implementation of the tried and true native ENet C library which provides reliable UDP communications for your game projects. Variants of ENet are used by Triple-A
-game companies for their networking. UDP has a lot of benefits over TCP which was the default in Mirror.
+game companies for their networking. Reliable UDP has a lot of benefits over TCP which was the default in Mirror.
 
 Ignorance was originally intended to replace Unity's LLAPI Transport that ships with Mirror, however since it uses native libraries it was deemed too risky to ship with 
 Mirror itself.
@@ -58,7 +62,7 @@ Compatiblity
     -   Native: Possibly, however I don’t have development kit or license to test.
 
 -   **PlayStation**
-	- 	PlayStation 4 and Vita: Would need patches for native library to work on Sony's BSD OS.
+	- 	Would need patches for native library to work on Sony's BSD OS.
 	
 ### Mobile
 
@@ -73,9 +77,11 @@ Compatiblity
 Dependencies
 ------------
 
+**All dependencies are included, except Mirror if you are using a release package.**
+
 -   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp): **slightly modified version included**
 
--   [Mirror Networking](https://github.com/vis2k/Mirror): use Asset Store release
+-   [Mirror Networking](https://github.com/vis2k/Mirror): use Asset Store release please, only use Git Master release for bug fixes that you desperately need
 
 Installation
 ------------
@@ -93,10 +99,17 @@ Then set the script to be used in NetworkManagers' "Transport" field.
 FAQ (aka Please Read This First)
 --------------------------------
 
+### Does Ignorance do NAT-PMP, UPnP or NAT Punching?
+
+No. In this day and age of the internet, relying on NAT Punching is russian roulette. Many routers ship with UPnP/NAT-PMP disabled due to security concerns. That said,
+your ISP (read: the entity that provides you internet access) may have their own firewall that blocks incoming connections. **Punch through will fail on mobile networks, such as 3G/4G/5G**.
+
+If you really need to break through restrictive firewalls, your best bet is to use some sort of Relay mechanism. As far as the firewall is concerned, it just sees it as a single connection. Mirror supports some relays that work well with Ignorance. For more information, check out the Mirror Discord.
+
 ### Ignorance doesn't seem to work when building for Standalone target?
 
-Make sure you aren't compiling your game for 32bit Windows. Ignorance uses ENet, which doesn't support 32bit platforms unless you
-manually compile for them yourself. 
+Make sure you aren't compiling your game for 32bit Windows. ENet doesn't support 32bit platforms unless you
+manually compile it yourself. 
 
 ### Why should I use Ignorance over Unity LLAPI?
 
@@ -107,7 +120,7 @@ That alone says something.
 
 ### What happened to Ignorance Classic?
 
-It died back in the 1.3.9.2 days. The classic version was becoming obsolete and not worth the time keeping it up to date.
+It died back in the 1.3.x days. The classic version was becoming obsolete and not worth the time keeping it up to date.
 
 ### LateUpdate for your transport code? WTF?!
 
@@ -119,7 +132,7 @@ that the networking gets overwhelmed, regardless of how ENet is coping in the na
 It is essential to keep your server's frame rate running as high as possible as this will reduce latency and in-game lag. You will be able to tell when the server 
 is under heavy stress when networked objects get very choppy and/or the client starts hanging.
 
-Mirrors' LateUpdate polling is a design flaw that vis2k has very little interest in fixing. I will probably research a better way and submit it in the near future.
+Mirrors' LateUpdate polling is a design flaw will be fixed later on.
 
 ### I found a bug, where do I report it?
 
@@ -134,15 +147,10 @@ bug report.
 
 [Here's a quick primer.](https://vis2k.github.io/Mirror/Transports/Ignorance). It might be slightly out of date, but it covers the basics of Ignorance.
 
-
-I am not satisfied with Ignorance.
--------
+### I am not satisfied with Ignorance.
 
 Please let me know why as I can't improve my code if I don't get feedback.
-*However, if you're just here to troll me and my code, then please move on.*
-
-See also:
-[LiteNetLib4Mirror](https://github.com/MichalPetryka/LiteNetLib4Mirror).
+*However, if you're just here to troll then please move on.*
 
 Credits
 -------
