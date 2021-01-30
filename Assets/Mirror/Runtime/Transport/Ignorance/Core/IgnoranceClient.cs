@@ -40,6 +40,7 @@ namespace IgnoranceTransport
         public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
         public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
         public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
+        public ConcurrentQueue<IgnoranceClientStats> StatusUpdates = new ConcurrentQueue<IgnoranceClientStats>();
 
         public bool IsAlive => WorkerThread != null ? WorkerThread.IsAlive : false;
 
@@ -76,6 +77,7 @@ namespace IgnoranceTransport
             if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
             if (Commands != null) while (Commands.TryDequeue(out _)) ;
             if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _)) ;
+            if (StatusUpdates != null) while (StatusUpdates.TryDequeue(out _)) ;
 
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
@@ -167,7 +169,7 @@ namespace IgnoranceTransport
                                 icsu.PacketsSent = clientPeer.PacketsSent;
                                 icsu.PacketsLost = clientPeer.PacketsLost;
 
-                                StatusUpdate?.Invoke(icsu);
+                                StatusUpdates.Enqueue(icsu);
                                 break;
                         }
                     }
@@ -175,19 +177,17 @@ namespace IgnoranceTransport
                     // ---> Sending to Server
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outPacket))
                     {
-                        // TODO: outPacket.Flags.HasFlag(PacketFlags.None) = Unreliable mode?
-                        if (setupInfo.Verbosity > 1 && outPacket.Length > 1200 && outPacket.Flags.HasFlag(PacketFlags.None))
-                            Debug.LogWarning("Client Worker Thread: This packet is larger than the recommended ENet 1200 byte MTU. It will be sent as Reliable Fragmented.");
-
                         // TODO: Revise this, could we tell the Peer to disconnect right here?                       
                         // Stop early if we get a client stop packet.
                         // if (outgoingPacket.Type == IgnorancePacketType.ClientWantsToStop) break;
+
                         // Create the packet.
                         Packet packet = default;
                         packet.Create(outPacket.RentedArray, outPacket.Length, outPacket.Flags);
 
                         int ret = clientPeer.Send(outPacket.Channel, ref packet);
-                        if (ret < 0 && setupInfo.Verbosity > 1) Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
+                        if (ret < 0 && setupInfo.Verbosity > 1)
+                            Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
 
                         if (outPacket.WasRented)
                             ArrayPool<byte>.Shared.Return(outPacket.RentedArray, true);
@@ -264,6 +264,7 @@ namespace IgnoranceTransport
 
                                 // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
                                 byte[] storageBuffer;
+
                                 if (incomingPacketLength <= 1200)
                                 {
                                     // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes

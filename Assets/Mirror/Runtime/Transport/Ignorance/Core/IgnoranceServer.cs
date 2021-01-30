@@ -290,7 +290,7 @@ namespace IgnoranceTransport
                                 // Grab a fresh struct.
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    WasRented = incomingPacketLength <= 102400 ? true : false,
+                                    WasRented = incomingPacketLength <= 102400,
                                     Channel = serverENetEvent.ChannelID,
                                     NativePeerId = incomingPeer.ID,                                    
                                     Length = incomingPacketLength,
@@ -318,8 +318,13 @@ namespace IgnoranceTransport
                 }
             }
 
+            // Flush again to ensure ENet gets those Disconnection stuff out.
+            // May not be needed; better to err on side of caution
+            serverENetHost.Flush();
+
             if (setupInfo.Verbosity > 0)
                 Debug.Log("Server Worker Thread: Shutdown.");
+
             Library.Deinitialize();
         }
 

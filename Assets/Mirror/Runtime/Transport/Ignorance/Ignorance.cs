@@ -115,7 +115,6 @@ namespace IgnoranceTransport
             if (Client != null)
             {
                 Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
-                Client.StatusUpdate -= OnClientStatusUpdate;
                 Client.Stop();
             }
 
@@ -136,9 +135,13 @@ namespace IgnoranceTransport
                 return;
             }
 
+            // Warn if over recommended MTU            
+            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200)
+                Debug.LogWarning($"Warning: Client is about to send a packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Data Storage 
             byte[] storageBuffer;
+
             if (segment.Count <= 1200)
                 // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
                 // from ArrayPool's 2048 byte bucket.
@@ -230,6 +233,10 @@ namespace IgnoranceTransport
                 Debug.LogError("Channel ID is out of bounds.");
                 return;
             }
+
+            // Warn if over recommended MTU            
+            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200)
+                Debug.LogWarning($"Warning: Server is about to send a packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Data portion of the packet.
             // Make sure to rent 1200 (2048) byte arrays minimum to maximum of 100KB.
@@ -504,8 +511,6 @@ namespace IgnoranceTransport
             {
                 if (connectionEvent.WasDisconnect)
                 {
-                    Client.StatusUpdate -= OnClientStatusUpdate;
-
                     // Disconnected from server.
                     OnClientDisconnected?.Invoke();
 
@@ -518,7 +523,6 @@ namespace IgnoranceTransport
                 else
                 {
                     // Connected to server.
-                    Client.StatusUpdate += OnClientStatusUpdate;
                     OnClientConnected?.Invoke();
 
                     if (LogType != IgnoranceLogType.Nothing)
@@ -541,16 +545,12 @@ namespace IgnoranceTransport
                         break;
                 }
             }
-        }
 
-        private void OnClientStatusUpdate(IgnoranceClientStats statusUpdate)
-        {
-            ClientStatistics = statusUpdate;
-
-            // For debugging purposes only.
-            // print($"Status update from ENet: " +
-            //    $"{ClientStatistics.RTT}ms RTT, {statusUpdate.PacketsReceived} Packets Received, {statusUpdate.PacketsSent} Packets Sent, " +
-            //    $"{statusUpdate.BytesReceived} Bytes In, {statusUpdate.BytesSent} Bytes Out");
+            // Step 4: Handle status updates.
+            while(Client.StatusUpdates.TryDequeue(out IgnoranceClientStats clientStats))
+            {
+                ClientStatistics = clientStats;
+            }
         }
 
         private void LateUpdate()
@@ -573,6 +573,10 @@ namespace IgnoranceTransport
             }
         }
         #endregion
+
+#if IGNORANCE_EXPERIMENTAL
+        public override int GetMaxBatchSize(int channelId) => 1200;
+#endif
 #endif
     }
 }
