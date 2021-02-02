@@ -6,11 +6,11 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 
+using ENet;
+using NetStack.Buffers;
 using System;
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Threading;
-using ENet;
 using UnityEngine;
 using Event = ENet.Event;           // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
@@ -32,9 +32,6 @@ namespace IgnoranceTransport
         // General Verbosity by default.
         public int Verbosity = 1;
 
-        // Fired when status request returns something.
-        public Action<IgnoranceClientStats> StatusUpdate;
-
         // Queues
         public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
         public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
@@ -46,9 +43,6 @@ namespace IgnoranceTransport
 
         private volatile bool CeaseOperation = false;
         private Thread WorkerThread;
-
-        // TO BE CONTINUED...
-        // <------
 
         public void Start()
         {
@@ -190,7 +184,7 @@ namespace IgnoranceTransport
                             Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
 
                         if (outPacket.WasRented)
-                            ArrayPool<byte>.Shared.Return(outPacket.RentedArray, true);
+                            ArrayPool<byte>.Shared.Return(outPacket.RentedArray);
                     }
 
                     // Step 2:
@@ -271,7 +265,7 @@ namespace IgnoranceTransport
                                     // from ArrayPool's 2048 byte bucket.
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
                                 }
-                                else if (incomingPacketLength <= 102400)
+                                else if (incomingPacketLength <= 32768)
                                 {
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
                                 }

@@ -6,11 +6,10 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 
-using System;
-using System.Buffers;
+using ENet;
+using NetStack.Buffers;
 using System.Collections.Concurrent;
 using System.Threading;
-using ENet;
 using UnityEngine;
 using Event = ENet.Event;           // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
@@ -170,14 +169,18 @@ namespace IgnoranceTransport
                         }
                         else
                         {
-                            // A peer might have disconnected, this is OK - just log the packet.
-                            if (setupInfo.Verbosity > 0)
+                            // A peer might have disconnected, this is OK - just log the packet if set to paranoid.
+                            if (setupInfo.Verbosity > 1)
                                 Debug.LogWarning("Server Worker Thread: Can't send packet, a native peer is not set. This may be normal if the Peer has disconnected before this send cycle.");
                         }
 
                         // Cleanup.
                         if(outgoingPacket.WasRented)
-                            ArrayPool<byte>.Shared.Return(outgoingPacket.RentedArray, true);
+                        {
+                            // Console.WriteLine("MemAlloc: Release array rental.");
+                            ArrayPool<byte>.Shared.Return(outgoingPacket.RentedArray);
+                        }
+
                         break;
                     }
 
@@ -270,7 +273,7 @@ namespace IgnoranceTransport
                                     // from ArrayPool's 2048 byte bucket.
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
                                 }
-                                else if (incomingPacketLength <= 102400)
+                                else if (incomingPacketLength <= 32768)
                                 {
                                     storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
                                 }
@@ -290,7 +293,7 @@ namespace IgnoranceTransport
                                 // Grab a fresh struct.
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    WasRented = incomingPacketLength <= 102400,
+                                    WasRented = incomingPacketLength <= 32768,
                                     Channel = serverENetEvent.ChannelID,
                                     NativePeerId = incomingPeer.ID,                                    
                                     Length = incomingPacketLength,

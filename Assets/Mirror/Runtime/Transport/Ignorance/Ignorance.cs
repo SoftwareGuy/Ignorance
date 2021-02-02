@@ -8,12 +8,12 @@
 // -----------------
 // Ignorance Experimental (New) Version
 // -----------------
-using UnityEngine;
 using ENet;
 using Mirror;
 using System;
+using NetStack.Buffers;
 using System.Collections.Generic;
-using System.Buffers;
+using UnityEngine;
 
 namespace IgnoranceTransport
 {
@@ -89,7 +89,7 @@ namespace IgnoranceTransport
             // Get going.            
             ignoreDataPackets = false;
             NextStatusRequestUpdate = 0f;
-            
+
             // Start!
             Client.Start();
         }
@@ -123,6 +123,10 @@ namespace IgnoranceTransport
 
         public override void ClientSend(int channelId, ArraySegment<byte> segment)
         {
+            // Data Storage 
+            int byteCount;
+            byte[] storageBuffer;
+
             if (Client == null)
             {
                 Debug.LogError("Client object is null, this shouldn't really happen but it did...");
@@ -135,23 +139,22 @@ namespace IgnoranceTransport
                 return;
             }
 
+            byteCount = segment.Count;
+
             // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200)
+            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200)
                 Debug.LogWarning($"Warning: Client is about to send a packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
-            // Data Storage 
-            byte[] storageBuffer;
-
-            if (segment.Count <= 1200)
+            if (byteCount <= 1200)
                 // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
                 // from ArrayPool's 2048 byte bucket.
                 storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
-            else if (segment.Count <= 102400)
-                storageBuffer = ArrayPool<byte>.Shared.Rent(102400);
+            else if (segment.Count <= 32768)
+                storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
             else
                 // If you get down here what the heck are you doing with UDP packets...
                 // Let Unity GC spike and reap it later.
-                storageBuffer = new byte[segment.Count];
+                storageBuffer = new byte[byteCount];
 
             // Copy contents to the rented buffer
             segment.Array.CopyTo(storageBuffer, 0);
@@ -163,7 +166,7 @@ namespace IgnoranceTransport
                 Length = segment.Count,
                 Flags = (PacketFlags)Channels[channelId],
                 RentedArray = storageBuffer,
-                WasRented = segment.Count < 102400
+                WasRented = byteCount <= 32768
             };
 
             // Copy contents to the rented buffer, then assign it to the packet.
@@ -220,6 +223,10 @@ namespace IgnoranceTransport
 
         public override void ServerSend(int connectionId, int channelId, ArraySegment<byte> segment)
         {
+            int byteCount;
+            bool wasRented;
+            byte[] storageBuffer;
+
             // Debug.Log($"ServerSend({connectionId}, {channelId}, <{segment.Count} byte segment>)");
 
             if (Server == null)
@@ -235,28 +242,50 @@ namespace IgnoranceTransport
             }
 
             // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200)
-                Debug.LogWarning($"Warning: Server is about to send a packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
+            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && Channels[channelId].HasFlag(PacketFlags.None))
+                Debug.LogWarning($"Warning: Server tried to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Data portion of the packet.
             // Make sure to rent 1200 (2048) byte arrays minimum to maximum of 100KB.
             // Anything above that, we allocate and let Unity sort it out.
-            bool wasRented = true;
-            byte[] storageBuffer;
+            byteCount = segment.Count;
 
-            // Throw a friendly message telling people to keep packets under 1200 bytes.
-            if(segment.Count > 1200)
+            Console.WriteLine($"MemAlloc Debug: Wanting a {segment.Count} byte array.");
+
+            if (byteCount <= 0)
             {
-                if (LogType >= IgnoranceLogType.Nothing)
-                    Debug.LogWarning("You're sending a packet over 1200 bytes. ENet will send this Reliable Fragmented instead. Consider keeping your packets below 1200 bytes for best performance.");
+                Debug.LogError("Apparently we're trying to allocate a 0 byte array? Skip.");
+                return;
+            }
+            else if (byteCount <= 2048)
+            {
+                storageBuffer = ArrayPool<byte>.Shared.Rent(2048);
+                wasRented = true;
+                Console.WriteLine($"MemAlloc Debug: Asked for 2048 bytes");
+            }
+            else if (byteCount <= 4096)
+            {
+                storageBuffer = ArrayPool<byte>.Shared.Rent(4096);
+                wasRented = true;
+                Console.WriteLine($"MemAlloc Debug: Asked for 4096 bytes.");
+            }
+            else
+            {
+                Console.WriteLine($"MemAlloc Debug: Over 4KB. Renting a {byteCount} byte array.");
+                storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount); // new byte[segment.Count];
+                wasRented = true;                
             }
 
+            /*
             if (segment.Count <= 1200)
             {
+             
+
                 storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
             }
-            else if (segment.Count <= 102400)
+            else if (segment.Count <= 131072)
             {
+                Console.WriteLine($"MemAlloc Debug: > 1200 but <= 131072, {segment.Count}");
                 storageBuffer = ArrayPool<byte>.Shared.Rent(segment.Count);
             }
             else
@@ -264,7 +293,7 @@ namespace IgnoranceTransport
                 storageBuffer = new byte[segment.Count];
                 wasRented = false;
             }
-
+                        */
             segment.Array.CopyTo(storageBuffer, 0);
 
             // Add it to the outgoing queue.
@@ -423,7 +452,7 @@ namespace IgnoranceTransport
 
                 // Release the array back to the pool if it was rented.
                 if (incomingPacket.WasRented)
-                    ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray, true);
+                    ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
@@ -485,7 +514,7 @@ namespace IgnoranceTransport
                 if (!isClientConnected || ignoreDataPackets)
                 {
                     if (incomingPacket.WasRented)
-                        ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray, true);
+                        ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
                     break;
                 }
 
@@ -496,7 +525,7 @@ namespace IgnoranceTransport
 
                 // Cleanup.
                 if (incomingPacket.WasRented)
-                    ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray, true);
+                    ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
@@ -547,7 +576,7 @@ namespace IgnoranceTransport
             }
 
             // Step 4: Handle status updates.
-            while(Client.StatusUpdates.TryDequeue(out IgnoranceClientStats clientStats))
+            while (Client.StatusUpdates.TryDequeue(out IgnoranceClientStats clientStats))
             {
                 ClientStatistics = clientStats;
             }
@@ -574,9 +603,7 @@ namespace IgnoranceTransport
         }
         #endregion
 
-#if IGNORANCE_EXPERIMENTAL
         public override int GetMaxBatchSize(int channelId) => 1200;
-#endif
 #endif
     }
 }
