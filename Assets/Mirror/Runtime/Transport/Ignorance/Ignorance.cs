@@ -11,7 +11,6 @@
 using ENet;
 using Mirror;
 using System;
-using NetStack.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -48,6 +47,9 @@ namespace IgnoranceTransport
         public IgnoranceChannelTypes[] Channels;
 
         [Header("Low-level Tweaking")]
+        [Tooltip("Used internally to keep allocations to a minimum with ArrayPool. Don't touch this unless you know what you're doing.")]
+        public int PacketBufferCapacity = 4096;
+
         [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. You can increase this, however beware this may open you up to allocation attacks.")]
         public int MaxAllowedPacketSize = 33554432;
         #endregion
@@ -123,10 +125,6 @@ namespace IgnoranceTransport
 
         public override void ClientSend(int channelId, ArraySegment<byte> segment)
         {
-            // Data Storage 
-            int byteCount;
-            byte[] storageBuffer;
-
             if (Client == null)
             {
                 Debug.LogError("Client object is null, this shouldn't really happen but it did...");
@@ -139,16 +137,34 @@ namespace IgnoranceTransport
                 return;
             }
 
-            byteCount = segment.Count;
+            // Packet Struct
+            Packet clientOutgoingPacket = default;
+            int byteCount = segment.Count;
 
             // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200)
-                Debug.LogWarning($"Warning: Client is about to send a packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
+            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && Channels[channelId].HasFlag(PacketFlags.None))
+                Debug.LogWarning($"Warning: Client is about to send a Unreliable packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
-            if (byteCount <= 1200)
+            // Create the packet.
+            clientOutgoingPacket.Create(segment.Array, segment.Offset, byteCount, (PacketFlags)Channels[channelId]);
+
+            // Enqueue the packet.
+            IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
+            {
+                Channel = (byte)channelId,
+                Payload = clientOutgoingPacket
+            };
+
+            Client.Outgoing.Enqueue(dispatchPacket);
+
+            /*
+            if (byteCount <= 0)
+                // Fail safe.
+                return;
+            else if (byteCount <= 1200)
                 // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
                 // from ArrayPool's 2048 byte bucket.
-                storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
+                storageBuffer = ArrayPool<byte>.Shared.Rent(2048);
             else if (segment.Count <= 32768)
                 storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
             else
@@ -172,6 +188,7 @@ namespace IgnoranceTransport
             // Copy contents to the rented buffer, then assign it to the packet.
             // Enqueue.
             Client.Outgoing.Enqueue(dispatchPacket);
+            */
         }
 
         public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
@@ -223,10 +240,6 @@ namespace IgnoranceTransport
 
         public override void ServerSend(int connectionId, int channelId, ArraySegment<byte> segment)
         {
-            int byteCount;
-            bool wasRented;
-            byte[] storageBuffer;
-
             // Debug.Log($"ServerSend({connectionId}, {channelId}, <{segment.Count} byte segment>)");
 
             if (Server == null)
@@ -241,46 +254,46 @@ namespace IgnoranceTransport
                 return;
             }
 
+            // Packet Struct
+            Packet serverOutgoingPacket = default;
+            int byteCount = segment.Count;
+
             // Warn if over recommended MTU            
             if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && Channels[channelId].HasFlag(PacketFlags.None))
-                Debug.LogWarning($"Warning: Server tried to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
-            // Data portion of the packet.
-            // Make sure to rent 1200 (2048) byte arrays minimum to maximum of 100KB.
-            // Anything above that, we allocate and let Unity sort it out.
-            byteCount = segment.Count;
+            // Create the packet.
+            serverOutgoingPacket.Create(segment.Array, segment.Offset, byteCount, (PacketFlags)Channels[channelId]);
 
-            Console.WriteLine($"MemAlloc Debug: Wanting a {segment.Count} byte array.");
+            // Enqueue the packet.
+            IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
+            {
+                Channel = (byte)channelId,
+                NativePeerId = ConnectionLookupDict[connectionId].NativePeerId,
+                Payload = serverOutgoingPacket
+            };
 
+            Server.Outgoing.Enqueue(dispatchPacket);
+
+            /*
             if (byteCount <= 0)
-            {
-                Debug.LogError("Apparently we're trying to allocate a 0 byte array? Skip.");
+                // Fail safe.
                 return;
-            }
-            else if (byteCount <= 2048)
-            {
+            else if (byteCount <= 1200)
+                // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
+                // from ArrayPool's 2048 byte bucket.
                 storageBuffer = ArrayPool<byte>.Shared.Rent(2048);
-                wasRented = true;
-                Console.WriteLine($"MemAlloc Debug: Asked for 2048 bytes");
-            }
-            else if (byteCount <= 4096)
-            {
-                storageBuffer = ArrayPool<byte>.Shared.Rent(4096);
-                wasRented = true;
-                Console.WriteLine($"MemAlloc Debug: Asked for 4096 bytes.");
-            }
+            else if (segment.Count <= 32768)
+                storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
             else
-            {
-                Console.WriteLine($"MemAlloc Debug: Over 4KB. Renting a {byteCount} byte array.");
-                storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount); // new byte[segment.Count];
-                wasRented = true;                
-            }
+                // If you get down here what the heck are you doing with UDP packets...
+                // Let Unity GC spike and reap it later.
+                storageBuffer = new byte[byteCount];
+            */
 
             /*
             if (segment.Count <= 1200)
             {
-             
-
                 storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
             }
             else if (segment.Count <= 131072)
@@ -293,22 +306,25 @@ namespace IgnoranceTransport
                 storageBuffer = new byte[segment.Count];
                 wasRented = false;
             }
-                        */
+
             segment.Array.CopyTo(storageBuffer, 0);
+            */
 
             // Add it to the outgoing queue.
             // Create the dispatch packet.
+            /*
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
             {
-                WasRented = wasRented,
+                WasRented = segment.Count <= 32768,
                 Channel = (byte)channelId,
                 NativePeerId = ConnectionLookupDict[connectionId].NativePeerId,
                 Flags = (PacketFlags)Channels[channelId],
                 Length = segment.Count,
                 RentedArray = storageBuffer
             };
-
+            
             Server.Outgoing.Enqueue(dispatchPacket);
+            */
         }
 
         public override void ServerStart()
@@ -352,7 +368,7 @@ namespace IgnoranceTransport
 
         public override void Shutdown()
         {
-            Debug.LogWarning("TODO: Shutdown");
+
         }
 
         // Check to ensure channels 0 and 1 mimic LLAPI. Override this at your own risk.
@@ -413,6 +429,10 @@ namespace IgnoranceTransport
             Server.MaximumChannels = Channels.Length;
             Server.PollTime = serverMaxNativeWaitTime;
             Server.MaximumPacketSize = MaxAllowedPacketSize;
+
+            // Initializes the packet buffer.
+            if (InternalPacketBuffer == null)
+                InternalPacketBuffer = new byte[PacketBufferCapacity];
         }
 
         private void InitializeClientBackend()
@@ -429,13 +449,19 @@ namespace IgnoranceTransport
             Client.PollTime = clientMaxNativeWaitTime;
             Client.MaximumPacketSize = MaxAllowedPacketSize;
             Client.Verbosity = (int)LogType;
+
+            // Initializes the packet buffer.
+            if (InternalPacketBuffer == null)
+                InternalPacketBuffer = new byte[PacketBufferCapacity];
         }
 
         private void ProcessServerPackets()
         {
-            // Step 1: Handle incoming data packets.
+            IgnoranceIncomingPacket incomingPacket;
+            IgnoranceConnectionEvent connectionEvent;
 
-            while (Server.Incoming.TryDequeue(out IgnoranceIncomingPacket incomingPacket))
+            // Step 1: Handle incoming data packets.
+            while (Server.Incoming.TryDequeue(out incomingPacket))
             {
                 // print($"Server got one. It's a {incomingPacket.Type}");
                 if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
@@ -443,27 +469,32 @@ namespace IgnoranceTransport
                     // print("YEAH!");
                     // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
 
-                    // We know who's it is from, let's process it.
+                    // We know who's it is from, let's process it.                 
                     int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
-                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(incomingPacket.RentedArray, 0, incomingPacket.Length);
+                    int length = incomingPacket.Payload.Length;
 
+                    // Copy to working buffer and dispose of it.
+                    incomingPacket.Payload.CopyTo(InternalPacketBuffer);
+                    incomingPacket.Payload.Dispose();
+
+                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
                     OnServerDataReceived?.Invoke(conn, dataSegment, incomingPacket.Channel);
                 }
 
+                /*
                 // Release the array back to the pool if it was rented.
                 if (incomingPacket.WasRented)
                     ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
+                */
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
                 if (!enabled)
-                {
                     break;
-                }
             }
 
             // Step 2: Handle incoming connection events.
-            while (Server.ConnectionEvents.TryDequeue(out IgnoranceConnectionEvent connectionEvent))
+            while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 // Was this a Disconnection?
                 if (connectionEvent.WasDisconnect)
@@ -507,36 +538,54 @@ namespace IgnoranceTransport
 
         private void ProcessClientPackets()
         {
-            while (Client.Incoming.TryDequeue(out IgnoranceIncomingPacket incomingPacket))
+            IgnoranceIncomingPacket incomingPacket;
+            IgnoranceConnectionEvent connectionEvent;
+            IgnoranceCommandPacket commandPacket;
+            IgnoranceClientStats clientStats;
+
+            while (Client.Incoming.TryDequeue(out incomingPacket))
             {
                 // Temporary fix: if ENet thread is too fast for Mirror, then ignore the packet.
                 // This is seen sometimes if you stop the client and there's still stuff in the queue.
                 if (!isClientConnected || ignoreDataPackets)
                 {
+                    /* 
                     if (incomingPacket.WasRented)
                         ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
+                    */
                     break;
                 }
 
                 // Otherwise client recieved data, advise Mirror.
                 // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
-                ArraySegment<byte> dataSegment = new ArraySegment<byte>(incomingPacket.RentedArray, 0, incomingPacket.Length);
+                int length = incomingPacket.Payload.Length;
+
+                // Copy to working buffer and dispose of it.
+                incomingPacket.Payload.CopyTo(InternalPacketBuffer);
+                incomingPacket.Payload.Dispose();
+
+                ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
                 OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
 
+                /*
+                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(incomingPacket.RentedArray, 0, incomingPacket.Length);
+                    OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
+                */
+
                 // Cleanup.
+                /*
                 if (incomingPacket.WasRented)
                     ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
+                */
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
                 if (!enabled)
-                {
                     break;
-                }
             }
 
             // Step 2: Handle connection events.
-            while (Client.ConnectionEvents.TryDequeue(out IgnoranceConnectionEvent connectionEvent))
+            while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 if (connectionEvent.WasDisconnect)
                 {
@@ -564,7 +613,7 @@ namespace IgnoranceTransport
             }
 
             // Step 3: Handle other commands.
-            while (Client.Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
+            while (Client.Commands.TryDequeue(out commandPacket))
             {
                 switch (commandPacket.Type)
                 {
@@ -576,7 +625,7 @@ namespace IgnoranceTransport
             }
 
             // Step 4: Handle status updates.
-            while (Client.StatusUpdates.TryDequeue(out IgnoranceClientStats clientStats))
+            while (Client.StatusUpdates.TryDequeue(out clientStats))
             {
                 ClientStatistics = clientStats;
             }
@@ -604,6 +653,8 @@ namespace IgnoranceTransport
         #endregion
 
         public override int GetMaxBatchSize(int channelId) => 1200;
+
+        private byte[] InternalPacketBuffer;
 #endif
     }
 }

@@ -7,7 +7,7 @@
 // to the LICENSE file for more information.
 
 using ENet;
-using NetStack.Buffers;
+// using NetStack.Buffers;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -169,13 +169,14 @@ namespace IgnoranceTransport
                     }
                     // Step 1: Send out data.
                     // ---> Sending to Server
-                    while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outPacket))
+                    while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
                     {
                         // TODO: Revise this, could we tell the Peer to disconnect right here?                       
                         // Stop early if we get a client stop packet.
                         // if (outgoingPacket.Type == IgnorancePacketType.ClientWantsToStop) break;
 
                         // Create the packet.
+                        /*
                         Packet packet = default;
                         packet.Create(outPacket.RentedArray, outPacket.Length, outPacket.Flags);
 
@@ -185,6 +186,12 @@ namespace IgnoranceTransport
 
                         if (outPacket.WasRented)
                             ArrayPool<byte>.Shared.Return(outPacket.RentedArray);
+                        */
+
+                        int ret = clientPeer.Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
+
+                        if (ret < 0 && setupInfo.Verbosity > 0)
+                            Debug.LogWarning($"Client Worker Thread: Failed sending a packet to Peer {outgoingPacket.NativePeerId}, error code {ret}");
                     }
 
                     // Step 2:
@@ -238,12 +245,14 @@ namespace IgnoranceTransport
                             case EventType.Receive:
                                 // Receive event type usually includes a packet; so cache its reference.
                                 incomingPacket = clientENetEvent.Packet;
+
                                 if (!incomingPacket.IsSet)
                                 {
                                     if (setupInfo.Verbosity > 0)
                                         Debug.LogWarning($"Client Worker Thread: A receive event did not supply us with a packet to work with. This should never happen.");
                                     break;
                                 }
+
                                 incomingPacketLength = incomingPacket.Length;
 
                                 // Never consume more than we can have capacity for.
@@ -256,6 +265,19 @@ namespace IgnoranceTransport
                                     break;
                                 }
 
+                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
+                                {
+                                    // WasRented = incomingPacketLength <= 102400 ? true : false,
+                                    Channel = clientENetEvent.ChannelID,
+                                    NativePeerId = incomingPeer.ID,
+                                    // Length = incomingPacketLength,
+                                    // RentedArray = storageBuffer
+                                    Payload = incomingPacket
+                                };
+
+                                Incoming.Enqueue(incomingQueuePacket);
+
+                                /*
                                 // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
                                 byte[] storageBuffer;
 
@@ -293,6 +315,8 @@ namespace IgnoranceTransport
                                 };
 
                                 Incoming.Enqueue(incomingQueuePacket);
+
+                                */
                                 break;
                         }
                     }

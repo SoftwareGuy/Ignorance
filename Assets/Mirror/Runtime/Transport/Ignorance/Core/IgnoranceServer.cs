@@ -7,7 +7,7 @@
 // to the LICENSE file for more information.
 
 using ENet;
-using NetStack.Buffers;
+// using NetStack.Buffers;
 using System.Collections.Concurrent;
 using System.Threading;
 using UnityEngine;
@@ -158,6 +158,12 @@ namespace IgnoranceTransport
                         // Only create a packet if the server knows the peer.
                         if (serverPeerArray[outgoingPacket.NativePeerId].IsSet)
                         {
+                            int ret = serverPeerArray[outgoingPacket.NativePeerId].Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
+
+                            if (ret < 0 && setupInfo.Verbosity > 0)
+                                Debug.LogWarning($"Server Worker Thread: Failed sending a packet to Peer {outgoingPacket.NativePeerId}, error code {ret}");
+
+                            /*
                             // Standard packet.
                             Packet packet = default;
                             packet.Create(outgoingPacket.RentedArray, outgoingPacket.Length, outgoingPacket.Flags);
@@ -166,6 +172,7 @@ namespace IgnoranceTransport
                             int ret = serverPeerArray[outgoingPacket.NativePeerId].Send(outgoingPacket.Channel, ref packet);
                             if (ret < 0 && setupInfo.Verbosity > 0)
                                 Debug.LogWarning($"Server Worker Thread: Failed sending a packet to Peer {outgoingPacket.NativePeerId}, error code {ret}");
+                            */
                         }
                         else
                         {
@@ -175,11 +182,13 @@ namespace IgnoranceTransport
                         }
 
                         // Cleanup.
+                        /*
                         if(outgoingPacket.WasRented)
                         {
                             // Console.WriteLine("MemAlloc: Release array rental.");
                             ArrayPool<byte>.Shared.Return(outgoingPacket.RentedArray);
                         }
+                        */
 
                         break;
                     }
@@ -261,6 +270,19 @@ namespace IgnoranceTransport
                                     break;
                                 }
 
+                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
+                                {
+                                    // WasRented = incomingPacketLength <= 32768,
+                                    Channel = serverENetEvent.ChannelID,
+                                    NativePeerId = incomingPeer.ID,
+                                    // Length = incomingPacketLength,
+                                    Payload = incomingPacket,
+                                };
+
+                                // Enqueue.
+                                Incoming.Enqueue(incomingQueuePacket);
+
+                                /*
                                 // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
                                 // Try for 1200 (2048) pooled items first. If not, then we should try for 100KB (131072).
                                 // Failing that, it's Unity's funeral. 1200 is the sane UDP packet buffer size. (source: FSE_Vincenzo, Mirror Discord)
@@ -302,6 +324,7 @@ namespace IgnoranceTransport
 
                                 // Enqueue.
                                 Incoming.Enqueue(incomingQueuePacket);
+                                */
                                 break;
                         }
                     }
