@@ -153,6 +153,8 @@ namespace IgnoranceTransport
 
                     // Step One:
                     // ---> Sending to peers
+                    // System.Console.WriteLine($"Outgoing Queue is {Outgoing.Count}");
+
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
                     {
                         // Only create a packet if the server knows the peer.
@@ -162,17 +164,6 @@ namespace IgnoranceTransport
 
                             if (ret < 0 && setupInfo.Verbosity > 0)
                                 Debug.LogWarning($"Server Worker Thread: Failed sending a packet to Peer {outgoingPacket.NativePeerId}, error code {ret}");
-
-                            /*
-                            // Standard packet.
-                            Packet packet = default;
-                            packet.Create(outgoingPacket.RentedArray, outgoingPacket.Length, outgoingPacket.Flags);
-
-                            // Send it to the peer.
-                            int ret = serverPeerArray[outgoingPacket.NativePeerId].Send(outgoingPacket.Channel, ref packet);
-                            if (ret < 0 && setupInfo.Verbosity > 0)
-                                Debug.LogWarning($"Server Worker Thread: Failed sending a packet to Peer {outgoingPacket.NativePeerId}, error code {ret}");
-                            */
                         }
                         else
                         {
@@ -181,16 +172,6 @@ namespace IgnoranceTransport
                                 Debug.LogWarning("Server Worker Thread: Can't send packet, a native peer is not set. This may be normal if the Peer has disconnected before this send cycle.");
                         }
 
-                        // Cleanup.
-                        /*
-                        if(outgoingPacket.WasRented)
-                        {
-                            // Console.WriteLine("MemAlloc: Release array rental.");
-                            ArrayPool<byte>.Shared.Return(outgoingPacket.RentedArray);
-                        }
-                        */
-
-                        break;
                     }
 
                     // Step 2
@@ -224,6 +205,8 @@ namespace IgnoranceTransport
 
                             // Connection Event.
                             case EventType.Connect:
+                                Debug.Log("Server Work Thread: New peer connection.");
+
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
                                     NativePeerId = incomingPeer.ID,
@@ -238,6 +221,8 @@ namespace IgnoranceTransport
                             // Disconnect/Timeout. Mirror doesn't care if it's either, so we lump them together.
                             case EventType.Disconnect:
                             case EventType.Timeout:
+                                Debug.Log("Server Work Thread: Peer disconnection.");
+
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
                                     WasDisconnect = true,
@@ -264,7 +249,7 @@ namespace IgnoranceTransport
                                 if (incomingPacketLength > setupInfo.PacketSizeLimit)
                                 {
                                     if (setupInfo.Verbosity > 0)
-                                        Debug.LogWarning($"Server Worker Thread: Received a packet too big to process: {incomingPacketLength} bytes; limit: {setupInfo.PacketSizeLimit} byte(s).");
+                                        Debug.LogWarning($"Server Worker Thread: Received a packet too big to process of {incomingPacketLength} bytes; limit: {setupInfo.PacketSizeLimit} byte(s).");
 
                                     incomingPacket.Dispose();
                                     break;
@@ -272,59 +257,13 @@ namespace IgnoranceTransport
 
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    // WasRented = incomingPacketLength <= 32768,
                                     Channel = serverENetEvent.ChannelID,
                                     NativePeerId = incomingPeer.ID,
-                                    // Length = incomingPacketLength,
                                     Payload = incomingPacket,
                                 };
 
                                 // Enqueue.
                                 Incoming.Enqueue(incomingQueuePacket);
-
-                                /*
-                                // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
-                                // Try for 1200 (2048) pooled items first. If not, then we should try for 100KB (131072).
-                                // Failing that, it's Unity's funeral. 1200 is the sane UDP packet buffer size. (source: FSE_Vincenzo, Mirror Discord)
-                                // I could probably do that if in a one-liner but I'll leave it with commentary to explain what's going on (also stops me going insane debugging)
-                                byte[] storageBuffer;
-
-                                if (incomingPacketLength <= 1200)
-                                {
-                                    // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
-                                    // from ArrayPool's 2048 byte bucket.
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
-                                }
-                                else if (incomingPacketLength <= 32768)
-                                {
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
-                                }
-                                else
-                                {
-                                    // If you get down here what the heck are you doing with UDP packets...
-                                    // Let Unity GC spike and reap it later.
-
-                                    // limit it to the maximum packet size set or we'll have an allocation attack vector.
-                                    // vincenzo: [...] limit it to max packet size enet supports maybe 32 mb or less
-                                    storageBuffer = new byte[incomingPacketLength];
-                                }
-
-                                incomingPacket.CopyTo(storageBuffer);
-                                incomingPacket.Dispose();
-
-                                // Grab a fresh struct.
-                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
-                                {
-                                    WasRented = incomingPacketLength <= 32768,
-                                    Channel = serverENetEvent.ChannelID,
-                                    NativePeerId = incomingPeer.ID,                                    
-                                    Length = incomingPacketLength,
-                                    RentedArray = storageBuffer
-                                };
-
-                                // Enqueue.
-                                Incoming.Enqueue(incomingQueuePacket);
-                                */
                                 break;
                         }
                     }
@@ -346,7 +285,6 @@ namespace IgnoranceTransport
 
             // Flush again to ensure ENet gets those Disconnection stuff out.
             // May not be needed; better to err on side of caution
-            serverENetHost.Flush();
 
             if (setupInfo.Verbosity > 0)
                 Debug.Log("Server Worker Thread: Shutdown.");

@@ -30,7 +30,7 @@ namespace IgnoranceTransport
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0a5";
+        public const string Version = "1.4.0a7";
         public const string Scheme = "enet";
         public const string BindAllIPv4 = "0.0.0.0";
         public const string BindAllFuckingAppleMacs = "::0";
@@ -64,14 +64,6 @@ namespace IgnoranceTransport
     // Struct optimized for cache efficiency. (Thanks Vincenzo!)
     public struct IgnoranceIncomingPacket
     {
-        /*
-        public bool WasRented;
-        public byte Channel;
-        public uint NativePeerId;
-        public int Length;
-        public byte[] RentedArray;        
-        */
-
         public byte Channel;
         public uint NativePeerId;
         public Packet Payload;
@@ -80,14 +72,6 @@ namespace IgnoranceTransport
     // Struct optimized for cache efficiency. (Thanks Vincenzo!)
     public struct IgnoranceOutgoingPacket
     {
-        /* public bool WasRented;
-        public byte Channel;
-        public uint NativePeerId;
-        public PacketFlags Flags;
-        public int Length;        
-        public byte[] RentedArray;
-        */
-
         public byte Channel;
         public uint NativePeerId;
         public Packet Payload;

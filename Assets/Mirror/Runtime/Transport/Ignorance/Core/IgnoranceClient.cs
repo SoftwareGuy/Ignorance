@@ -175,19 +175,6 @@ namespace IgnoranceTransport
                         // Stop early if we get a client stop packet.
                         // if (outgoingPacket.Type == IgnorancePacketType.ClientWantsToStop) break;
 
-                        // Create the packet.
-                        /*
-                        Packet packet = default;
-                        packet.Create(outPacket.RentedArray, outPacket.Length, outPacket.Flags);
-
-                        int ret = clientPeer.Send(outPacket.Channel, ref packet);
-                        if (ret < 0 && setupInfo.Verbosity > 1)
-                            Debug.LogWarning($"Client Worker Thread: ENet failed sending a packet, error code {ret}");
-
-                        if (outPacket.WasRented)
-                            ArrayPool<byte>.Shared.Return(outPacket.RentedArray);
-                        */
-
                         int ret = clientPeer.Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
 
                         if (ret < 0 && setupInfo.Verbosity > 0)
@@ -267,56 +254,12 @@ namespace IgnoranceTransport
 
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    // WasRented = incomingPacketLength <= 102400 ? true : false,
                                     Channel = clientENetEvent.ChannelID,
                                     NativePeerId = incomingPeer.ID,
-                                    // Length = incomingPacketLength,
-                                    // RentedArray = storageBuffer
                                     Payload = incomingPacket
                                 };
 
                                 Incoming.Enqueue(incomingQueuePacket);
-
-                                /*
-                                // Grab a new fresh array from the ArrayPool, at least the length of our packet coming in.
-                                byte[] storageBuffer;
-
-                                if (incomingPacketLength <= 1200)
-                                {
-                                    // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
-                                    // from ArrayPool's 2048 byte bucket.
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
-                                }
-                                else if (incomingPacketLength <= 32768)
-                                {
-                                    storageBuffer = ArrayPool<byte>.Shared.Rent(incomingPacketLength);
-                                }
-                                else
-                                {
-                                    // If you get down here what the heck are you doing with UDP packets...
-                                    // Let Unity GC spike and reap it later.
-
-                                    // limit it to the maximum packet size set or we'll have an allocation attack vector.
-                                    // vincenzo: [...] limit it to max packet size enet supports maybe 32 mb or less
-                                    storageBuffer = new byte[incomingPacketLength];
-                                }
-
-                                // Copy the packet to the fresh array.
-                                incomingPacket.CopyTo(storageBuffer);
-                                incomingPacket.Dispose();
-
-                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
-                                {
-                                    WasRented = incomingPacketLength <= 102400 ? true : false,
-                                    Channel = clientENetEvent.ChannelID,
-                                    NativePeerId = incomingPeer.ID,
-                                    Length = incomingPacketLength,
-                                    RentedArray = storageBuffer
-                                };
-
-                                Incoming.Enqueue(incomingQueuePacket);
-
-                                */
                                 break;
                         }
                     }

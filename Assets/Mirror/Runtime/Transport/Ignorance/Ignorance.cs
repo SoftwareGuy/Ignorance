@@ -217,15 +217,11 @@ namespace IgnoranceTransport
                 };
 
                 Server.Commands.Enqueue(kickPacket);
-            }
-            else
-            {
-                if (LogType != IgnoranceLogType.Nothing)
-                    Debug.LogWarning($"Who is connection {connectionId}? I don't know them.");
-                return false;
+
+                return true;
             }
 
-            return true;
+            return false;
         }
 
         public override string ServerGetClientAddress(int connectionId)
@@ -460,47 +456,19 @@ namespace IgnoranceTransport
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceConnectionEvent connectionEvent;
 
-            // Step 1: Handle incoming data packets.
-            while (Server.Incoming.TryDequeue(out incomingPacket))
-            {
-                // print($"Server got one. It's a {incomingPacket.Type}");
-                if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
-                {
-                    // print("YEAH!");
-                    // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
-
-                    // We know who's it is from, let's process it.                 
-                    int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
-                    int length = incomingPacket.Payload.Length;
-
-                    // Copy to working buffer and dispose of it.
-                    incomingPacket.Payload.CopyTo(InternalPacketBuffer);
-                    incomingPacket.Payload.Dispose();
-
-                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
-                    OnServerDataReceived?.Invoke(conn, dataSegment, incomingPacket.Channel);
-                }
-
-                /*
-                // Release the array back to the pool if it was rented.
-                if (incomingPacket.WasRented)
-                    ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
-                */
-
-                // Some messages can disable the transport
-                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-                if (!enabled)
-                    break;
-            }
-
-            // Step 2: Handle incoming connection events.
             while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 // Was this a Disconnection?
                 if (connectionEvent.WasDisconnect)
                 {
+                    print("ProcessServerPackets: Disconnection event.");
+
                     // If it doesn't exist in our dictionary, then it's likely a ghost or malicious.
-                    if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId)) continue;
+                    if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
+                    {
+                        Debug.LogWarning("Connection disconnection event from unknown peer");
+                        continue;
+                    }
 
                     int key = ENetPeerToMirrorLookup[connectionEvent.NativePeerId];
 
@@ -513,6 +481,8 @@ namespace IgnoranceTransport
                 else
                 {
                     // Nah mate, just a regular connection.
+                    print("ProcessServerPackets: Connection event.");
+
                     ConnectionLookupDict.Add(ConnId, new PeerConnectionData
                     {
                         NativePeerId = connectionEvent.NativePeerId,
@@ -520,6 +490,8 @@ namespace IgnoranceTransport
                         Port = connectionEvent.Port
                     });
 
+                    OnServerConnected?.Invoke(ConnId);
+                    
                     if (ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
                     {
                         Debug.LogWarning($"This is weird - we already know Native Peer {connectionEvent.NativePeerId} as Conn {ConnId}. Replacing, but this may cause issues.");
@@ -530,10 +502,37 @@ namespace IgnoranceTransport
                         ENetPeerToMirrorLookup.Add(connectionEvent.NativePeerId, ConnId);
                     }
 
-                    OnServerConnected?.Invoke(ConnId);
                     ConnId++;
                 }
             }
+
+            // Step 1: Handle incoming data packets.
+            // Console.WriteLine($"Server Incoming Queue is {Server.Incoming.Count}");
+            while (Server.Incoming.TryDequeue(out incomingPacket))
+            {
+                // print($"Server got one. It's a {incomingPacket.Type}");
+                if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
+                {
+                    // We know who's it is from, let's process it.                 
+                    int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
+                    int length = incomingPacket.Payload.Length;
+
+                    // Copy to working buffer and dispose of it.
+                    incomingPacket.Payload.CopyTo(InternalPacketBuffer);
+                    incomingPacket.Payload.Dispose();
+
+                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                    OnServerDataReceived?.Invoke(conn, dataSegment, incomingPacket.Channel);
+                }
+
+                // Some messages can disable the transport
+                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+                if (!enabled)
+                    break;
+            }
+
+            // Step 2: Handle incoming connection events.
+            
         }
 
         private void ProcessClientPackets()
@@ -567,17 +566,6 @@ namespace IgnoranceTransport
                 ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
                 OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
 
-                /*
-                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(incomingPacket.RentedArray, 0, incomingPacket.Length);
-                    OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
-                */
-
-                // Cleanup.
-                /*
-                if (incomingPacket.WasRented)
-                    ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
-                */
-
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
                 if (!enabled)
@@ -589,22 +577,22 @@ namespace IgnoranceTransport
             {
                 if (connectionEvent.WasDisconnect)
                 {
-                    // Disconnected from server.
-                    OnClientDisconnected?.Invoke();
-
                     if (LogType != IgnoranceLogType.Nothing)
                         print($"Client disconnected from server, {connectionEvent.IP}:{connectionEvent.Port}");
+
+                    // Disconnected from server.
+                    OnClientDisconnected?.Invoke();
 
                     ignoreDataPackets = true;
                     isClientConnected = false;
                 }
                 else
                 {
-                    // Connected to server.
-                    OnClientConnected?.Invoke();
-
                     if (LogType != IgnoranceLogType.Nothing)
                         print($"Client connected to server, {connectionEvent.IP}:{connectionEvent.Port}");
+
+                    // Connected to server.
+                    OnClientConnected?.Invoke();
 
                     ignoreDataPackets = false;
                     isClientConnected = true;
@@ -613,7 +601,7 @@ namespace IgnoranceTransport
             }
 
             // Step 3: Handle other commands.
-            while (Client.Commands.TryDequeue(out commandPacket))
+            /* while (Client.Commands.TryDequeue(out commandPacket))
             {
                 switch (commandPacket.Type)
                 {
@@ -623,6 +611,7 @@ namespace IgnoranceTransport
                         break;
                 }
             }
+            */
 
             // Step 4: Handle status updates.
             while (Client.StatusUpdates.TryDequeue(out clientStats))
@@ -650,9 +639,27 @@ namespace IgnoranceTransport
                 }
             }
         }
+
+        private void OnGUI()
+        {
+            GUI.Box(new Rect(
+                new Vector2(32, Screen.height - 240), new Vector2(200, 140)),
+
+                "-- CLIENT --\n" +
+                $"Incoming Queue: {Client.Incoming.Count}\n" +
+                $"Outgoing Queue: {Client.Outgoing.Count}\n\n" +
+
+                "-- SERVER --\n" +
+                $"Incoming Queue: {Server.Incoming.Count}\n" +
+                $"Outgoing Queue: {Server.Outgoing.Count}\n" +
+                $"ConnEvent Queue: {Server.ConnectionEvents.Count}"
+                );
+        }
         #endregion
 
+#if IGNORANCE_BATCHING
         public override int GetMaxBatchSize(int channelId) => 1200;
+#endif
 
         private byte[] InternalPacketBuffer;
 #endif
