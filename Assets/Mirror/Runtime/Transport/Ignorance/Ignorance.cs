@@ -83,8 +83,9 @@ namespace IgnoranceTransport
 
         public override void ClientConnect(string address)
         {
+            ClientState = ConnectionState.Connecting;
             cachedConnectionAddress = address;
-
+            
             // Initialize.
             InitializeClientBackend();
 
@@ -110,17 +111,18 @@ namespace IgnoranceTransport
             ClientConnect(uri.Host);
         }
 
-        public override bool ClientConnected() => isClientConnected;
+        public override bool ClientConnected() => ClientState == ConnectionState.Connected;
 
         public override void ClientDisconnect()
         {
             if (Client != null)
             {
-                Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
+                // Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
                 Client.Stop();
             }
 
             ignoreDataPackets = true;
+            ClientState = ConnectionState.Disconnected;
         }
 
         public override void ClientSend(int channelId, ArraySegment<byte> segment)
@@ -142,11 +144,12 @@ namespace IgnoranceTransport
             int byteCount = segment.Count;
 
             // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && Channels[channelId].HasFlag(PacketFlags.None))
+            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200) // && Channels[channelId].HasFlag(PacketFlags.None)
                 Debug.LogWarning($"Warning: Client is about to send a Unreliable packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
-            clientOutgoingPacket.Create(segment.Array, segment.Offset, byteCount, (PacketFlags)Channels[channelId]);
+            clientOutgoingPacket.Create(segment.Array, segment.Offset, byteCount + segment.Offset, PacketFlags.Reliable); // Dirty Hack
+            // byteCount
 
             // Enqueue the packet.
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
@@ -156,42 +159,7 @@ namespace IgnoranceTransport
             };
 
             Client.Outgoing.Enqueue(dispatchPacket);
-
-            /*
-            if (byteCount <= 0)
-                // Fail safe.
-                return;
-            else if (byteCount <= 1200)
-                // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
-                // from ArrayPool's 2048 byte bucket.
-                storageBuffer = ArrayPool<byte>.Shared.Rent(2048);
-            else if (segment.Count <= 32768)
-                storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
-            else
-                // If you get down here what the heck are you doing with UDP packets...
-                // Let Unity GC spike and reap it later.
-                storageBuffer = new byte[byteCount];
-
-            // Copy contents to the rented buffer
-            segment.Array.CopyTo(storageBuffer, 0);
-
-            // Create the dispatch packet.
-            IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
-            {
-                Channel = (byte)channelId,
-                Length = segment.Count,
-                Flags = (PacketFlags)Channels[channelId],
-                RentedArray = storageBuffer,
-                WasRented = byteCount <= 32768
-            };
-
-            // Copy contents to the rented buffer, then assign it to the packet.
-            // Enqueue.
-            Client.Outgoing.Enqueue(dispatchPacket);
-            */
         }
-
-        public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
 
         public override bool ServerActive()
         {
@@ -255,11 +223,11 @@ namespace IgnoranceTransport
             int byteCount = segment.Count;
 
             // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && Channels[channelId].HasFlag(PacketFlags.None))
+            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200) //  && Channels[channelId].HasFlag(PacketFlags.None)
                 Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
-            serverOutgoingPacket.Create(segment.Array, segment.Offset, byteCount, (PacketFlags)Channels[channelId]);
+            serverOutgoingPacket.Create(segment.Array, segment.Offset, byteCount, PacketFlags.Reliable); // Dirty Hack
 
             // Enqueue the packet.
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
@@ -271,56 +239,6 @@ namespace IgnoranceTransport
 
             Server.Outgoing.Enqueue(dispatchPacket);
 
-            /*
-            if (byteCount <= 0)
-                // Fail safe.
-                return;
-            else if (byteCount <= 1200)
-                // This will attempt to allocate us at least 1200 byte array. Which will most likely give us 2048 bytes
-                // from ArrayPool's 2048 byte bucket.
-                storageBuffer = ArrayPool<byte>.Shared.Rent(2048);
-            else if (segment.Count <= 32768)
-                storageBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
-            else
-                // If you get down here what the heck are you doing with UDP packets...
-                // Let Unity GC spike and reap it later.
-                storageBuffer = new byte[byteCount];
-            */
-
-            /*
-            if (segment.Count <= 1200)
-            {
-                storageBuffer = ArrayPool<byte>.Shared.Rent(1200);
-            }
-            else if (segment.Count <= 131072)
-            {
-                Console.WriteLine($"MemAlloc Debug: > 1200 but <= 131072, {segment.Count}");
-                storageBuffer = ArrayPool<byte>.Shared.Rent(segment.Count);
-            }
-            else
-            {
-                storageBuffer = new byte[segment.Count];
-                wasRented = false;
-            }
-
-            segment.Array.CopyTo(storageBuffer, 0);
-            */
-
-            // Add it to the outgoing queue.
-            // Create the dispatch packet.
-            /*
-            IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
-            {
-                WasRented = segment.Count <= 32768,
-                Channel = (byte)channelId,
-                NativePeerId = ConnectionLookupDict[connectionId].NativePeerId,
-                Flags = (PacketFlags)Channels[channelId],
-                Length = segment.Count,
-                RentedArray = storageBuffer
-            };
-            
-            Server.Outgoing.Enqueue(dispatchPacket);
-            */
         }
 
         public override void ServerStart()
@@ -331,7 +249,6 @@ namespace IgnoranceTransport
             InitializeServerBackend();
 
             Server.Start();
-            isServerActive = true;
         }
 
         public override void ServerStop()
@@ -346,8 +263,6 @@ namespace IgnoranceTransport
 
             ENetPeerToMirrorLookup.Clear();
             ConnectionLookupDict.Clear();
-
-            isServerActive = false;
         }
 
         public override Uri ServerUri()
@@ -390,14 +305,14 @@ namespace IgnoranceTransport
         }
 
         #region Inner workings
-        private bool isServerActive, isClientConnected, ignoreDataPackets;
+        private bool isClientConnected, ignoreDataPackets;
         private string cachedConnectionAddress = string.Empty;
         private IgnoranceServer Server = new IgnoranceServer();
         private IgnoranceClient Client = new IgnoranceClient();
 
         private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
         private Dictionary<uint, int> ENetPeerToMirrorLookup = new Dictionary<uint, int>();
-        private int ConnId = 1;
+        private int ConnId = 0;
         private float NextStatusRequestUpdate = 0f;
 
         private void InitializeServerBackend()
@@ -410,15 +325,11 @@ namespace IgnoranceTransport
 
             // Set up the new IgnoranceServer reference.
             if (serverBindsAll)
-            {
                 // MacOS is special. It's also a massive thorn in my backside.
                 Server.BindAddress = IgnoranceInternals.BindAllFuckingAppleMacs;
-            }
             else
-            {
                 // Use the supplied bind address.
                 Server.BindAddress = serverBindAddress;
-            }
 
             Server.BindPort = port;
             Server.MaximumPeers = serverMaxPeerCapacity;
@@ -456,18 +367,22 @@ namespace IgnoranceTransport
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceConnectionEvent connectionEvent;
 
-            while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
+            // print($"Reached processing Server ConnectionEvents queue. Queue items remaining: {Server.ConnectionEvents.Count}");
+            // Step 2: Handle incoming connection events.
+            if (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
+                print($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
+
                 // Was this a Disconnection?
                 if (connectionEvent.WasDisconnect)
                 {
-                    print("ProcessServerPackets: Disconnection event.");
+                    print($"ProcessServerPackets: Disconnection event from native peer {connectionEvent.NativePeerId}.");
 
                     // If it doesn't exist in our dictionary, then it's likely a ghost or malicious.
                     if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
                     {
                         Debug.LogWarning("Connection disconnection event from unknown peer");
-                        continue;
+                        return;
                     }
 
                     int key = ENetPeerToMirrorLookup[connectionEvent.NativePeerId];
@@ -481,7 +396,7 @@ namespace IgnoranceTransport
                 else
                 {
                     // Nah mate, just a regular connection.
-                    print("ProcessServerPackets: Connection event.");
+                    print($"ProcessServerPackets: Connection event from native peer {connectionEvent.NativePeerId}. This Peer would be Mirror ConnID {ConnId}.");
 
                     ConnectionLookupDict.Add(ConnId, new PeerConnectionData
                     {
@@ -490,8 +405,6 @@ namespace IgnoranceTransport
                         Port = connectionEvent.Port
                     });
 
-                    OnServerConnected?.Invoke(ConnId);
-                    
                     if (ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
                     {
                         Debug.LogWarning($"This is weird - we already know Native Peer {connectionEvent.NativePeerId} as Conn {ConnId}. Replacing, but this may cause issues.");
@@ -502,6 +415,7 @@ namespace IgnoranceTransport
                         ENetPeerToMirrorLookup.Add(connectionEvent.NativePeerId, ConnId);
                     }
 
+                    OnServerConnected?.Invoke(ConnId);
                     ConnId++;
                 }
             }
@@ -523,6 +437,9 @@ namespace IgnoranceTransport
 
                     ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
                     OnServerDataReceived?.Invoke(conn, dataSegment, incomingPacket.Channel);
+                } else
+                {
+                    Debug.LogWarning("Data received from a peer that's not in our lookup");
                 }
 
                 // Some messages can disable the transport
@@ -530,15 +447,11 @@ namespace IgnoranceTransport
                 if (!enabled)
                     break;
             }
-
-            // Step 2: Handle incoming connection events.
-            
         }
 
         private void ProcessClientPackets()
         {
             IgnoranceIncomingPacket incomingPacket;
-            IgnoranceConnectionEvent connectionEvent;
             IgnoranceCommandPacket commandPacket;
             IgnoranceClientStats clientStats;
 
@@ -546,14 +459,8 @@ namespace IgnoranceTransport
             {
                 // Temporary fix: if ENet thread is too fast for Mirror, then ignore the packet.
                 // This is seen sometimes if you stop the client and there's still stuff in the queue.
-                if (!isClientConnected || ignoreDataPackets)
-                {
-                    /* 
-                    if (incomingPacket.WasRented)
-                        ArrayPool<byte>.Shared.Return(incomingPacket.RentedArray);
-                    */
+                if (ignoreDataPackets)
                     break;
-                }
 
                 // Otherwise client recieved data, advise Mirror.
                 // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
@@ -572,34 +479,6 @@ namespace IgnoranceTransport
                     break;
             }
 
-            // Step 2: Handle connection events.
-            while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
-            {
-                if (connectionEvent.WasDisconnect)
-                {
-                    if (LogType != IgnoranceLogType.Nothing)
-                        print($"Client disconnected from server, {connectionEvent.IP}:{connectionEvent.Port}");
-
-                    // Disconnected from server.
-                    OnClientDisconnected?.Invoke();
-
-                    ignoreDataPackets = true;
-                    isClientConnected = false;
-                }
-                else
-                {
-                    if (LogType != IgnoranceLogType.Nothing)
-                        print($"Client connected to server, {connectionEvent.IP}:{connectionEvent.Port}");
-
-                    // Connected to server.
-                    OnClientConnected?.Invoke();
-
-                    ignoreDataPackets = false;
-                    isClientConnected = true;
-
-                }
-            }
-
             // Step 3: Handle other commands.
             /* while (Client.Commands.TryDequeue(out commandPacket))
             {
@@ -614,10 +493,45 @@ namespace IgnoranceTransport
             */
 
             // Step 4: Handle status updates.
-            while (Client.StatusUpdates.TryDequeue(out clientStats))
+            if (Client.StatusUpdates.TryDequeue(out clientStats))
             {
                 ClientStatistics = clientStats;
             }
+        }
+
+        private void ProcessClientConnectionEvents()
+        {
+            IgnoranceConnectionEvent connectionEvent;
+
+            // Step 2: Handle connection events.
+            if (Client.ConnectionEvents.TryDequeue(out connectionEvent))
+            {
+                print($"Processing a Client ConnectionEvents queue item. Queue items remaining: {Client.ConnectionEvents.Count}");
+
+                if (connectionEvent.WasDisconnect)
+                {
+                    // Disconnected from server.
+                    ClientState = ConnectionState.Disconnected;
+
+                    if (LogType != IgnoranceLogType.Nothing)
+                        print($"Client disconnected from server, {connectionEvent.IP}:{connectionEvent.Port}");
+
+                    ignoreDataPackets = true;
+                    OnClientDisconnected?.Invoke();
+                }
+                else
+                {
+                    // Connected to server.
+                    ClientState = ConnectionState.Connected;
+
+                    if (LogType != IgnoranceLogType.Nothing)
+                        print($"Client connected to server, {connectionEvent.IP}:{connectionEvent.Port}");
+
+                    ignoreDataPackets = false;
+                    OnClientConnected?.Invoke();
+                }
+            }
+
         }
 
         private void LateUpdate()
@@ -629,9 +543,10 @@ namespace IgnoranceTransport
 
                 if (Client.IsAlive)
                 {
+                    ProcessClientConnectionEvents();
                     ProcessClientPackets();
 
-                    if (isClientConnected && clientStatusUpdateInterval > -1 && Time.time >= NextStatusRequestUpdate)
+                    if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1 && Time.time >= NextStatusRequestUpdate)
                     {
                         Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
                         NextStatusRequestUpdate = Time.time + clientStatusUpdateInterval;
@@ -643,9 +558,10 @@ namespace IgnoranceTransport
         private void OnGUI()
         {
             GUI.Box(new Rect(
-                new Vector2(32, Screen.height - 240), new Vector2(200, 140)),
+                new Vector2(32, Screen.height - 240), new Vector2(200, 160)),
 
                 "-- CLIENT --\n" +
+                $"State: {ClientState}\n" +
                 $"Incoming Queue: {Client.Incoming.Count}\n" +
                 $"Outgoing Queue: {Client.Outgoing.Count}\n\n" +
 
@@ -657,10 +573,15 @@ namespace IgnoranceTransport
         }
         #endregion
 
+        public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
+        
 #if IGNORANCE_BATCHING
+        // UDP Recommended Max MTU = 1200.
         public override int GetMaxBatchSize(int channelId) => 1200;
 #endif
 
+        private enum ConnectionState { Connecting, Connected, Disconnecting, Disconnected }
+        private ConnectionState ClientState = ConnectionState.Disconnected;
         private byte[] InternalPacketBuffer;
 #endif
     }

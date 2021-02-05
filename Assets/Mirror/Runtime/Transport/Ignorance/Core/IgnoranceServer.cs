@@ -207,12 +207,14 @@ namespace IgnoranceTransport
                             case EventType.Connect:
                                 Debug.Log("Server Work Thread: New peer connection.");
 
-                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
+                                IgnoranceConnectionEvent ice = new IgnoranceConnectionEvent()
                                 {
                                     NativePeerId = incomingPeer.ID,
                                     IP = incomingPeer.IP,
                                     Port = incomingPeer.Port
-                                });
+                                };
+
+                                ConnectionEvents.Enqueue(ice);
 
                                 // Assign a reference to the Peer.
                                 serverPeerArray[incomingPeer.ID] = incomingPeer;
@@ -223,11 +225,13 @@ namespace IgnoranceTransport
                             case EventType.Timeout:
                                 Debug.Log("Server Work Thread: Peer disconnection.");
 
-                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
+                                IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
                                 {
                                     WasDisconnect = true,
                                     NativePeerId = incomingPeer.ID
-                                });
+                                };
+
+                                ConnectionEvents.Enqueue(iced);
 
                                 // Reset the peer array's entry for that peer.
                                 serverPeerArray[incomingPeer.ID] = default;

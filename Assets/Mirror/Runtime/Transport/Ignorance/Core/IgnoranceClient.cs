@@ -146,7 +146,7 @@ namespace IgnoranceTransport
                                 break;
 
                             case IgnoranceCommandType.ClientWantsToStop:
-                                // TODO.
+                                CeaseOperation = true;
                                 break;
 
                             case IgnoranceCommandType.ClientRequestsStatusUpdate:

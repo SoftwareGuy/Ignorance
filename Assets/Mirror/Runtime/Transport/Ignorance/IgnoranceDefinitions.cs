@@ -10,8 +10,6 @@ namespace IgnoranceTransport
     {
         Reliable = PacketFlags.Reliable,                                        // TCP Emulation.
         ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,   // TCP Emulation, but no sequencing.
-        ReliableUnbundledInstant = PacketFlags.Reliable | PacketFlags.Instant,  // Experimental: Reliablity + Instant hybrid packet type.
-        UnbundledInstant = PacketFlags.Instant,                                 // Instant packet, will not be bundled with others.
         Unreliable = PacketFlags.Unsequenced,                                   // Pure UDP.
         UnreliableFragmented = PacketFlags.UnreliableFragmented,                // Pure UDP, but fragmented.
         UnreliableSequenced = PacketFlags.None,                                 // Pure UDP, but sequenced.
@@ -30,7 +28,7 @@ namespace IgnoranceTransport
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0a7";
+        public const string Version = "1.4.0a8";
         public const string Scheme = "enet";
         public const string BindAllIPv4 = "0.0.0.0";
         public const string BindAllFuckingAppleMacs = "::0";
