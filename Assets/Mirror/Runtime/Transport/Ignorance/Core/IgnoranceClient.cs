@@ -90,7 +90,7 @@ namespace IgnoranceTransport
         private void ThreadWorker(Object parameters)
         {
             if (Verbosity > 0)
-                Debug.Log("Client Work Thread: Startup");
+                Debug.Log("Client Worker Thread: Startup");
 
             ThreadParamInfo setupInfo;
             Address clientAddress = new Address();
@@ -114,12 +114,12 @@ namespace IgnoranceTransport
             if (Library.Initialize())
             {
                 if (setupInfo.Verbosity > 0)
-                    Debug.Log("Client Work Thread: Initialized ENet.");
+                    Debug.Log("Client Worker Thread: Initialized ENet.");
             }
             else
             {
                 if (setupInfo.Verbosity > 0)
-                    Debug.Log("Client Work Thread: Failed to initialize ENet.");
+                    Debug.Log("Client Worker Thread: Failed to initialize ENet.");
                 return;
             }
 

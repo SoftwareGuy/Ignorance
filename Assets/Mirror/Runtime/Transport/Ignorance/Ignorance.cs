@@ -22,9 +22,11 @@ namespace IgnoranceTransport
         #region Inspector options
         public int port = 7777;
 
-        [Header("Logging Configuration")]
+        [Header("Debug & Logging Configuration")]
         [Tooltip("How verbose do you want Ignorance to be?")]
         public IgnoranceLogType LogType = IgnoranceLogType.Standard;
+        [Tooltip("Uses OnGUI to present you with statistics for Server and Client backend instances.")]
+        public bool DebugDisplay = false;
 
         [Header("Server Configuration")]
         [Tooltip("Should the server bind to all interfaces?")]
@@ -85,7 +87,7 @@ namespace IgnoranceTransport
         {
             ClientState = ConnectionState.Connecting;
             cachedConnectionAddress = address;
-            
+
             // Initialize.
             InitializeClientBackend();
 
@@ -143,12 +145,13 @@ namespace IgnoranceTransport
             Packet clientOutgoingPacket = default;
             int byteCount = segment.Count;
 
-            // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200) // && Channels[channelId].HasFlag(PacketFlags.None)
-                Debug.LogWarning($"Warning: Client is about to send a Unreliable packet with a length bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
+        
+            // Warn if over recommended MTU
+            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && ((PacketFlags)Channels[channelId] & PacketFlags.None) > 0)
+                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
-            clientOutgoingPacket.Create(segment.Array, segment.Offset, byteCount + segment.Offset, PacketFlags.Reliable); // Dirty Hack
+            clientOutgoingPacket.Create(segment.Array, segment.Offset, byteCount + segment.Offset, (PacketFlags)Channels[channelId]);
             // byteCount
 
             // Enqueue the packet.
@@ -195,9 +198,7 @@ namespace IgnoranceTransport
         public override string ServerGetClientAddress(int connectionId)
         {
             if (ConnectionLookupDict.TryGetValue(connectionId, out PeerConnectionData details))
-            {
                 return $"{details.IP}:{details.Port}";
-            }
 
             return "(unavailable)";
         }
@@ -222,12 +223,12 @@ namespace IgnoranceTransport
             Packet serverOutgoingPacket = default;
             int byteCount = segment.Count;
 
-            // Warn if over recommended MTU            
-            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200) //  && Channels[channelId].HasFlag(PacketFlags.None)
+            // Warn if over recommended MTU
+            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && ((PacketFlags)Channels[channelId] & PacketFlags.None) > 0)
                 Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
-            serverOutgoingPacket.Create(segment.Array, segment.Offset, byteCount, PacketFlags.Reliable); // Dirty Hack
+            serverOutgoingPacket.Create(segment.Array, segment.Offset, byteCount + segment.Offset, (PacketFlags)Channels[channelId]);
 
             // Enqueue the packet.
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
@@ -244,7 +245,7 @@ namespace IgnoranceTransport
         public override void ServerStart()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                print("Ignorance Server Instance is starting up...");
+                print("Ignorance Server instance is starting up...");
 
             InitializeServerBackend();
 
@@ -256,7 +257,7 @@ namespace IgnoranceTransport
             if (Server != null)
             {
                 if (LogType != IgnoranceLogType.Nothing)
-                    print("Ignorance Server Instance is shutting down...");
+                    print("Ignorance Server instance is shutting down...");
 
                 Server.Stop();
             }
@@ -305,14 +306,14 @@ namespace IgnoranceTransport
         }
 
         #region Inner workings
-        private bool isClientConnected, ignoreDataPackets;
+        private bool ignoreDataPackets;
         private string cachedConnectionAddress = string.Empty;
         private IgnoranceServer Server = new IgnoranceServer();
         private IgnoranceClient Client = new IgnoranceClient();
 
         private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
         private Dictionary<uint, int> ENetPeerToMirrorLookup = new Dictionary<uint, int>();
-        private int ConnId = 0;
+        private int ConnId = 1;
         private float NextStatusRequestUpdate = 0f;
 
         private void InitializeServerBackend()
@@ -367,21 +368,23 @@ namespace IgnoranceTransport
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceConnectionEvent connectionEvent;
 
-            // print($"Reached processing Server ConnectionEvents queue. Queue items remaining: {Server.ConnectionEvents.Count}");
-            // Step 2: Handle incoming connection events.
+            // print($"Reached processing Server ConnectionEvents queue.");
+            // incoming connection events.
             if (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
-                print($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
+                if (LogType == IgnoranceLogType.Verbose)
+                    print($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
 
                 // Was this a Disconnection?
                 if (connectionEvent.WasDisconnect)
                 {
-                    print($"ProcessServerPackets: Disconnection event from native peer {connectionEvent.NativePeerId}.");
+                    if (LogType == IgnoranceLogType.Verbose)
+                        print($"ProcessServerPackets fired; handling disconnection event from native peer {connectionEvent.NativePeerId}.");
 
                     // If it doesn't exist in our dictionary, then it's likely a ghost or malicious.
                     if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
                     {
-                        Debug.LogWarning("Connection disconnection event from unknown peer");
+                        Debug.LogWarning("Disconnection event from unknown peer");
                         return;
                     }
 
@@ -396,7 +399,8 @@ namespace IgnoranceTransport
                 else
                 {
                     // Nah mate, just a regular connection.
-                    print($"ProcessServerPackets: Connection event from native peer {connectionEvent.NativePeerId}. This Peer would be Mirror ConnID {ConnId}.");
+                    if (LogType == IgnoranceLogType.Verbose)
+                        print($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {ConnId}.");
 
                     ConnectionLookupDict.Add(ConnId, new PeerConnectionData
                     {
@@ -420,7 +424,7 @@ namespace IgnoranceTransport
                 }
             }
 
-            // Step 1: Handle incoming data packets.
+            // Handle incoming data packets.
             // Console.WriteLine($"Server Incoming Queue is {Server.Incoming.Count}");
             while (Server.Incoming.TryDequeue(out incomingPacket))
             {
@@ -437,9 +441,10 @@ namespace IgnoranceTransport
 
                     ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
                     OnServerDataReceived?.Invoke(conn, dataSegment, incomingPacket.Channel);
-                } else
+                }
+                else
                 {
-                    Debug.LogWarning("Data received from a peer that's not in our lookup");
+                    Debug.LogWarning($"Data received from ENet Peer {incomingPacket.NativePeerId} but this isn't in our lookup.");
                 }
 
                 // Some messages can disable the transport
@@ -447,6 +452,11 @@ namespace IgnoranceTransport
                 if (!enabled)
                     break;
             }
+        }
+
+        private void ProcessServerConnectionEvents()
+        {
+            
         }
 
         private void ProcessClientPackets()
@@ -460,7 +470,12 @@ namespace IgnoranceTransport
                 // Temporary fix: if ENet thread is too fast for Mirror, then ignore the packet.
                 // This is seen sometimes if you stop the client and there's still stuff in the queue.
                 if (ignoreDataPackets)
+                {
+                    if (LogType == IgnoranceLogType.Verbose)
+                        print("ProcessClientPackets cycle skipped; ignoring data packet");
                     break;
+                }
+
 
                 // Otherwise client recieved data, advise Mirror.
                 // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
@@ -480,17 +495,15 @@ namespace IgnoranceTransport
             }
 
             // Step 3: Handle other commands.
-            /* while (Client.Commands.TryDequeue(out commandPacket))
+            while (Client.Commands.TryDequeue(out commandPacket))
             {
                 switch (commandPacket.Type)
                 {
                     // ...
-
                     default:
                         break;
                 }
             }
-            */
 
             // Step 4: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
@@ -504,9 +517,10 @@ namespace IgnoranceTransport
             IgnoranceConnectionEvent connectionEvent;
 
             // Step 2: Handle connection events.
-            if (Client.ConnectionEvents.TryDequeue(out connectionEvent))
+            while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
             {
-                print($"Processing a Client ConnectionEvents queue item. Queue items remaining: {Client.ConnectionEvents.Count}");
+                if (LogType == IgnoranceLogType.Verbose)
+                    print($"ProcessClientConnectionEvents fired: processing a client ConnectionEvents queue item.");
 
                 if (connectionEvent.WasDisconnect)
                 {
@@ -514,7 +528,7 @@ namespace IgnoranceTransport
                     ClientState = ConnectionState.Disconnected;
 
                     if (LogType != IgnoranceLogType.Nothing)
-                        print($"Client disconnected from server, {connectionEvent.IP}:{connectionEvent.Port}");
+                        print($"Client has been disconnected from server.");
 
                     ignoreDataPackets = true;
                     OnClientDisconnected?.Invoke();
@@ -525,13 +539,12 @@ namespace IgnoranceTransport
                     ClientState = ConnectionState.Connected;
 
                     if (LogType != IgnoranceLogType.Nothing)
-                        print($"Client connected to server, {connectionEvent.IP}:{connectionEvent.Port}");
+                        print($"Client successfully connected to server: {connectionEvent.IP}:{connectionEvent.Port}");
 
                     ignoreDataPackets = false;
                     OnClientConnected?.Invoke();
                 }
             }
-
         }
 
         private void LateUpdate()
@@ -539,7 +552,10 @@ namespace IgnoranceTransport
             if (enabled)
             {
                 if (Server.IsAlive)
+                {
+                    ProcessServerConnectionEvents();
                     ProcessServerPackets();
+                }
 
                 if (Client.IsAlive)
                 {
@@ -557,24 +573,25 @@ namespace IgnoranceTransport
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(
-                new Vector2(32, Screen.height - 240), new Vector2(200, 160)),
+            if (DebugDisplay)
+                GUI.Box(new Rect(
+                    new Vector2(32, Screen.height - 240), new Vector2(200, 160)),
 
-                "-- CLIENT --\n" +
-                $"State: {ClientState}\n" +
-                $"Incoming Queue: {Client.Incoming.Count}\n" +
-                $"Outgoing Queue: {Client.Outgoing.Count}\n\n" +
+                    "-- CLIENT --\n" +
+                    $"State: {ClientState}\n" +
+                    $"Incoming Queue: {Client.Incoming.Count}\n" +
+                    $"Outgoing Queue: {Client.Outgoing.Count}\n\n" +
 
-                "-- SERVER --\n" +
-                $"Incoming Queue: {Server.Incoming.Count}\n" +
-                $"Outgoing Queue: {Server.Outgoing.Count}\n" +
-                $"ConnEvent Queue: {Server.ConnectionEvents.Count}"
+                    "-- SERVER --\n" +
+                    $"Incoming Queue: {Server.Incoming.Count}\n" +
+                    $"Outgoing Queue: {Server.Outgoing.Count}\n" +
+                    $"ConnEvent Queue: {Server.ConnectionEvents.Count}"
                 );
         }
         #endregion
 
         public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
-        
+
 #if IGNORANCE_BATCHING
         // UDP Recommended Max MTU = 1200.
         public override int GetMaxBatchSize(int channelId) => 1200;

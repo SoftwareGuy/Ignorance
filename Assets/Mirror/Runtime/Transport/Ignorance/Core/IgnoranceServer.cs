@@ -205,7 +205,8 @@ namespace IgnoranceTransport
 
                             // Connection Event.
                             case EventType.Connect:
-                                Debug.Log("Server Work Thread: New peer connection.");
+                                if(setupInfo.Verbosity > 1)
+                                    Debug.Log("Server Worker Thread: New peer connection.");
 
                                 IgnoranceConnectionEvent ice = new IgnoranceConnectionEvent()
                                 {
@@ -223,7 +224,8 @@ namespace IgnoranceTransport
                             // Disconnect/Timeout. Mirror doesn't care if it's either, so we lump them together.
                             case EventType.Disconnect:
                             case EventType.Timeout:
-                                Debug.Log("Server Work Thread: Peer disconnection.");
+                                if (setupInfo.Verbosity > 1)
+                                    Debug.Log("Server Worker Thread: Peer disconnection.");
 
                                 IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
                                 {
@@ -274,7 +276,7 @@ namespace IgnoranceTransport
                 }
 
                 if (Verbosity > 0)
-                    Debug.Log("Server thread is finishing up.");
+                    Debug.Log("Server Worker Thread: Finishing up.");
 
                 // Cleanup and flush everything.
                 serverENetHost.Flush();
