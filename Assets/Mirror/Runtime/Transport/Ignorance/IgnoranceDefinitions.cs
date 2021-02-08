@@ -16,40 +16,12 @@ namespace IgnoranceTransport
         Unthrottled = PacketFlags.Unthrottled,                                  // Apparently ENet's version of Taco Bell.
     }
 
-    [Serializable]
-    public class PeerStatistics
-    {
-        public ulong CurrentPing;
-        public ulong PacketsSent;
-        public ulong PacketsLost;
-        public ulong BytesSent;
-        public ulong BytesReceived;
-    }
-
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0a11";
+        public const string Version = "1.4.0a13";
         public const string Scheme = "enet";
         public const string BindAllIPv4 = "0.0.0.0";
         public const string BindAllFuckingAppleMacs = "::0";
-    }
-
-    public enum IgnorancePacketType
-    {
-        ServerConnect,      // Server had a new connection.
-        ServerDisconnect,   // Server had an existing connection die.
-        ServerData,         // Server has an existing connection send data to us.
-
-        ServerClientKick,   // Mirror wants to boot a client off the server.
-
-        ClientConnect,      // Client connected to server.           
-        ClientDisconnect,   // Client disconnected from server.
-        ClientData,         // Client received from server.
-
-        ClientStatusUpdateRequest, // Main thread asking client thread to report various statistics.
-        ClientStatusUpdateResponse, // Client thread reporting various statistics to main thread.
-
-        ClientWantsToStop   // Client thread needs to pack up and go home.
     }
 
     public enum IgnoranceLogType
@@ -115,8 +87,8 @@ namespace IgnoranceTransport
     // TODO: Optimize struct for Cache performance.
     public struct PeerConnectionData
     {
-        public uint NativePeerId;
         public ushort Port;
+        public uint NativePeerId;       
         public string IP;
     }
 }

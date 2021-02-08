@@ -93,7 +93,6 @@ namespace IgnoranceTransport
 
             // Get going.            
             ignoreDataPackets = false;
-            NextStatusRequestUpdate = 0f;
 
             // Start!
             Client.Start();
@@ -307,7 +306,7 @@ namespace IgnoranceTransport
                 Debug.LogWarning("Invalid Channels setting, fixing. If you've just added Ignorance to your NetworkManager GameObject, seeing this message is normal.");
                 Channels = new IgnoranceChannelTypes[2]
                 {
-                    
+
                     IgnoranceChannelTypes.Reliable,
                     IgnoranceChannelTypes.Unreliable
                 };
@@ -324,9 +323,6 @@ namespace IgnoranceTransport
         private IgnoranceClient Client = new IgnoranceClient();
 
         private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
-        // private Dictionary<uint, int> ENetPeerToMirrorLookup = new Dictionary<uint, int>();
-        // private int ConnId = 1;
-        private float NextStatusRequestUpdate = 0f;
 
         private void InitializeServerBackend()
         {
@@ -380,6 +376,7 @@ namespace IgnoranceTransport
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceConnectionEvent connectionEvent;
             int adjustedConnectionId;
+            Packet payload;
 
             // Debug.Log($"Reached processing Server ConnectionEvents queue.");
             // incoming connection events.
@@ -447,19 +444,32 @@ namespace IgnoranceTransport
             while (Server.Incoming.TryDequeue(out incomingPacket))
             {
                 adjustedConnectionId = (int)incomingPacket.NativePeerId + 1;
+                payload = incomingPacket.Payload;
 
                 // Debug.Log($"Server got one. It's a {incomingPacket.Type}");
                 // if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
                 // {
                 // We know who's it is from, let's process it.                 
                 // int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
-                int length = incomingPacket.Payload.Length;
+                int length = payload.Length;
+                ArraySegment<byte> dataSegment;
 
                 // Copy to working buffer and dispose of it.
-                incomingPacket.Payload.CopyTo(InternalPacketBuffer);
-                incomingPacket.Payload.Dispose();
+                if (length > InternalPacketBuffer.Length)
+                {
+                    byte[] oneFreshNTastyGcAlloc = new byte[length];
 
-                ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                    payload.CopyTo(oneFreshNTastyGcAlloc);
+                    dataSegment = new ArraySegment<byte>(oneFreshNTastyGcAlloc, 0, length);
+                }
+                else
+                {
+                    payload.CopyTo(InternalPacketBuffer);
+                    dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                }
+
+                payload.Dispose();
+
                 OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);
                 // }
                 // else
@@ -474,16 +484,12 @@ namespace IgnoranceTransport
             }
         }
 
-        private void ProcessServerConnectionEvents()
-        {
-            ;
-        }
-
         private void ProcessClientPackets()
         {
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceCommandPacket commandPacket;
             IgnoranceClientStats clientStats;
+            Packet payload;
 
             while (Client.Incoming.TryDequeue(out incomingPacket))
             {
@@ -499,13 +505,26 @@ namespace IgnoranceTransport
 
                 // Otherwise client recieved data, advise Mirror.
                 // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
-                int length = incomingPacket.Payload.Length;
+                payload = incomingPacket.Payload;
+                int length = payload.Length;
+                ArraySegment<byte> dataSegment;
 
                 // Copy to working buffer and dispose of it.
-                incomingPacket.Payload.CopyTo(InternalPacketBuffer);
-                incomingPacket.Payload.Dispose();
+                if (length > InternalPacketBuffer.Length)
+                {
+                    byte[] oneFreshNTastyGcAlloc = new byte[length];
 
-                ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                    payload.CopyTo(oneFreshNTastyGcAlloc);
+                    dataSegment = new ArraySegment<byte>(oneFreshNTastyGcAlloc, 0, length);
+                }
+                else
+                {
+                    payload.CopyTo(InternalPacketBuffer);
+                    dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                }
+
+                payload.Dispose();
+
                 OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
 
                 // Some messages can disable the transport
@@ -573,7 +592,6 @@ namespace IgnoranceTransport
             {
                 if (Server.IsAlive)
                 {
-                    ProcessServerConnectionEvents();
                     ProcessServerPackets();
                 }
 
@@ -582,10 +600,15 @@ namespace IgnoranceTransport
                     ProcessClientConnectionEvents();
                     ProcessClientPackets();
 
-                    if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1 && Time.time >= NextStatusRequestUpdate)
+                    if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
                     {
-                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
-                        NextStatusRequestUpdate = Time.time + clientStatusUpdateInterval;
+                        statusUpdateTimer += Time.deltaTime;
+
+                        if (statusUpdateTimer >= clientStatusUpdateInterval)
+                        {
+                            Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                            statusUpdateTimer = 0f;
+                        }
                     }
                 }
             }
@@ -614,7 +637,10 @@ namespace IgnoranceTransport
 
 #if IGNORANCE_BATCHING
         // UDP Recommended Max MTU = 1200.
-        public override int GetMaxBatchSize(int channelId) => 1200;
+        public override int GetMaxBatchSize(int channelId) {
+            bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
+            return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
+        }
 #endif
 
         private enum ConnectionState { Connecting, Connected, Disconnecting, Disconnected }
@@ -622,6 +648,8 @@ namespace IgnoranceTransport
         private byte[] InternalPacketBuffer;
 
         private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
+
+        private float statusUpdateTimer = 0f;
 #endif
 
     }

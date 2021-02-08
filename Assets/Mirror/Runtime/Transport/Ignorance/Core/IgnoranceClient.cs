@@ -46,7 +46,7 @@ namespace IgnoranceTransport
 
         public void Start()
         {
-            Console.WriteLine("IgnoranceClient.Start()");
+            Debug.Log("IgnoranceClient.Start()");
 
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
@@ -113,13 +113,11 @@ namespace IgnoranceTransport
             // Attempt to initialize ENet inside the thread.
             if (Library.Initialize())
             {
-                if (setupInfo.Verbosity > 0)
-                    Debug.Log("Client Worker Thread: Initialized ENet.");
+                Debug.Log("Client Worker Thread: Initialized ENet.");
             }
             else
             {
-                if (setupInfo.Verbosity > 0)
-                    Debug.Log("Client Worker Thread: Failed to initialize ENet.");
+                Debug.LogError("Client Worker Thread: Failed to initialize ENet. This threads' fucked.");
                 return;
             }
 

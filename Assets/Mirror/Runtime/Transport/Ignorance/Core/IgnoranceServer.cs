@@ -113,12 +113,11 @@ namespace IgnoranceTransport
             // Attempt to initialize ENet inside the thread.
             if (Library.Initialize())
             {
-                if (Verbosity > 0)
-                    Debug.Log("Server Worker Thread: ENet initialized.");
+                Debug.Log("Server Worker Thread: Initialized ENet.");
             }
             else
             {
-                Debug.LogError("Server Worker Thread: Failed to initialize ENet.");
+                Debug.LogError("Server Worker Thread: Failed to initialize ENet. This threads' fucked.");
                 return;
             }
 
