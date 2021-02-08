@@ -286,8 +286,5 @@ namespace IgnoranceTransport
             public int Verbosity;
             public string Address;
         }
-
-        // TO BE CONTINUED...
-        // <------
     }
 }

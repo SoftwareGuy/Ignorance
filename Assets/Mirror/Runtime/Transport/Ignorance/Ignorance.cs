@@ -144,14 +144,17 @@ namespace IgnoranceTransport
             // Packet Struct
             Packet clientOutgoingPacket = default;
             int byteCount = segment.Count;
+            int byteOffset = segment.Offset;
+            PacketFlags desiredFlags = (PacketFlags)Channels[channelId];
 
-        
             // Warn if over recommended MTU
-            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && ((PacketFlags)Channels[channelId] & PacketFlags.None) > 0)
+            bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
+
+            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
                 Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
-            clientOutgoingPacket.Create(segment.Array, segment.Offset, byteCount + segment.Offset, (PacketFlags)Channels[channelId]);
+            clientOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, desiredFlags);
             // byteCount
 
             // Enqueue the packet.
@@ -217,13 +220,17 @@ namespace IgnoranceTransport
             // Packet Struct
             Packet serverOutgoingPacket = default;
             int byteCount = segment.Count;
+            int byteOffset = segment.Offset;
+            PacketFlags desiredFlags = (PacketFlags)Channels[channelId];
 
             // Warn if over recommended MTU
-            if (LogType != IgnoranceLogType.Nothing && segment.Count > 1200 && ((PacketFlags)Channels[channelId] & PacketFlags.None) > 0)
+            bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
+
+            if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
                 Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
-            serverOutgoingPacket.Create(segment.Array, segment.Offset, byteCount + segment.Offset, (PacketFlags)Channels[channelId]);
+            serverOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, (PacketFlags)Channels[channelId]);
 
             // Enqueue the packet.
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
@@ -603,6 +610,9 @@ namespace IgnoranceTransport
         private enum ConnectionState { Connecting, Connected, Disconnecting, Disconnected }
         private ConnectionState ClientState = ConnectionState.Disconnected;
         private byte[] InternalPacketBuffer;
+
+        private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
 #endif
+
     }
 }
