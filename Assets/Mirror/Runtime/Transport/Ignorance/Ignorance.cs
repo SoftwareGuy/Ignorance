@@ -75,7 +75,7 @@ namespace IgnoranceTransport
         public void Awake()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                print($"Thanks for using Ignorance {IgnoranceInternals.Version}. Keep up to date, report bugs and support the developer at https://github.com/SoftwareGuy/Ignorance!");
+                Debug.Log($"Thanks for using Ignorance {IgnoranceInternals.Version}. Keep up to date, report bugs and support the developer at https://github.com/SoftwareGuy/Ignorance!");
         }
 
         public override string ToString()
@@ -151,7 +151,7 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             clientOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, desiredFlags);
@@ -227,7 +227,7 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({segment.Count} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             serverOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, (PacketFlags)Channels[channelId]);
@@ -247,7 +247,7 @@ namespace IgnoranceTransport
         public override void ServerStart()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                print("Ignorance Server instance is starting up...");
+                Debug.Log("Ignorance Server instance is starting up...");
 
             InitializeServerBackend();
 
@@ -259,7 +259,7 @@ namespace IgnoranceTransport
             if (Server != null)
             {
                 if (LogType != IgnoranceLogType.Nothing)
-                    print("Ignorance Server instance is shutting down...");
+                    Debug.Log("Ignorance Server instance is shutting down...");
 
                 Server.Stop();
             }
@@ -290,14 +290,24 @@ namespace IgnoranceTransport
         {
             if (Channels != null && Channels.Length >= 2)
             {
-                // Check to make sure that Channel 0 and 1 are correct.
-                if (Channels[0] != IgnoranceChannelTypes.Reliable) Channels[0] = IgnoranceChannelTypes.Reliable;
-                if (Channels[1] != IgnoranceChannelTypes.Unreliable) Channels[1] = IgnoranceChannelTypes.Unreliable;
+                // Check to make sure that Channel 0 and 1 are correct.             
+                if (Channels[0] != IgnoranceChannelTypes.Reliable)
+                {
+                    Debug.LogWarning("Please do not modify Ignorance Channel 0. The channel will be reset to Reliable delivery. If you need a channel with a different delivery, define and use it instead.");
+                    Channels[0] = IgnoranceChannelTypes.Reliable;
+                }
+                if (Channels[1] != IgnoranceChannelTypes.Unreliable)
+                {
+                    Debug.LogWarning("Please do not modify Ignorance Channel 1. The channel will be reset to Unreliable delivery. If you need a channel with a different delivery, define and use it instead.");
+                    Channels[1] = IgnoranceChannelTypes.Unreliable;
+                }
             }
             else
             {
+                Debug.LogWarning("Invalid Channels setting, fixing. If you've just added Ignorance to your NetworkManager GameObject, seeing this message is normal.");
                 Channels = new IgnoranceChannelTypes[2]
                 {
+                    
                     IgnoranceChannelTypes.Reliable,
                     IgnoranceChannelTypes.Unreliable
                 };
@@ -371,20 +381,20 @@ namespace IgnoranceTransport
             IgnoranceConnectionEvent connectionEvent;
             int adjustedConnectionId;
 
-            // print($"Reached processing Server ConnectionEvents queue.");
+            // Debug.Log($"Reached processing Server ConnectionEvents queue.");
             // incoming connection events.
             while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 adjustedConnectionId = (int)connectionEvent.NativePeerId + 1;
 
                 if (LogType == IgnoranceLogType.Verbose)
-                    print($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
+                    Debug.Log($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
 
                 // Was this a Disconnection?
                 if (connectionEvent.WasDisconnect)
                 {
                     if (LogType == IgnoranceLogType.Verbose)
-                        print($"ProcessServerPackets fired; handling disconnection event from native peer {connectionEvent.NativePeerId}.");
+                        Debug.Log($"ProcessServerPackets fired; handling disconnection event from native peer {connectionEvent.NativePeerId}.");
 
                     // If it doesn't exist in our dictionary, then it's likely a ghost or malicious.
                     /* if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
@@ -406,7 +416,7 @@ namespace IgnoranceTransport
                 {
                     // Nah mate, just a regular connection.
                     if (LogType == IgnoranceLogType.Verbose)
-                        print($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
+                        Debug.Log($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
 
                     ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
                     {
@@ -438,7 +448,7 @@ namespace IgnoranceTransport
             {
                 adjustedConnectionId = (int)incomingPacket.NativePeerId + 1;
 
-                // print($"Server got one. It's a {incomingPacket.Type}");
+                // Debug.Log($"Server got one. It's a {incomingPacket.Type}");
                 // if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
                 // {
                 // We know who's it is from, let's process it.                 
@@ -482,7 +492,7 @@ namespace IgnoranceTransport
                 if (ignoreDataPackets)
                 {
                     if (LogType == IgnoranceLogType.Verbose)
-                        print("ProcessClientPackets cycle skipped; ignoring data packet");
+                        Debug.Log("ProcessClientPackets cycle skipped; ignoring data packet");
                     break;
                 }
 
@@ -530,7 +540,7 @@ namespace IgnoranceTransport
             while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 if (LogType == IgnoranceLogType.Verbose)
-                    print($"ProcessClientConnectionEvents fired: processing a client ConnectionEvents queue item.");
+                    Debug.Log($"ProcessClientConnectionEvents fired: processing a client ConnectionEvents queue item.");
 
                 if (connectionEvent.WasDisconnect)
                 {
@@ -538,7 +548,7 @@ namespace IgnoranceTransport
                     ClientState = ConnectionState.Disconnected;
 
                     if (LogType != IgnoranceLogType.Nothing)
-                        print($"Client has been disconnected from server.");
+                        Debug.Log($"Client has been disconnected from server.");
 
                     ignoreDataPackets = true;
                     OnClientDisconnected?.Invoke();
@@ -549,7 +559,7 @@ namespace IgnoranceTransport
                     ClientState = ConnectionState.Connected;
 
                     if (LogType != IgnoranceLogType.Nothing)
-                        print($"Client successfully connected to server: {connectionEvent.IP}:{connectionEvent.Port}");
+                        Debug.Log($"Client successfully connected to server: {connectionEvent.IP}:{connectionEvent.Port}");
 
                     ignoreDataPackets = false;
                     OnClientConnected?.Invoke();
