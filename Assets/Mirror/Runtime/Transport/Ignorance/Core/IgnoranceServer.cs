@@ -31,7 +31,7 @@ namespace IgnoranceTransport
         public int PollTime = 1;
         public int Verbosity = 1;
 
-        public bool IsAlive => WorkerThread != null ? WorkerThread.IsAlive : false;
+        public bool IsAlive => WorkerThread != null && WorkerThread.IsAlive;
 
         private volatile bool CeaseOperation = false;
 

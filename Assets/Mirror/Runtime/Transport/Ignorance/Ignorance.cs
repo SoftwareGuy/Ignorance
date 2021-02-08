@@ -166,7 +166,7 @@ namespace IgnoranceTransport
 
         public override bool ServerActive()
         {
-            return Server != null ? Server.IsAlive : false;
+            return Server != null && Server.IsAlive;
         }
 
         public override bool ServerDisconnect(int connectionId)
@@ -179,20 +179,15 @@ namespace IgnoranceTransport
                 return false;
             }
 
-            if (ConnectionLookupDict.ContainsKey(connectionId))
+            IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
             {
-                IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
-                {
-                    Type = IgnoranceCommandType.ServerKickPeer,
-                    PeerId = ConnectionLookupDict[connectionId].NativePeerId
-                };
+                Type = IgnoranceCommandType.ServerKickPeer,
+                PeerId = (uint)connectionId - 1 // ENet's native peer ID will be ConnID - 1
+            };
 
-                Server.Commands.Enqueue(kickPacket);
+            Server.Commands.Enqueue(kickPacket);
 
-                return true;
-            }
-
-            return false;
+            return true;
         }
 
         public override string ServerGetClientAddress(int connectionId)
@@ -234,7 +229,7 @@ namespace IgnoranceTransport
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
             {
                 Channel = (byte)channelId,
-                NativePeerId = ConnectionLookupDict[connectionId].NativePeerId,
+                NativePeerId = (uint)connectionId - 1, // ENet's native peer ID will be ConnID - 1
                 Payload = serverOutgoingPacket
             };
 
@@ -262,7 +257,7 @@ namespace IgnoranceTransport
                 Server.Stop();
             }
 
-            ENetPeerToMirrorLookup.Clear();
+            // ENetPeerToMirrorLookup.Clear();
             ConnectionLookupDict.Clear();
         }
 
@@ -312,8 +307,8 @@ namespace IgnoranceTransport
         private IgnoranceClient Client = new IgnoranceClient();
 
         private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
-        private Dictionary<uint, int> ENetPeerToMirrorLookup = new Dictionary<uint, int>();
-        private int ConnId = 1;
+        // private Dictionary<uint, int> ENetPeerToMirrorLookup = new Dictionary<uint, int>();
+        // private int ConnId = 1;
         private float NextStatusRequestUpdate = 0f;
 
         private void InitializeServerBackend()
@@ -367,11 +362,14 @@ namespace IgnoranceTransport
         {
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceConnectionEvent connectionEvent;
+            int adjustedConnectionId;
 
             // print($"Reached processing Server ConnectionEvents queue.");
             // incoming connection events.
-            if (Server.ConnectionEvents.TryDequeue(out connectionEvent))
+            while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
+                adjustedConnectionId = (int)connectionEvent.NativePeerId + 1;
+
                 if (LogType == IgnoranceLogType.Verbose)
                     print($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
 
@@ -382,33 +380,35 @@ namespace IgnoranceTransport
                         print($"ProcessServerPackets fired; handling disconnection event from native peer {connectionEvent.NativePeerId}.");
 
                     // If it doesn't exist in our dictionary, then it's likely a ghost or malicious.
-                    if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
+                    /* if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
                     {
                         Debug.LogWarning("Disconnection event from unknown peer");
                         return;
                     }
+                    */
 
-                    int key = ENetPeerToMirrorLookup[connectionEvent.NativePeerId];
+                    // int key = (int)connectionEvent.NativePeerId + 1;
 
-                    ConnectionLookupDict.Remove(key);
-                    ENetPeerToMirrorLookup.Remove(connectionEvent.NativePeerId);
+                    ConnectionLookupDict.Remove(adjustedConnectionId);
+                    // ENetPeerToMirrorLookup.Remove(connectionEvent.NativePeerId);
 
                     // Invoke Mirror handler.
-                    OnServerDisconnected?.Invoke(key);
+                    OnServerDisconnected?.Invoke(adjustedConnectionId);
                 }
                 else
                 {
                     // Nah mate, just a regular connection.
                     if (LogType == IgnoranceLogType.Verbose)
-                        print($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {ConnId}.");
+                        print($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
 
-                    ConnectionLookupDict.Add(ConnId, new PeerConnectionData
+                    ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
                     {
                         NativePeerId = connectionEvent.NativePeerId,
                         IP = connectionEvent.IP,
                         Port = connectionEvent.Port
                     });
 
+                    /*
                     if (ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
                     {
                         Debug.LogWarning($"This is weird - we already know Native Peer {connectionEvent.NativePeerId} as Conn {ConnId}. Replacing, but this may cause issues.");
@@ -418,9 +418,10 @@ namespace IgnoranceTransport
                     {
                         ENetPeerToMirrorLookup.Add(connectionEvent.NativePeerId, ConnId);
                     }
+                    */
 
-                    OnServerConnected?.Invoke(ConnId);
-                    ConnId++;
+                    OnServerConnected?.Invoke(adjustedConnectionId);
+                    // ConnId++;
                 }
             }
 
@@ -428,24 +429,26 @@ namespace IgnoranceTransport
             // Console.WriteLine($"Server Incoming Queue is {Server.Incoming.Count}");
             while (Server.Incoming.TryDequeue(out incomingPacket))
             {
+                adjustedConnectionId = (int)incomingPacket.NativePeerId + 1;
+
                 // print($"Server got one. It's a {incomingPacket.Type}");
-                if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
-                {
-                    // We know who's it is from, let's process it.                 
-                    int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
-                    int length = incomingPacket.Payload.Length;
+                // if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
+                // {
+                // We know who's it is from, let's process it.                 
+                // int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
+                int length = incomingPacket.Payload.Length;
 
-                    // Copy to working buffer and dispose of it.
-                    incomingPacket.Payload.CopyTo(InternalPacketBuffer);
-                    incomingPacket.Payload.Dispose();
+                // Copy to working buffer and dispose of it.
+                incomingPacket.Payload.CopyTo(InternalPacketBuffer);
+                incomingPacket.Payload.Dispose();
 
-                    ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
-                    OnServerDataReceived?.Invoke(conn, dataSegment, incomingPacket.Channel);
-                }
-                else
-                {
-                    Debug.LogWarning($"Data received from ENet Peer {incomingPacket.NativePeerId} but this isn't in our lookup.");
-                }
+                ArraySegment<byte> dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);
+                // }
+                // else
+                // {
+                //    Debug.LogWarning($"Data received from ENet Peer {incomingPacket.NativePeerId} but this isn't in our lookup.");
+                // }
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
@@ -456,7 +459,7 @@ namespace IgnoranceTransport
 
         private void ProcessServerConnectionEvents()
         {
-            
+            ;
         }
 
         private void ProcessClientPackets()

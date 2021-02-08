@@ -39,7 +39,7 @@ namespace IgnoranceTransport
         public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
         public ConcurrentQueue<IgnoranceClientStats> StatusUpdates = new ConcurrentQueue<IgnoranceClientStats>();
 
-        public bool IsAlive => WorkerThread != null ? WorkerThread.IsAlive : false;
+        public bool IsAlive => WorkerThread != null && WorkerThread.IsAlive;
 
         private volatile bool CeaseOperation = false;
         private Thread WorkerThread;
