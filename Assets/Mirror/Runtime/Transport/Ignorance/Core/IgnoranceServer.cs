@@ -40,6 +40,7 @@ namespace IgnoranceTransport
         public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
         public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
         public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
+        public ConcurrentQueue<IgnoranceConnectionEvent> DisconnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
 
         // Thread
         private Thread WorkerThread;
@@ -70,6 +71,7 @@ namespace IgnoranceTransport
             if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
             if (Commands != null) while (Commands.TryDequeue(out _)) ;
             if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _));
+            if (DisconnectionEvents != null) while (DisconnectionEvents.TryDequeue(out _)) ;
 
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
@@ -232,7 +234,7 @@ namespace IgnoranceTransport
                                     NativePeerId = incomingPeer.ID
                                 };
 
-                                ConnectionEvents.Enqueue(iced);
+                                DisconnectionEvents.Enqueue(iced);
 
                                 // Reset the peer array's entry for that peer.
                                 serverPeerArray[incomingPeer.ID] = default;

@@ -370,8 +370,7 @@ namespace IgnoranceTransport
             int adjustedConnectionId;
             Packet payload;
 
-            // Debug.Log($"Reached processing Server ConnectionEvents queue.");
-            // incoming connection events.
+            // Incoming connection events.
             while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 adjustedConnectionId = (int)connectionEvent.NativePeerId + 1;
@@ -379,56 +378,18 @@ namespace IgnoranceTransport
                 if (LogType == IgnoranceLogType.Verbose)
                     Debug.Log($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
 
-                // Was this a Disconnection?
-                if (connectionEvent.WasDisconnect)
+                // Nah mate, just a regular connection.
+                if (LogType == IgnoranceLogType.Verbose)
+                    Debug.Log($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
+
+                ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
                 {
-                    if (LogType == IgnoranceLogType.Verbose)
-                        Debug.Log($"ProcessServerPackets fired; handling disconnection event from native peer {connectionEvent.NativePeerId}.");
+                    NativePeerId = connectionEvent.NativePeerId,
+                    IP = connectionEvent.IP,
+                    Port = connectionEvent.Port
+                });
 
-                    // If it doesn't exist in our dictionary, then it's likely a ghost or malicious.
-                    /* if (!ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
-                    {
-                        Debug.LogWarning("Disconnection event from unknown peer");
-                        return;
-                    }
-                    */
-
-                    // int key = (int)connectionEvent.NativePeerId + 1;
-
-                    ConnectionLookupDict.Remove(adjustedConnectionId);
-                    // ENetPeerToMirrorLookup.Remove(connectionEvent.NativePeerId);
-
-                    // Invoke Mirror handler.
-                    OnServerDisconnected?.Invoke(adjustedConnectionId);
-                }
-                else
-                {
-                    // Nah mate, just a regular connection.
-                    if (LogType == IgnoranceLogType.Verbose)
-                        Debug.Log($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
-
-                    ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
-                    {
-                        NativePeerId = connectionEvent.NativePeerId,
-                        IP = connectionEvent.IP,
-                        Port = connectionEvent.Port
-                    });
-
-                    /*
-                    if (ENetPeerToMirrorLookup.ContainsKey(connectionEvent.NativePeerId))
-                    {
-                        Debug.LogWarning($"This is weird - we already know Native Peer {connectionEvent.NativePeerId} as Conn {ConnId}. Replacing, but this may cause issues.");
-                        ENetPeerToMirrorLookup[connectionEvent.NativePeerId] = ConnId;
-                    }
-                    else
-                    {
-                        ENetPeerToMirrorLookup.Add(connectionEvent.NativePeerId, ConnId);
-                    }
-                    */
-
-                    OnServerConnected?.Invoke(adjustedConnectionId);
-                    // ConnId++;
-                }
+                OnServerConnected?.Invoke(adjustedConnectionId);
             }
 
             // Handle incoming data packets.
@@ -438,11 +399,6 @@ namespace IgnoranceTransport
                 adjustedConnectionId = (int)incomingPacket.NativePeerId + 1;
                 payload = incomingPacket.Payload;
 
-                // Debug.Log($"Server got one. It's a {incomingPacket.Type}");
-                // if (ENetPeerToMirrorLookup.ContainsKey(incomingPacket.NativePeerId))
-                // {
-                // We know who's it is from, let's process it.                 
-                // int conn = ENetPeerToMirrorLookup[incomingPacket.NativePeerId];
                 int length = payload.Length;
                 ArraySegment<byte> dataSegment;
 
@@ -463,16 +419,25 @@ namespace IgnoranceTransport
                 payload.Dispose();
 
                 OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);
-                // }
-                // else
-                // {
-                //    Debug.LogWarning($"Data received from ENet Peer {incomingPacket.NativePeerId} but this isn't in our lookup.");
-                // }
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
                 if (!enabled)
                     break;
+            }
+
+            // Disconnection events.
+            while (Server.DisconnectionEvents.TryDequeue(out IgnoranceConnectionEvent disconnectionEvent))
+            {
+                adjustedConnectionId = (int)disconnectionEvent.NativePeerId + 1;
+
+                if (LogType == IgnoranceLogType.Verbose)
+                    Debug.Log($"ProcessServerPackets fired; handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
+
+                ConnectionLookupDict.Remove(adjustedConnectionId);
+
+                // Invoke Mirror handler.
+                OnServerDisconnected?.Invoke(adjustedConnectionId);
             }
         }
 
@@ -602,7 +567,7 @@ namespace IgnoranceTransport
             if (!enabled) return;
 
             // Process what FixedUpdate missed, only if the boolean is not set.
-            if(!fixedUpdateCompletedWork)
+            if (!fixedUpdateCompletedWork)
                 ProcessAndExecuteAllPackets();
 
             // Flip back the bool, so it can be reset.
