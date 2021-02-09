@@ -316,14 +316,6 @@ namespace IgnoranceTransport
             if (MaxAllowedPacketSize > 33554432) MaxAllowedPacketSize = 33554432;
         }
 
-        #region Inner workings
-        private bool ignoreDataPackets;
-        private string cachedConnectionAddress = string.Empty;
-        private IgnoranceServer Server = new IgnoranceServer();
-        private IgnoranceClient Client = new IgnoranceClient();
-
-        private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
-
         private void InitializeServerBackend()
         {
             if (Server == null)
@@ -585,7 +577,64 @@ namespace IgnoranceTransport
                 }
             }
         }
+        #region Main Thread Processing and Polling
+        // IMPORTANT: Set Ignorance' execution order before everything else Mirror-related.
+        // This ensures it has priority over other things.
 
+        // FixedUpdate can be called many times per frame.
+        // Once we've handled stuff, we set a flag so that we don't poll again for this frame.
+        public void FixedUpdate()
+        {
+            if (!enabled) return;
+
+            ProcessAndExecuteAllPackets();
+
+            // Flip the bool to signal we've done our work.
+            fixedUpdateCompletedWork = true;
+        }
+
+        // Normally, Mirror blocks Update() due to poor design decisions...
+        // But thanks to Vincenzo, we've found a way to bypass that block.
+        // Update is called once per frame. We don't have to worry about 
+        public new void Update()
+        {
+            if (!enabled) return;
+
+            // Process what FixedUpdate missed, only if the boolean is not set.
+            if(!fixedUpdateCompletedWork)
+                ProcessAndExecuteAllPackets();
+
+            // Flip back the bool, so it can be reset.
+            fixedUpdateCompletedWork = false;
+        }
+
+        // Processes and Executes All Packets.
+        private void ProcessAndExecuteAllPackets()
+        {
+            // Process Server Events...
+            if (Server.IsAlive)
+                ProcessServerPackets();
+
+            // Process Client Events...
+            if (Client.IsAlive)
+            {
+                ProcessClientConnectionEvents();
+                ProcessClientPackets();
+
+                if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
+                {
+                    statusUpdateTimer += Time.deltaTime;
+
+                    if (statusUpdateTimer >= clientStatusUpdateInterval)
+                    {
+                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                        statusUpdateTimer = 0f;
+                    }
+                }
+            }
+        }
+
+        /* TODO: Clean this up.
         private void LateUpdate()
         {
             if (enabled)
@@ -612,8 +661,10 @@ namespace IgnoranceTransport
                     }
                 }
             }
-        }
-
+        }           
+        */
+        #endregion
+        #region Debug
         private void OnGUI()
         {
             if (DebugDisplay)
@@ -643,6 +694,15 @@ namespace IgnoranceTransport
         }
 #endif
 
+        #region Internals
+        private bool fixedUpdateCompletedWork;
+
+        private bool ignoreDataPackets;
+        private string cachedConnectionAddress = string.Empty;
+        private IgnoranceServer Server = new IgnoranceServer();
+        private IgnoranceClient Client = new IgnoranceClient();
+        private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
+
         private enum ConnectionState { Connecting, Connected, Disconnecting, Disconnected }
         private ConnectionState ClientState = ConnectionState.Disconnected;
         private byte[] InternalPacketBuffer;
@@ -650,6 +710,7 @@ namespace IgnoranceTransport
         private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
 
         private float statusUpdateTimer = 0f;
+        #endregion
 #endif
 
     }
