@@ -578,7 +578,7 @@ namespace IgnoranceTransport
             }
         }
         #region Main Thread Processing and Polling
-        // IMPORTANT: Set Ignorance' execution order before everything else Mirror-related.
+        // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
         // This ensures it has priority over other things.
 
         // FixedUpdate can be called many times per frame.
@@ -586,6 +586,7 @@ namespace IgnoranceTransport
         public void FixedUpdate()
         {
             if (!enabled) return;
+            if (fixedUpdateCompletedWork) return;
 
             ProcessAndExecuteAllPackets();
 
