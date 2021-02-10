@@ -561,7 +561,7 @@ namespace IgnoranceTransport
 
         // Normally, Mirror blocks Update() due to poor design decisions...
         // But thanks to Vincenzo, we've found a way to bypass that block.
-        // Update is called once per frame. We don't have to worry about 
+        // Update is called once per frame. We don't have to worry about this shit now.
         public new void Update()
         {
             if (!enabled) return;
@@ -599,36 +599,6 @@ namespace IgnoranceTransport
                 }
             }
         }
-
-        /* TODO: Clean this up.
-        private void LateUpdate()
-        {
-            if (enabled)
-            {
-                if (Server.IsAlive)
-                {
-                    ProcessServerPackets();
-                }
-
-                if (Client.IsAlive)
-                {
-                    ProcessClientConnectionEvents();
-                    ProcessClientPackets();
-
-                    if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
-                    {
-                        statusUpdateTimer += Time.deltaTime;
-
-                        if (statusUpdateTimer >= clientStatusUpdateInterval)
-                        {
-                            Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
-                            statusUpdateTimer = 0f;
-                        }
-                    }
-                }
-            }
-        }           
-        */
         #endregion
         #region Debug
         private void OnGUI()
@@ -652,13 +622,11 @@ namespace IgnoranceTransport
 
         public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
 
-#if IGNORANCE_BATCHING
         // UDP Recommended Max MTU = 1200.
         public override int GetMaxBatchSize(int channelId) {
             bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
             return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
         }
-#endif
 
         #region Internals
         private bool fixedUpdateCompletedWork;
