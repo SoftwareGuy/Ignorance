@@ -46,7 +46,7 @@ Dependencies
 
 Please note that the repository doesn't include Mirror, instead it only provides you the Ignorance code.
 
-Make sure you have Mirror installed and up to date before installing Mirror.
+Make sure you have Mirror installed and up to date before installing Ignorance.
 
 -   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp): **slightly modified version included**
 
