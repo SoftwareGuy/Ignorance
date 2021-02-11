@@ -27,57 +27,24 @@ Ignorance in Action
 Ignorance was used in a recent "Vinesauce is Hope" walking simulation demo which had multiple 
 server instances running with over 300 CCU each. [Video clips available here.](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu)
 
-Compatiblity
+What devices are supported?
 ------------
 
-### Desktop
+- Desktop platforms such as Windows, Mac OS and Linux are supported out of the box along with Android and iOS. 
 
--   **Windows x64**
-	-	Windows 7 64bit onwards.
-	
-	-	**Not compatible with 32bit or ARM-based Environments.**
-    
-	-   ARM64 Environments not currently supported (ie. Windows 10 on Raspberry Pi 4)
-        
--   **macOS 10.12 onwards**
-	-	High Sierra and upwards are **confirmed working**. El Captain and below are **not supported**.	
-	
-	-	Big Sur has **not** yet been tested.
-	
-	-	You may need to **unblock** the native ENet library with GateKeeper if it cannot load it inside your Unity project.
+- Consoles are hit and miss, since they run on slimmed down operating systems.
 
--   **Linux x64**
-    -   Should *just work* on various Linux distros, as long as they use GNU libc.
-	
-	-	Distros using non-GNU libc will most likely fail to work.
+- If ENet can run on it and it's supported by Unity, you're good with Ignorance.
 
-### Console
+For more info, see the FAQ.
 
--   **Nintendo Switch**
-    - 	Due to NDA, you'll need to manually compile the ENet native library, [see this document from the ENet-CSharp repository.](https://github.com/SoftwareGuy/ENet-CSharp/blob/master/BUILD-FOR-SWITCH.txt)
-
--   **Xbox One**
-    -   UWP: Tested and confirmed working for **LAN Client only**. LAN Host doesn't work.
-
-    -   Native: Possibly, however I don’t have development kit or license to test.
-
--   **PlayStation**
-	- 	Would need patches for native library to work on Sony's BSD OS.
-	
-### Mobile
-
--   **Android**
-
-	- 	Works fine on Android 5.0 "Lollipop" onwards.
-
--   **Apple iOS**
-
-    -   Supports iPhone 4S to the latest iPhone. Tested and working on iPhone 4S, iPhone 5s, iPad 2 WiFi + 3G and iPad (5th Gen)
 
 Dependencies
 ------------
 
-**All dependencies are included, except Mirror if you are using a release package.**
+Please note that the repository doesn't include Mirror, instead it only provides you the Ignorance code.
+
+Make sure you have Mirror installed and up to date before installing Mirror.
 
 -   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp): **slightly modified version included**
 
@@ -99,43 +66,10 @@ Then set the script to be used in NetworkManagers' "Transport" field.
 FAQ (aka Please Read This First)
 --------------------------------
 
-### Does Ignorance do NAT-PMP, UPnP or NAT Punching?
+See [FAQ.md](https://github.com/SoftwareGuy/Ignorance/blob/master/FAQ.md).
 
-No. In this day and age of the internet, relying on NAT Punching is russian roulette. Many routers ship with UPnP/NAT-PMP disabled due to security concerns. That said,
-your ISP (read: the entity that provides you internet access) may have their own firewall that blocks incoming connections. **Punch through will fail on mobile networks, such as 3G/4G/5G**.
-
-If you really need to break through restrictive firewalls, your best bet is to use some sort of Relay mechanism. As far as the firewall is concerned, it just sees it as a single connection. Mirror supports some relays that work well with Ignorance. For more information, check out the Mirror Discord.
-
-### Ignorance doesn't seem to work when building for Standalone target?
-
-Make sure you aren't compiling your game for 32bit Windows. ENet doesn't support 32bit platforms unless you
-manually compile it yourself. 
-
-### Why should I use Ignorance over Unity LLAPI?
-
-Unity LLAPI is obsolete and dead in the eyes of Unity Technologies. Depending on what you threw over the network, you'd get random latency spikes and packets would 
-go missing even in reliable delivery mode. Yes, it was **that bad**.
-
-That alone says something.  
-
-### What happened to Ignorance Classic?
-
-It died back in the 1.3.x days. The classic version was becoming obsolete and not worth the time keeping it up to date.
-
-### LateUpdate for your transport code? WTF?!
-
-This was a design decision by vis2k when he found Mirror blocking one of his assets' Update loop. So, we kinda got forced into using LateUpdate.
-
-There might be a chance that at very low framerate (ie. you are really stressing the server or creating lots of GameObjects in which Unity has to load from disk)
-that the networking gets overwhelmed, regardless of how ENet is coping in the native world. 
-
-It is essential to keep your server's frame rate running as high as possible as this will reduce latency and in-game lag. You will be able to tell when the server 
-is under heavy stress when networked objects get very choppy and/or the client starts hanging.
-
-Mirrors' LateUpdate polling is a design flaw will be fixed later on.
-
-### I found a bug, where do I report it?
-
+I found a bug, where do I report it?
+--------------------------------
 [Check the current open bug reports and/or report a new one here](https://github.com/SoftwareGuy/Ignorance/issues).
 
 Failing that you can always ping me in the Mirror Discord and I'll reply as soon as I can. Don't **excessively** ping me or you'll suffer my wrath. 
@@ -147,18 +81,15 @@ bug report.
 
 [Here's a quick primer.](https://vis2k.github.io/Mirror/Transports/Ignorance). It might be slightly out of date, but it covers the basics of Ignorance.
 
-### I am not satisfied with Ignorance.
-
-Please let me know why as I can't improve my code if I don't get feedback.
-*However, if you're just here to troll then please move on.*
 
 Credits
 -------
 
 -   **Donators**: Thanks for helping keep the lights on.
 
--	[FSE_Vincenzo](https://github.com/Vincenz099): Resident ENet guy, also part of Flying Squirrel Entertainment. Go check their games out, he uses
-	ENet under the hood.
+-	[FSE_Vincenzo](https://github.com/Vincenz099): Resident master of the ENet way. They are part of Flying Squirrel Entertainment - go check their games out.
+	
+-	[JesusLuvsYooh](https://github.com/JesusLuvsYooh) : CCU endurance testing project, ideas, fixes and other awesome stuff
 
 -   [Katori](https://github.com/katori): Helped kickstart the threaded version that evolved into short-lived Ignorance 2.x version, which later became 
 	Ignorance Threaded.
