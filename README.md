@@ -2,7 +2,7 @@
   <img src="http://oiran.studio/images/ignorance14.png" alt="Ignorance 1.4 Logo"/>
 </p>
 
-Ignorance 1.4 Alpha
+Ignorance 1.4 Beta
 =============
 [![Ko-Fi](https://img.shields.io/badge/Donate-Ko--Fi-red)](https://ko-fi.com/coburn) 
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue)](https://paypal.me/coburn64) 
@@ -10,6 +10,8 @@ Ignorance 1.4 Alpha
 ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
 
 _I'd appreciate [a coffee](https://ko-fi.com/coburn) if you use this transport._
+
+_"Probably the fastest transport out there for Mirror..." - FSE_Vincenzo, 2021 (Mirror Discord)_
 
 Ignorance 1.4 is a ENet-powered transport that plugs into the [Mirror Networking](https://github.com/vis2k/Mirror) project. It provides a high-performance
 implementation of the tried and true native ENet C library which provides reliable UDP communications for your game projects. Variants of ENet are used by Triple-A
