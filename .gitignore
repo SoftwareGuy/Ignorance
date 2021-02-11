@@ -338,17 +338,41 @@ ASALocalRun/
 *.sln
 Temp/*
 
-Build/
-Assets/IgnoranceNext/
-Assets/Mirror/Authenticators/
+# ENet Logs
+enet_log.txt
+
+# Private shit
+Build
 Assets/_DoNotShip/
 Assets/_DoNotShip.meta
-Assets/ScriptTemplates/
-Assets/ScriptTemplates.meta
 LinuxBuild/
 Assets/NotFucked
 Assets/Plugins
 Assets/Plugins.meta
 Assets/NotFucked.meta
 Assets/StreamingAssets.meta
-enet_log.txt
+*.shadervariants
+*.shadervariants.meta
+
+# Mirror shit
+Assets/*.meta
+Assets/ScriptTemplates/
+Assets/ScriptTemplates.meta
+Assets/Mirror/Authenticators*
+Assets/Mirror/CompilerSymbols*
+Assets/Mirror/Components*
+Assets/Mirror/Editor*
+Assets/Mirror/Examples*
+Assets/Mirror/Icon*
+Assets/Mirror/Plugins*
+Assets/Mirror/*.meta
+Assets/Mirror/LICENSE
+Assets/Mirror/*.txt
+Assets/Mirror/Runtime/*.asmdef
+Assets/Mirror/Runtime/*.cs
+Assets/Mirror/Runtime/*.meta
+Assets/Mirror/Runtime/Logging*
+Assets/Mirror/Runtime/Transport/Telepathy*
+Assets/Mirror/Runtime/Transport/*
+!Assets/Mirror/Runtime/Transport/Ignorance
+!Assets/Mirror/Runtime/Transport/Ignorance.*
