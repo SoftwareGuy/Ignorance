@@ -104,10 +104,8 @@ namespace IgnoranceTransport
                 throw new ArgumentException($"You used an invalid URI: {uri}. Please use {IgnoranceInternals.Scheme}://host:port instead", nameof(uri));
 
             if (!uri.IsDefaultPort)
-            {
-                // Set the communication port to the one specified.
+				// Set the communication port to the one specified.
                 port = uri.Port;
-            }
 
             ClientConnect(uri.Host);
         }
@@ -117,12 +115,15 @@ namespace IgnoranceTransport
         public override void ClientDisconnect()
         {
             if (Client != null)
-            {
-                // Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
                 Client.Stop();
-            }
 
-            ignoreDataPackets = true;
+			// TODO: Figure this one out to see if it's related to a race condition.
+			// Maybe experiment with a while loop to pause main thread when disconnecting, 
+			// since client might not stop on a dime.			
+			while(Client.IsAlive) ;
+			
+			//
+            // ignoreDataPackets = true;
             ClientState = ConnectionState.Disconnected;
         }
 
@@ -173,8 +174,6 @@ namespace IgnoranceTransport
 
         public override bool ServerDisconnect(int connectionId)
         {
-            // Debug.LogWarning("TODO: Server Disconnect");
-
             if (Server == null)
             {
                 Debug.LogError("Server object is null, this shouldn't really happen but it did...");

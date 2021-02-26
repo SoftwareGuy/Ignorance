@@ -145,9 +145,14 @@ namespace IgnoranceTransport
                                 break;
 
                             // Boot a Peer off the Server.
-                            case IgnoranceCommandType.ServerKickPeer:
-                                if (!serverPeerArray[commandPacket.PeerId].IsSet) continue;
-                                serverPeerArray[commandPacket.PeerId].DisconnectNow(0);
+                            case IgnoranceCommandType.ServerKickPeer:						
+								int targetPeer = commandPacket.PeerId;
+								
+                                if (!serverPeerArray[targetPeer].IsSet) continue;
+								if (setupInfo.Verbosity > 0)
+									Debug.Log($"Server Worker Thread: Peer ID {targetPeer} getting the boot.");
+
+                                serverPeerArray[targetPeer].DisconnectNow(0);
                                 break;
                         }
                     }
