@@ -146,7 +146,7 @@ namespace IgnoranceTransport
 
                             // Boot a Peer off the Server.
                             case IgnoranceCommandType.ServerKickPeer:						
-								int targetPeer = commandPacket.PeerId;
+								uint targetPeer = commandPacket.PeerId;
 								
                                 if (!serverPeerArray[targetPeer].IsSet) continue;
 								if (setupInfo.Verbosity > 0)
@@ -159,8 +159,6 @@ namespace IgnoranceTransport
 
                     // Step One:
                     // ---> Sending to peers
-                    // System.Console.WriteLine($"Outgoing Queue is {Outgoing.Count}");
-
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
                     {
                         // Only create a packet if the server knows the peer.

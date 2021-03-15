@@ -985,6 +985,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1886246550}
   - component: {fileID: 1886246552}
+  - component: {fileID: 1886246554}
   - component: {fileID: 1886246551}
   - component: {fileID: 1886246553}
   m_Layer: 0
@@ -1040,6 +1041,8 @@ MonoBehaviour:
   autoStartServerBuild: 1
   showDebugMessages: 0
   serverTickRate: 60
+  serverBatching: 0
+  serverBatchInterval: 0
   offlineScene: 
   onlineScene: 
   transport: {fileID: 1886246553}
@@ -1047,7 +1050,7 @@ MonoBehaviour:
   maxConnections: 4
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
-  authenticator: {fileID: 0}
+  authenticator: {fileID: 1886246554}
   playerPrefab: {fileID: 1240244544407914, guid: fc744e9b3ae659b46b9de85e41f0c9ab,
     type: 3}
   autoCreatePlayer: 1
@@ -1067,6 +1070,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   port: 7777
   LogType: 1
+  DebugDisplay: 0
   serverBindsAll: 1
   serverBindAddress: 
   serverMaxPeerCapacity: 50
@@ -1074,7 +1078,28 @@ MonoBehaviour:
   clientMaxNativeWaitTime: 3
   clientStatusUpdateInterval: 3
   Channels: 0100000002000000
+  PacketBufferCapacity: 4096
   MaxAllowedPacketSize: 33554432
+--- !u!114 &1886246554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1886246549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28496b776660156428f00cf78289c1ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  OnServerAuthenticated:
+    m_PersistentCalls:
+      m_Calls: []
+  OnClientAuthenticated:
+    m_PersistentCalls:
+      m_Calls: []
+  username: Tenryuu
+  password: BestWaifu
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1109,8 +1134,13 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
       propertyPath: m_LocalPosition.x
-      value: -3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}

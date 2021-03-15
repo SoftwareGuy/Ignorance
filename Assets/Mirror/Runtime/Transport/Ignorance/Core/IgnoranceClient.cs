@@ -266,6 +266,12 @@ namespace IgnoranceTransport
                 // Flush the client and disconnect.
                 clientPeer.Disconnect(0);
                 clientENetHost.Flush();
+
+                // Fix for client stuck in limbo, since the disconnection event may not be fired until next loop.
+                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
+                {
+                    WasDisconnect = true
+                });
             }
 
             // Deinitialize

@@ -49,7 +49,7 @@ namespace IgnoranceTransport
         public IgnoranceChannelTypes[] Channels;
 
         [Header("Low-level Tweaking")]
-        [Tooltip("Used internally to keep allocations to a minimum with ArrayPool. Don't touch this unless you know what you're doing.")]
+        [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused.")]
         public int PacketBufferCapacity = 4096;
 
         [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. You can increase this, however beware this may open you up to allocation attacks.")]
@@ -107,6 +107,7 @@ namespace IgnoranceTransport
 				// Set the communication port to the one specified.
                 port = uri.Port;
 
+            // Pass onwards to the proper handler.
             ClientConnect(uri.Host);
         }
 
@@ -120,9 +121,9 @@ namespace IgnoranceTransport
 			// TODO: Figure this one out to see if it's related to a race condition.
 			// Maybe experiment with a while loop to pause main thread when disconnecting, 
 			// since client might not stop on a dime.			
-			while(Client.IsAlive) ;
+			// while(Client.IsAlive) ;
+            // v1.4.0b1: Probably fixed in IgnoranceClient.cs; need further testing.
 			
-			//
             // ignoreDataPackets = true;
             ClientState = ConnectionState.Disconnected;
         }
@@ -141,13 +142,14 @@ namespace IgnoranceTransport
                 return;
             }
 
-            // Packet Struct
+            // Create our struct...
             Packet clientOutgoingPacket = default;
             int byteCount = segment.Count;
             int byteOffset = segment.Offset;
+            // Set our desired flags...
             PacketFlags desiredFlags = (PacketFlags)Channels[channelId];
 
-            // Warn if over recommended MTU
+            // Warn if over recommended MTU...
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
@@ -164,11 +166,13 @@ namespace IgnoranceTransport
                 Payload = clientOutgoingPacket
             };
 
+            // Pass the packet onto the thread for dispatch.
             Client.Outgoing.Enqueue(dispatchPacket);
         }
 
         public override bool ServerActive()
         {
+            // Very simple check.
             return Server != null && Server.IsAlive;
         }
 
@@ -186,6 +190,7 @@ namespace IgnoranceTransport
                 PeerId = (uint)connectionId - 1 // ENet's native peer ID will be ConnID - 1
             };
 
+            // Pass the packet onto the thread for dispatch.
             Server.Commands.Enqueue(kickPacket);
 
             return true;
@@ -245,7 +250,7 @@ namespace IgnoranceTransport
         public override void ServerStart()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                Debug.Log("Ignorance Server instance is starting up...");
+                Debug.Log("Ignorance Server Instance starting up...");
 
             InitializeServerBackend();
 
@@ -257,12 +262,11 @@ namespace IgnoranceTransport
             if (Server != null)
             {
                 if (LogType != IgnoranceLogType.Nothing)
-                    Debug.Log("Ignorance Server instance is shutting down...");
+                    Debug.Log("Ignorance Server Instance shutting down...");
 
                 Server.Stop();
             }
 
-            // ENetPeerToMirrorLookup.Clear();
             ConnectionLookupDict.Clear();
         }
 
@@ -280,7 +284,7 @@ namespace IgnoranceTransport
 
         public override void Shutdown()
         {
-
+            // TODO: Nothing needed here?
         }
 
         // Check to ensure channels 0 and 1 mimic LLAPI. Override this at your own risk.
@@ -326,18 +330,21 @@ namespace IgnoranceTransport
             // Set up the new IgnoranceServer reference.
             if (serverBindsAll)
                 // MacOS is special. It's also a massive thorn in my backside.
-                Server.BindAddress = IgnoranceInternals.BindAllFuckingAppleMacs;
+                Server.BindAddress = IgnoranceInternals.BindAllMacs;
             else
                 // Use the supplied bind address.
                 Server.BindAddress = serverBindAddress;
 
+            // Sets port, maximum peers, max channels, the server poll time, maximum packet size and verbosity.
             Server.BindPort = port;
             Server.MaximumPeers = serverMaxPeerCapacity;
             Server.MaximumChannels = Channels.Length;
             Server.PollTime = serverMaxNativeWaitTime;
             Server.MaximumPacketSize = MaxAllowedPacketSize;
+            Server.Verbosity = (int)LogType;
 
             // Initializes the packet buffer.
+            // Allocates once, that's it.
             if (InternalPacketBuffer == null)
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
         }
@@ -350,6 +357,7 @@ namespace IgnoranceTransport
                 Client = new IgnoranceClient();
             }
 
+            // Sets address, port, channels to expect, verbosity, the server poll time and maximum packet size.
             Client.ConnectAddress = cachedConnectionAddress;
             Client.ConnectPort = port;
             Client.ExpectedChannels = Channels.Length;
@@ -358,6 +366,7 @@ namespace IgnoranceTransport
             Client.Verbosity = (int)LogType;
 
             // Initializes the packet buffer.
+            // Allocates once, that's it.
             if (InternalPacketBuffer == null)
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
         }
@@ -375,12 +384,9 @@ namespace IgnoranceTransport
                 adjustedConnectionId = (int)connectionEvent.NativePeerId + 1;
 
                 if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}.");
+                    Debug.Log($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
 
-                // Nah mate, just a regular connection.
-                if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"ProcessServerPackets fired; handling connection event from native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
-
+                // TODO: Investigate ArgumentException: An item with the same key has already been added. Key: <id>
                 ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
                 {
                     NativePeerId = connectionEvent.NativePeerId,
@@ -468,6 +474,7 @@ namespace IgnoranceTransport
                 // Copy to working buffer and dispose of it.
                 if (length > InternalPacketBuffer.Length)
                 {
+                    // Unity's favourite: A fresh 'n' tasty GC Allocation!
                     byte[] oneFreshNTastyGcAlloc = new byte[length];
 
                     payload.CopyTo(oneFreshNTastyGcAlloc);
@@ -581,9 +588,10 @@ namespace IgnoranceTransport
                 ProcessServerPackets();
 
             // Process Client Events...
+            ProcessClientConnectionEvents();
+
             if (Client.IsAlive)
             {
-                ProcessClientConnectionEvents();
                 ProcessClientPackets();
 
                 if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)

@@ -986,7 +986,7 @@ GameObject:
   - component: {fileID: 1886246550}
   - component: {fileID: 1886246552}
   - component: {fileID: 1886246551}
-  - component: {fileID: 1886246554}
+  - component: {fileID: 1886246553}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -1040,9 +1040,11 @@ MonoBehaviour:
   autoStartServerBuild: 1
   showDebugMessages: 0
   serverTickRate: 60
+  serverBatching: 0
+  serverBatchInterval: 0
   offlineScene: 
   onlineScene: 
-  transport: {fileID: 1886246554}
+  transport: {fileID: 1886246553}
   networkAddress: localhost
   maxConnections: 4
   disconnectInactiveConnections: 0
@@ -1053,7 +1055,7 @@ MonoBehaviour:
   autoCreatePlayer: 1
   playerSpawnMethod: 1
   spawnPrefabs: []
---- !u!114 &1886246554
+--- !u!114 &1886246553
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1062,19 +1064,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 1886246549}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec862738267237f4d91e6454ff15f4ea, type: 3}
+  m_Script: {fileID: 11500000, guid: 872fa23ef6e77334ca452ce16f6cd091, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DebugEnabled: 0
-  ServerBindAll: 1
-  ServerBindAddress: 127.0.0.1
-  CommunicationPort: 7777
-  MaximumPeerCCU: 100
-  EnetServerPollTimeout: 3
-  EnetClientPollTimeout: 1
-  MaximumPacketSize: 1200
+  port: 7777
+  LogType: 1
+  DebugDisplay: 0
+  serverBindsAll: 1
+  serverBindAddress: 
+  serverMaxPeerCapacity: 50
+  serverMaxNativeWaitTime: 1
+  clientMaxNativeWaitTime: 3
+  clientStatusUpdateInterval: 3
   Channels: 0100000002000000
-  StatisticsCalculationInterval: 0
+  PacketBufferCapacity: 4096
+  MaxAllowedPacketSize: 33554432
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1104,8 +1108,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
+      propertyPath: m_RootOrder
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
       propertyPath: m_LocalPosition.x
-      value: -3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
@@ -1116,6 +1130,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalPosition.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
@@ -1131,16 +1150,6 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalRotation.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_RootOrder
-      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
