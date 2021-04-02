@@ -145,14 +145,24 @@ namespace IgnoranceTransport
                                 break;
 
                             // Boot a Peer off the Server.
-                            case IgnoranceCommandType.ServerKickPeer:						
-								uint targetPeer = commandPacket.PeerId;
-								
+                            case IgnoranceCommandType.ServerKickPeer:                        
+                                uint targetPeer = commandPacket.PeerId;
+                                
                                 if (!serverPeerArray[targetPeer].IsSet) continue;
-								if (setupInfo.Verbosity > 0)
-									Debug.Log($"Server Worker Thread: Peer ID {targetPeer} getting the boot.");
+                                if (setupInfo.Verbosity > 0)
+                                    Debug.Log($"Server Worker Thread: Peer ID {targetPeer} getting the boot.");
 
+                                IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
+                                {
+                                    WasDisconnect = true,
+                                    NativePeerId = targetPeer
+                                };
+
+                                DisconnectionEvents.Enqueue(iced);
                                 serverPeerArray[targetPeer].DisconnectNow(0);
+                                
+                                // Reset the peer array's entry for that peer.
+                                serverPeerArray[incomingPeer.ID] = default;
                                 break;
                         }
                     }
@@ -228,6 +238,8 @@ namespace IgnoranceTransport
                             // Disconnect/Timeout. Mirror doesn't care if it's either, so we lump them together.
                             case EventType.Disconnect:
                             case EventType.Timeout:
+								if(!serverPeerArray[incomingPeer.ID].IsSet) break;
+								
                                 if (setupInfo.Verbosity > 1)
                                     Debug.Log("Server Worker Thread: Peer disconnection.");
 
