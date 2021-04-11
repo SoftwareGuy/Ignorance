@@ -159,10 +159,9 @@ namespace IgnoranceTransport
                                 };
 
                                 DisconnectionEvents.Enqueue(iced);
+                                // Disconnect and reset the peer array's entry for that peer.
                                 serverPeerArray[targetPeer].DisconnectNow(0);
-                                
-                                // Reset the peer array's entry for that peer.
-                                serverPeerArray[incomingPeer.ID] = default;
+                                serverPeerArray[targetPeer] = default;
                                 break;
                         }
                     }
@@ -314,7 +313,6 @@ namespace IgnoranceTransport
             Library.Deinitialize();
         }
 
-        // TODO: Optimize layout.
         private struct ThreadParamInfo
         {
             public int Channels;
