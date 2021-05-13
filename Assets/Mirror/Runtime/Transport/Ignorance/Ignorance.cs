@@ -518,7 +518,7 @@ namespace IgnoranceTransport
         {
             IgnoranceConnectionEvent connectionEvent;
 
-            // Step 2: Handle connection events.
+            // Handle connection events.
             while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 if (LogType == IgnoranceLogType.Verbose)
@@ -541,13 +541,14 @@ namespace IgnoranceTransport
                     ClientState = ConnectionState.Connected;
 
                     if (LogType != IgnoranceLogType.Nothing)
-                        Debug.Log($"Client successfully connected to server: {connectionEvent.IP}:{connectionEvent.Port}");
+                        Debug.Log($"Client successfully connected to ENet server located at address {connectionEvent.IP}:{connectionEvent.Port}");
 
                     ignoreDataPackets = false;
                     OnClientConnected?.Invoke();
                 }
             }
         }
+
         #region Main Thread Processing and Polling
         // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
         // This ensures it has priority over other things.
