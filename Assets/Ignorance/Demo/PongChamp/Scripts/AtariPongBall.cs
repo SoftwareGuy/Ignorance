@@ -1,18 +1,16 @@
 using UnityEngine;
 using Mirror;
 
-namespace Ignorance.Examples
+namespace Ignorance.Examples.PongChamp
 {
-    public class Ball : NetworkBehaviour
+    public class AtariPongBall : NetworkBehaviour
     {
-        [SerializeField] float speed = 30;
-        [SerializeField] Rigidbody2D rigidbody2d;
+        public float speed = 100;
+        private Rigidbody2D rigidbody2d;
+
         private void Awake()
         {
-            if (rigidbody2d == null)
-            {
-                rigidbody2d = GetComponent<Rigidbody2D>();
-            }
+            rigidbody2d = GetComponent<Rigidbody2D>();
         }
 
         public override void OnStartServer()

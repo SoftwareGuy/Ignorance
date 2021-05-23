@@ -1,19 +1,16 @@
 using UnityEngine;
 using Mirror;
 
-namespace Ignorance.Examples
+namespace Ignorance.Examples.PongChamp
 {
-    public class Player : NetworkBehaviour
+    public class AtariPongRacket : NetworkBehaviour
     {
-        [SerializeField] float speed = 30;
-        [SerializeField] Rigidbody2D rigidbody2d;
+        public float speed = 1500;
+        private Rigidbody2D rigidbody2d;
 
         private void Awake()
         {
-            if(rigidbody2d == null)
-            {
-                rigidbody2d = GetComponent<Rigidbody2D>();
-            }
+            rigidbody2d = GetComponent<Rigidbody2D>();
         }
 
         // need to use FixedUpdate for rigidbody

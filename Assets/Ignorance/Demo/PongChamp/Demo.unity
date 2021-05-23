@@ -465,6 +465,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sceneId: 3073769009
   serverOnly: 0
+  visible: 0
   m_AssetId: 
   hasSpawned: 0
 --- !u!4 &1278075350
@@ -1036,9 +1037,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dontDestroyOnLoad: 1
+  PersistNetworkManagerToOfflineScene: 0
   runInBackground: 1
   autoStartServerBuild: 1
-  showDebugMessages: 0
   serverTickRate: 60
   serverBatching: 0
   serverBatchInterval: 0
@@ -1050,7 +1051,7 @@ MonoBehaviour:
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
   authenticator: {fileID: 0}
-  playerPrefab: {fileID: 1240244544407914, guid: fc744e9b3ae659b46b9de85e41f0c9ab,
+  playerPrefab: {fileID: 1240244544407914, guid: a85b24263182aae4bbc1829bb2b73d7a,
     type: 3}
   autoCreatePlayer: 1
   playerSpawnMethod: 1
@@ -1096,11 +1097,6 @@ PrefabInstance:
       propertyPath: m_AssetId
       value: 5339554c46006dd4e91cae9ff34c095d
       objectReference: {fileID: 0}
-    - target: {fileID: 520653813702449573, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_Material
-      value: 
-      objectReference: {fileID: 6200000, guid: 97a3e4cddb8635c4eba1265f44d106bf, type: 2}
     - target: {fileID: 542835289192032773, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
       propertyPath: m_Name
@@ -1110,11 +1106,6 @@ PrefabInstance:
         type: 3}
       propertyPath: m_RootOrder
       value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
-        type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 548291784780898253, guid: 5339554c46006dd4e91cae9ff34c095d,
         type: 3}
@@ -1165,6 +1156,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5995301680282788937, guid: 5339554c46006dd4e91cae9ff34c095d,
+        type: 3}
+      propertyPath: speed
+      value: 60
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5339554c46006dd4e91cae9ff34c095d, type: 3}
