@@ -452,7 +452,39 @@ namespace IgnoranceTransport
             IgnoranceCommandPacket commandPacket;
             IgnoranceClientStats clientStats;
             Packet payload;
+            IgnoranceConnectionEvent connectionEvent;
 
+            // Handle connection events.
+            while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
+            {
+                if (LogType == IgnoranceLogType.Verbose)
+                    Debug.Log($"ProcessClientConnectionEvents fired: processing a client ConnectionEvents queue item.");
+
+                if (connectionEvent.WasDisconnect)
+                {
+                    // Disconnected from server.
+                    ClientState = ConnectionState.Disconnected;
+
+                    if (LogType != IgnoranceLogType.Nothing)
+                        Debug.Log($"Ignorance Client has been disconnected from server.");
+
+                    ignoreDataPackets = true;
+                    OnClientDisconnected?.Invoke();
+                }
+                else
+                {
+                    // Connected to server.
+                    ClientState = ConnectionState.Connected;
+
+                    if (LogType != IgnoranceLogType.Nothing)
+                        Debug.Log($"Ignorance Client successfully connected to server at address {connectionEvent.IP}:{connectionEvent.Port}");
+
+                    ignoreDataPackets = false;
+                    OnClientConnected?.Invoke();
+                }
+            }
+
+            // Now handle the incoming messages.
             while (Client.Incoming.TryDequeue(out incomingPacket))
             {
                 // Temporary fix: if ENet thread is too fast for Mirror, then ignore the packet.
@@ -514,47 +546,16 @@ namespace IgnoranceTransport
             }
         }
 
-        private void ProcessClientConnectionEvents()
-        {
-            IgnoranceConnectionEvent connectionEvent;
-
-            // Handle connection events.
-            while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
-            {
-                if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"ProcessClientConnectionEvents fired: processing a client ConnectionEvents queue item.");
-
-                if (connectionEvent.WasDisconnect)
-                {
-                    // Disconnected from server.
-                    ClientState = ConnectionState.Disconnected;
-
-                    if (LogType != IgnoranceLogType.Nothing)
-                        Debug.Log($"Client has been disconnected from server.");
-
-                    ignoreDataPackets = true;
-                    OnClientDisconnected?.Invoke();
-                }
-                else
-                {
-                    // Connected to server.
-                    ClientState = ConnectionState.Connected;
-
-                    if (LogType != IgnoranceLogType.Nothing)
-                        Debug.Log($"Client successfully connected to ENet server located at address {connectionEvent.IP}:{connectionEvent.Port}");
-
-                    ignoreDataPackets = false;
-                    OnClientConnected?.Invoke();
-                }
-            }
-        }
-
         #region Main Thread Processing and Polling
+        // Ignorance 1.4.0b5: To use Mirror's polling or not use Mirror's polling, that is up to the developer to decide
+#if !IGNORANCE_MIRROR_POLLING
         // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
         // This ensures it has priority over other things.
 
         // FixedUpdate can be called many times per frame.
         // Once we've handled stuff, we set a flag so that we don't poll again for this frame.
+
+        private bool fixedUpdateCompletedWork;
         public void FixedUpdate()
         {
             if (!enabled) return;
@@ -589,8 +590,6 @@ namespace IgnoranceTransport
                 ProcessServerPackets();
 
             // Process Client Events...
-            ProcessClientConnectionEvents();
-
             if (Client.IsAlive)
             {
                 ProcessClientPackets();
@@ -607,6 +606,38 @@ namespace IgnoranceTransport
                 }
             }
         }
+#else
+        // This section will be compiled in instead if you enable IGNORANCE_MIRROR_POLLING.
+
+        public override void ServerEarlyUpdate() {
+            // This is used by Mirror to consume the incoming server packets.
+            if (!enabled) return;
+
+            // Process Server Events...
+            if (Server.IsAlive)
+                ProcessServerPackets();
+        }
+
+        public override void ClientEarlyUpdate() {
+            // This is used by Mirror to consume the incoming client packets.
+            if(!enabled) return;
+
+            if(Client.IsAlive)
+                ProcessClientPackets();
+        }
+
+        /*
+        public override void ClientLateUpdate() {
+            // This is used by Mirror to send out the outgoing client packets.
+            if (!enabled) return;
+        }
+
+        public override void ServerLateUpdate() {
+            // This is used by Mirror to send out the outgoing server packets.
+            if (!enabled) return;
+        }
+        */
+#endif
         #endregion
         #region Debug
         private void OnGUI()
@@ -637,8 +668,6 @@ namespace IgnoranceTransport
         }
 
         #region Internals
-        private bool fixedUpdateCompletedWork;
-
         private bool ignoreDataPackets;
         private string cachedConnectionAddress = string.Empty;
         private IgnoranceServer Server = new IgnoranceServer();
