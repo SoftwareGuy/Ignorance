@@ -623,7 +623,21 @@ namespace IgnoranceTransport
             if(!enabled) return;
 
             if(Client.IsAlive)
+            {
                 ProcessClientPackets();
+
+                if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
+                {
+                    statusUpdateTimer += Time.deltaTime;
+
+                    if (statusUpdateTimer >= clientStatusUpdateInterval)
+                    {
+                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                        statusUpdateTimer = 0f;
+                    }
+                }
+            }
+                
         }
 
         /*
@@ -639,6 +653,7 @@ namespace IgnoranceTransport
         */
 #endif
         #endregion
+
         #region Debug
         private void OnGUI()
         {
