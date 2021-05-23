@@ -46,7 +46,7 @@ namespace Ignorance.Examples.PongChamp
             //   col.collider is the racket's collider
 
             // did we hit a racket? then we need to calculate the hit factor
-            if (col.transform.GetComponent<Player>())
+            if (col.transform.GetComponent<AtariPongBall>())
             {
                 // Calculate y direction via hit Factor
                 float y = HitFactor(transform.position,
