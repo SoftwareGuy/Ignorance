@@ -176,12 +176,11 @@ namespace IgnoranceTransport
             return Server != null && Server.IsAlive;
         }
 
-        public override bool ServerDisconnect(int connectionId)
+        public override void ServerDisconnect(int connectionId)
         {
             if (Server == null)
             {
                 Debug.LogError("Server object is null, this shouldn't really happen but it did...");
-                return false;
             }
 
             IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
@@ -192,8 +191,6 @@ namespace IgnoranceTransport
 
             // Pass the packet onto the thread for dispatch.
             Server.Commands.Enqueue(kickPacket);
-
-            return true;
         }
 
         public override string ServerGetClientAddress(int connectionId)
