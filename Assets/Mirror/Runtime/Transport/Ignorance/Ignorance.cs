@@ -128,7 +128,14 @@ namespace IgnoranceTransport
             ClientState = ConnectionState.Disconnected;
         }
 
+#if !MIRROR_37_0_OR_NEWER
         public override void ClientSend(int channelId, ArraySegment<byte> segment)
+#else
+        // v1.4.0b6: Mirror rearranged the ClientSend params, so we need to apply a fix for that or
+        // we end up using the obsoleted version. The obsolete version isn't a fatal error, but
+        // it's best to stick with the new structures.
+        public override void ClientSend(ArraySegment<byte> segment, int channelId)
+#endif
         {
             if (Client == null)
             {
@@ -153,7 +160,7 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Warning: Client trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             clientOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, desiredFlags);
@@ -180,7 +187,9 @@ namespace IgnoranceTransport
         {
             if (Server == null)
             {
-                Debug.LogError("Server object is null, this shouldn't really happen but it did...");
+                Debug.LogError("Cannot enqueue kick packet; our Server object is null. Something has gone wrong.");
+                // Return here because otherwise we will get a NRE when trying to enqueue the kick packet.
+                return;
             }
 
             IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
@@ -201,13 +210,20 @@ namespace IgnoranceTransport
             return "(unavailable)";
         }
 
+#if !MIRROR_37_0_OR_NEWER
         public override void ServerSend(int connectionId, int channelId, ArraySegment<byte> segment)
+#else
+        // v1.4.0b6: Mirror rearranged the ServerSend params, so we need to apply a fix for that or
+        // we end up using the obsoleted version. The obsolete version isn't a fatal error, but
+        // it's best to stick with the new structures.
+        public override void ServerSend(int connectionId, ArraySegment<byte> segment, int channelId)
+#endif
         {
             // Debug.Log($"ServerSend({connectionId}, {channelId}, <{segment.Count} byte segment>)");
 
             if (Server == null)
             {
-                Debug.LogError("Server object is null, this shouldn't really happen but it did...");
+                Debug.LogError("Cannot enqueue data packet; our Server object is null. Something has gone wrong.");
                 return;
             }
 
@@ -313,7 +329,8 @@ namespace IgnoranceTransport
             }
 
             // ENet only supports a maximum of 32MB packet size.
-            if (MaxAllowedPacketSize > 33554432) MaxAllowedPacketSize = 33554432;
+            if (MaxAllowedPacketSize > 33554432)
+                MaxAllowedPacketSize = 33554432;
         }
 
         private void InitializeServerBackend()
