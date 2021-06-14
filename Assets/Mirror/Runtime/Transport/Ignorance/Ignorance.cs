@@ -183,6 +183,10 @@ namespace IgnoranceTransport
             return Server != null && Server.IsAlive;
         }
 
+#if !MIRROR_37_0_OR_NEWER
+        // Workaround for legacy Mirror versions.
+        public override bool ServerDisconnect(int connectionId) => ServerDisconnectLegacy(connectionId);
+#else
         public override void ServerDisconnect(int connectionId)
         {
             if (Server == null)
@@ -201,6 +205,7 @@ namespace IgnoranceTransport
             // Pass the packet onto the thread for dispatch.
             Server.Commands.Enqueue(kickPacket);
         }
+#endif
 
         public override string ServerGetClientAddress(int connectionId)
         {
@@ -710,6 +715,30 @@ namespace IgnoranceTransport
         private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
 
         private float statusUpdateTimer = 0f;
+        #endregion
+
+        #region Legacy Overrides
+#if !MIRROR_37_0_OR_NEWER
+        public bool ServerDisconnectLegacy(int connectionId)
+        {
+            if (Server == null)
+            {
+                Debug.LogError("Cannot enqueue kick packet; our Server object is null. Something has gone wrong.");
+                // Return here because otherwise we will get a NRE when trying to enqueue the kick packet.
+                return false;
+            }
+
+            IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
+            {
+                Type = IgnoranceCommandType.ServerKickPeer,
+                PeerId = (uint)connectionId - 1 // ENet's native peer ID will be ConnID - 1
+            };
+
+            // Pass the packet onto the thread for dispatch.
+            Server.Commands.Enqueue(kickPacket);
+            return true;
+        }
+#endif
         #endregion
 #endif
 
