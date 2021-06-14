@@ -23,6 +23,10 @@ Mirror itself.
 ENet supports a maximum of 4096 peers connected at the same time with up to 255 channels. Channels allow you to split up network communications so you can have channels
 for data that are mission critical as well as non-essential data. The native library has also been proven to be superior when compared to Unity's own LLAPI library.
 
+**IMPORTANT:** Ignorance does not support building for x86 (32bit) targets. Majority of devices come with 64bit operating systems now. The native library, ENet,
+does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** in the Unity Build Settings window. There are a lot
+of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
+
 Ignorance in Action
 ------------
 
@@ -32,11 +36,11 @@ server instances running with over 300 CCU each. [Video clips available here.](h
 What devices are supported?
 ------------
 
-- Desktop platforms such as Windows, Mac OS and Linux are supported out of the box along with Android and iOS. 
+- 64bit (x86_64) desktop platforms such as Windows, Mac OS and Linux are supported out of the box along with Android and iOS (ARMv7/ARM64).
 
 - Consoles are hit and miss, since they run on slimmed down operating systems.
 
-- If ENet can run on it and it's supported by Unity, you're good with Ignorance.
+- If ENet native can run on it and it's supported by Unity, you're good with Ignorance.
 
 For more info, see the FAQ.
 
