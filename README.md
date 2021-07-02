@@ -27,18 +27,42 @@ for data that are mission critical as well as non-essential data. The native lib
 does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** in the Unity Build Settings window. There are a lot
 of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
 
+Not using Mirror? Read This First
+------------
+
+*tl;dr: If you are using Mirror, skip this. If you're using Mirage, there's a Ignorance port available for Mirage. This mini-rant is solely to 
+cover my ass because some developers are trying to use this Mirror-oriented transport with their own networking stack and it pains me inside.*
+
+Please allow me to make this *very* clear: Ignorance is **not designed to be used outside of the Mirror Networking stack**. Why is this, you ask?
+
+A few people have approached me and asked "hey can I use this with my own networking solution?" or they go ahead and try to shoehorn Ignorance into their own network stack,
+make a mess of it and then either blame me for the failure, come crying to me and beg for me to figure out what they did wrong or why Ignorance doesn't do what they want it to
+on their own stack. Some others don't even know half of what Ignorance does under the bonnet and they look at me strangely when shit breaks.
+
+If you are going to use your own network stack, you are **much better off using the [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp) repository** to create
+your own ENet bridge between Managed C# and Native C ENet worlds. You can study Ignorance as a implementation example of a high-performance glue layer that sits between your code
+and ENet, but trying to shoehorn Ignorance into your own network stack will most likely lead you to pain, misery and probably questioning yourself why you are even doing this in
+the first place.
+
+In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). Do not expect support, if any at all. 
+I have enough to deal with keeping Ignorance up to date and running as smoothly as possible in Mirror environments than worry about other developers that don't 
+
+Thank you for attending my TED talk, now on with the show.
+
 Ignorance in Action
 ------------
 
-Ignorance was used in a recent "Vinesauce is Hope" walking simulation demo which had multiple 
+- **If you own a copy of Population One, congrats.** That game uses Ignorance as its primary network transport layer. It also earns its spot into the first major game that is using Ignorance.
+
+Ignorance was used in a "Vinesauce is Hope" walking simulation demo which had multiple 
 server instances running with over 300 CCU each. [Video clips available here.](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu)
 
 What devices are supported?
 ------------
 
-- 64bit (x86_64) desktop platforms such as Windows, Mac OS and Linux are supported out of the box along with Android and iOS (ARMv7/ARM64).
+- 64Bit Desktop Platforms (Windows, Mac, Linux), Android and iOS (ARMv7/ARM64).
 
-- Consoles are hit and miss, since they run on slimmed down operating systems.
+- Android-powered VR devices
 
 - If ENet native can run on it and it's supported by Unity, you're good with Ignorance.
 
