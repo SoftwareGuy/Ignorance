@@ -26,9 +26,10 @@ For mobile devices, the following are supported:
 
 Note that any devices such as VR/AR/XR headsets that run on Android or iOS will work fine, unless plugins need to be specifically adapted to the platform.
 
-## Ignorance doesn't want to initialize on 32 Bit systems
+## Why doesn't Ignorance like a 32Bit Windows/Linux OS instance?
 
-Make sure you're building for **x86_64** build target until 32 Bit Support returns.
+- Make sure you're building for **x86_64** build target.
+- I don't feel like compiling ENet for 32Bit. If you want to do that yourself, feel free to do so. Instructions are in the [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp) repository.
 
 # Connection-related
 
@@ -40,7 +41,7 @@ No. In this day and age of the internet, relying on NAT Punching is russian roul
 If you really need to break through restrictive firewalls, your best bet is to use some sort of Relay mechanism. As far as the firewall is concerned, it just sees it as a single connection. 
 Mirror supports some relays that work well with Ignorance. For more information, check out the Mirror Discord.
 
-## Ignorance doesn't connect to the host.
+## Ignorance doesn't connect to the server that's hosting the game.
 
 - Check your firewall. Sometimes Windows Server instances will not report the firewall blocking the UDP connections, so you'll need to manually go through and open the UDP port in Windows Firewall.
 
@@ -56,7 +57,7 @@ Mirror supports some relays that work well with Ignorance. For more information,
 
 ## What is the minimum version of Mirror that Ignorance supports?
 
-Mirror 26 is the minimum version that Ignorance 1.4.x uses.
+Mirror 35 is the minimum version that Ignorance 1.4.x uses, while it also supports newer Mirror versions.
 
 ## I heard Mirror supports batching, does Ignorance take advantage of this?
 
@@ -66,6 +67,9 @@ Yes, Ignorance supports batching and works quite well. Make sure it's enabled on
 
 No. Ignorance uses it's own network polling method and an awesome little trick to make it literally the fastest reliable UDP transport for Mirror.
 
+## I heard Mirror got a better network polling method. How do I use that over the trick you use?
+
+Take a look at `Ignorance.cs` and you'll see a define that you need to enable in order to use the new Mirror update mechanism.
 
 # Other
 

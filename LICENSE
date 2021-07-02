@@ -1,7 +1,8 @@
 MIT License
 
-Copyright (c) 2019 Matt Coburn
-This software uses dependencies (Mirror, ENET-C#) also licensed under the MIT License.
+Copyright (c) 2019 - 2021 Matt Coburn "SoftwareGuy"
+This software uses dependencies (Mirror, ENet-C#) that are also licensed under 
+the MIT License.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
