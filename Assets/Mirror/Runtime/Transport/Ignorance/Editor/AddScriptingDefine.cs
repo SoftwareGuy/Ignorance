@@ -28,6 +28,9 @@ namespace IgnoranceTransport
         /// </summary>
         public static readonly string[] DoNotRemoveTheseSymbols = new string[]
         {
+            "IGNORANCE",
+            "IGNORANCE_1",
+            "IGNORANCE_1_4",
             "IGNORANCE_NO_UPNP",
             "IGNORANCE_MIRROR_POLLING"
         };
@@ -67,6 +70,7 @@ namespace IgnoranceTransport
         {
             foreach(string s in DoNotRemoveTheseSymbols)
             {
+                UnityEngine.Debug.Log($"{s.Trim()} matches blacklist");
                 if (s == symbol.Trim()) return true;
             }
 
@@ -75,7 +79,12 @@ namespace IgnoranceTransport
 
         static bool IsSafeToRemove (string input)
         {
-            if (input.StartsWith("IGNORANCE") && !DoesSymbolExistInBlacklist(input)) return true;
+            if (input.StartsWith("IGNORANCE") && !DoesSymbolExistInBlacklist(input))
+            {
+                UnityEngine.Debug.Log($"{input.Trim()} is safe to remove");
+                return true;
+            }
+
             return false;
         }
     }
