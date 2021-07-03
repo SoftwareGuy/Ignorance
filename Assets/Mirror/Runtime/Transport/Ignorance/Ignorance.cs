@@ -1,17 +1,13 @@
 // Ignorance 1.4.x
-// Ignorance. It really kicks the Unity LLAPIs ass.
 // https://github.com/SoftwareGuy/Ignorance
 // -----------------
-// Copyright (c) 2019 - 2020 Matt Coburn (SoftwareGuy/Coburn64)
+// Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
-// -----------------
-// Ignorance Experimental (New) Version
-// -----------------
-using ENet;
-using Mirror;
 using System;
 using System.Collections.Generic;
+using ENet;
+using Mirror;
 using UnityEngine;
 
 namespace IgnoranceTransport

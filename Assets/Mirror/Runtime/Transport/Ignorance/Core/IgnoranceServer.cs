@@ -1,15 +1,12 @@
 // Ignorance 1.4.x
-// Ignorance. It really kicks the Unity LLAPIs ass.
 // https://github.com/SoftwareGuy/Ignorance
 // -----------------
-// Copyright (c) 2019 - 2020 Matt Coburn (SoftwareGuy/Coburn64)
+// Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
-
-using ENet;
-// using NetStack.Buffers;
 using System.Collections.Concurrent;
 using System.Threading;
+using ENet;
 using UnityEngine;
 using Event = ENet.Event;           // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine

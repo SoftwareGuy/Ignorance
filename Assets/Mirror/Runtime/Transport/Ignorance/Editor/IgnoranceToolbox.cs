@@ -1,5 +1,10 @@
+// Ignorance 1.4.x
+// https://github.com/SoftwareGuy/Ignorance
+// -----------------
+// Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
+// Ignorance Transport is licensed under the MIT license. Refer
+// to the LICENSE file for more information.
 #if UNITY_EDITOR
-using System.Collections.Generic;
 using UnityEditor;
 
 namespace IgnoranceTransport
