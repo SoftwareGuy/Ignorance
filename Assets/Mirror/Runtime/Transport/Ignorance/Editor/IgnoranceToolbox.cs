@@ -12,12 +12,6 @@ namespace IgnoranceTransport
     public class IgnoranceToolbox
     {
 #pragma warning disable IDE0051
-        [MenuItem("Ignorance/Mirror/Switch Update Method")]
-        public static void SwitchIgnoranceUpdateMethod ()
-        {
-
-        }
-
         [MenuItem("Ignorance/Debug/Reveal ENet Native Library Name")]
         public static void RevealEnetLibraryName()
         {
