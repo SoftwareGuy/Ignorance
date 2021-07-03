@@ -185,8 +185,9 @@ namespace IgnoranceTransport
 
 #if !MIRROR_37_0_OR_NEWER
         // Workaround for legacy Mirror versions.
-        public override bool ServerDisconnect(int connectionId) => ServerDisconnectLegacy(connectionId);
+        public override bool ServerDisconnect(int connectionId) => LegacyServerDisconnect(connectionId);
 #else
+        // Current version Mirror server disconnection routine.
         public override void ServerDisconnect(int connectionId)
         {
             if (Server == null)
@@ -196,6 +197,7 @@ namespace IgnoranceTransport
                 return;
             }
 
+            // Enqueue the kick packet.
             IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
             {
                 Type = IgnoranceCommandType.ServerKickPeer,
@@ -224,8 +226,6 @@ namespace IgnoranceTransport
         public override void ServerSend(int connectionId, ArraySegment<byte> segment, int channelId)
 #endif
         {
-            // Debug.Log($"ServerSend({connectionId}, {channelId}, <{segment.Count} byte segment>)");
-
             if (Server == null)
             {
                 Debug.LogError("Cannot enqueue data packet; our Server object is null. Something has gone wrong.");
@@ -446,8 +446,9 @@ namespace IgnoranceTransport
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-                if (!enabled)
-                    break;
+#if !MIRROR_41_0_OR_NEWER
+                if (!enabled) break;
+#endif                    
             }
 
             // Disconnection events.
@@ -543,8 +544,10 @@ namespace IgnoranceTransport
 
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
+#if !MIRROR_41_0_OR_NEWER
                 if (!enabled)
                     break;
+#endif
             }
 
             // Step 3: Handle other commands.
@@ -560,55 +563,31 @@ namespace IgnoranceTransport
 
             // Step 4: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
-            {
                 ClientStatistics = clientStats;
-            }
         }
 
         #region Main Thread Processing and Polling
         // Ignorance 1.4.0b5: To use Mirror's polling or not use Mirror's polling, that is up to the developer to decide
-#if !IGNORANCE_MIRROR_POLLING
-        // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
-        // This ensures it has priority over other things.
-
-        // FixedUpdate can be called many times per frame.
-        // Once we've handled stuff, we set a flag so that we don't poll again for this frame.
-
-        private bool fixedUpdateCompletedWork;
-        public void FixedUpdate()
+#if IGNORANCE_MIRROR_POLLING
+        // This section will be compiled in instead if you enable IGNORANCE_MIRROR_POLLING.
+        public override void ServerEarlyUpdate()
         {
-            if (!enabled) return;
-            if (fixedUpdateCompletedWork) return;
-
-            ProcessAndExecuteAllPackets();
-
-            // Flip the bool to signal we've done our work.
-            fixedUpdateCompletedWork = true;
-        }
-
-        // Normally, Mirror blocks Update() due to poor design decisions...
-        // But thanks to Vincenzo, we've found a way to bypass that block.
-        // Update is called once per frame. We don't have to worry about this shit now.
-        public new void Update()
-        {
-            if (!enabled) return;
-
-            // Process what FixedUpdate missed, only if the boolean is not set.
-            if (!fixedUpdateCompletedWork)
-                ProcessAndExecuteAllPackets();
-
-            // Flip back the bool, so it can be reset.
-            fixedUpdateCompletedWork = false;
-        }
-
-        // Processes and Executes All Packets.
-        private void ProcessAndExecuteAllPackets()
-        {
+            // This is used by Mirror to consume the incoming server packets.
+    #if !MIRROR_41_0_OR_NEWER
+            if (!enabled)
+                return;
+    #endif
             // Process Server Events...
             if (Server.IsAlive)
                 ProcessServerPackets();
+        }
 
-            // Process Client Events...
+        public override void ClientEarlyUpdate()
+        {
+            // This is used by Mirror to consume the incoming client packets.
+    #if !MIRROR_41_0_OR_NEWER
+            if (!enabled) return;
+    #endif
             if (Client.IsAlive)
             {
                 ProcessClientPackets();
@@ -624,52 +603,44 @@ namespace IgnoranceTransport
                     }
                 }
             }
+
         }
 #else
-        // This section will be compiled in instead if you enable IGNORANCE_MIRROR_POLLING.
+        // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
+        // This ensures it has priority over other things.
 
-        public override void ServerEarlyUpdate() {
-            // This is used by Mirror to consume the incoming server packets.
+        // FixedUpdate can be called many times per frame.
+        // Once we've handled stuff, we set a flag so that we don't poll again for this frame.
+
+        private bool fixedUpdateCompletedWork;
+        public void FixedUpdate()
+        {
+    #if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
+    #endif
+            if (fixedUpdateCompletedWork) return;
 
-            // Process Server Events...
-            if (Server.IsAlive)
-                ProcessServerPackets();
+            ProcessENetPackets();
+
+            // Flip the bool to signal we've done our work.
+            fixedUpdateCompletedWork = true;
         }
 
-        public override void ClientEarlyUpdate() {
-            // This is used by Mirror to consume the incoming client packets.
-            if(!enabled) return;
-
-            if(Client.IsAlive)
-            {
-                ProcessClientPackets();
-
-                if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
-                {
-                    statusUpdateTimer += Time.deltaTime;
-
-                    if (statusUpdateTimer >= clientStatusUpdateInterval)
-                    {
-                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
-                        statusUpdateTimer = 0f;
-                    }
-                }
-            }
-                
-        }
-
-        /*
-        public override void ClientLateUpdate() {
-            // This is used by Mirror to send out the outgoing client packets.
+        // Normally, Mirror blocks Update() due to poor design decisions...
+        // But thanks to Vincenzo, we've found a way to bypass that block.
+        // Update is called once per frame. We don't have to worry about this shit now.
+        public new void Update()
+        {
+#if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
-        }
+#endif
+            // Process what FixedUpdate missed, only if the boolean is not set.
+            if (!fixedUpdateCompletedWork)
+                ProcessENetPackets();
 
-        public override void ServerLateUpdate() {
-            // This is used by Mirror to send out the outgoing server packets.
-            if (!enabled) return;
+            // Flip back the bool, so it can be reset.
+            fixedUpdateCompletedWork = false;
         }
-        */
 #endif
         #endregion
 
@@ -692,6 +663,33 @@ namespace IgnoranceTransport
                 );
         }
         #endregion
+
+#pragma warning disable IDE0051 // Remove unused private members
+        // Processes and Executes All Packets.
+        private void ProcessENetPackets()
+        {
+            // Process Server Events...
+            if (Server.IsAlive)
+                ProcessServerPackets();
+
+            // Process Client Events...
+            if (Client.IsAlive)
+            {
+                ProcessClientPackets();
+
+                if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
+                {
+                    statusUpdateTimer += Time.deltaTime;
+
+                    if (statusUpdateTimer >= clientStatusUpdateInterval)
+                    {
+                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                        statusUpdateTimer = 0f;
+                    }
+                }
+            }
+        }
+#pragma warning restore IDE0051 // Remove unused private members
 
         public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
 
@@ -717,9 +715,9 @@ namespace IgnoranceTransport
         private float statusUpdateTimer = 0f;
         #endregion
 
-        #region Legacy Overrides
+        #region Ignorance 1.4.x for Mirror Legacy Overrides
 #if !MIRROR_37_0_OR_NEWER
-        public bool ServerDisconnectLegacy(int connectionId)
+        public bool LegacyMirror_ServerDisconnect(int connectionId)
         {
             if (Server == null)
             {
@@ -728,6 +726,7 @@ namespace IgnoranceTransport
                 return false;
             }
 
+            // Enqueue the kick packet...
             IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
             {
                 Type = IgnoranceCommandType.ServerKickPeer,
