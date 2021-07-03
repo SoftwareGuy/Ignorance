@@ -23,10 +23,6 @@ Mirror itself.
 ENet supports a maximum of 4096 peers connected at the same time with up to 255 channels. Channels allow you to split up network communications so you can have channels
 for data that are mission critical as well as non-essential data. The native library has also been proven to be superior when compared to Unity's own LLAPI library.
 
-**IMPORTANT:** Ignorance does not support building for x86 (32bit) targets. Majority of devices come with 64bit operating systems now. The native library, ENet,
-does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** in the Unity Build Settings window. There are a lot
-of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
-
 Not using Mirror? Read This First
 ------------
 
@@ -45,7 +41,7 @@ and ENet, but trying to shoehorn Ignorance into your own network stack will most
 the first place.
 
 In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). Do not expect support, if any at all. 
-I have enough to deal with keeping Ignorance up to date and running as smoothly as possible in Mirror environments than worry about other developers that don't 
+I have enough to deal with keeping Ignorance up to date and running as smoothly as possible in Mirror environments than have to deal with countless unsupported usage cases.
 
 Thank you for attending my TED talk, now on with the show.
 
@@ -54,17 +50,29 @@ Ignorance in Action
 
 - **If you own a copy of Population One, congrats.** That game uses Ignorance as its primary network transport layer. It also earns its spot into the first major game that is using Ignorance.
 
-Ignorance was used in a "Vinesauce is Hope" walking simulation demo which had multiple 
-server instances running with over 300 CCU each. [Video clips available here.](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu)
+- Ignorance was used in a "Vinesauce is Hope" walking simulation demo which had multiple server instances running with over 300 CCU each. [Video clips available here](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu).
 
 What devices are supported?
 ------------
+
+**IMPORTANT:** Ignorance does not support building for x86 (32bit) targets. Majority of devices come with 64bit operating systems now. 
+
+The native library, ENet, does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** 
+in the Unity Build Settings window. There are a lot of other benefits to be using a 64bit runtime as well. 
+
+If you cannot build for 64bit, open a support ticket.
+
+**Supported platforms, out of the box:**
 
 - 64Bit Desktop Platforms (Windows, Mac, Linux), Android and iOS (ARMv7/ARM64).
 
 - Android-powered VR devices
 
 - If ENet native can run on it and it's supported by Unity, you're good with Ignorance.
+
+**Other platforms that require some extra work:**
+
+- Consoles, like the Nintendo Switch, PlayStation 4 and PlayStation 5. I do not have development clearance to build the native library for these platforms, so they require additional work to get functioning.
 
 For more info, see the FAQ.
 
@@ -76,15 +84,15 @@ Please note that the repository doesn't include Mirror, instead it only provides
 
 Make sure you have Mirror installed and up to date before installing Ignorance.
 
--   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp): **slightly modified version included**
+-   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp): **Slightly modified version included**
 
--   [Mirror Networking](https://github.com/vis2k/Mirror): use Asset Store release please, only use Git Master release for bug fixes that you desperately need
+-   [Mirror Networking](https://github.com/vis2k/Mirror): use the latest Asset Store release. Git Master also supported but not recommended.
 
 Installation
 ------------
 
-Download the Unity Package from Releases that is the latest one. Simply import
-the Unity Package and Unity will do the rest. Follow the instructions below.
+Download the Unity Package from Releases that is the latest one. Simply import the Unity Package and Unity will do the rest. 
+Follow the instructions below.
 
 How to use
 ----------
@@ -104,7 +112,7 @@ I found a bug, where do I report it?
 
 Failing that you can always ping me in the Mirror Discord and I'll reply as soon as I can. Don't **excessively** ping me or you'll suffer my wrath. 
 
-Bugs that do not have enough details will be closed with \#wontfix. Details like your OS, Unity Editor version, any Ignorance errors, etc is essential for a good
+Bugs that do not have enough details will be either closed or put as low priority. Details like your OS, Unity Editor version, any Ignorance errors, etc is essential for a good
 bug report.
 
 ### I have other questions, I want answers.
