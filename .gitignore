@@ -374,5 +374,7 @@ Assets/Mirror/Runtime/*.meta
 Assets/Mirror/Runtime/Logging*
 Assets/Mirror/Runtime/Transport/Telepathy*
 Assets/Mirror/Runtime/Transport/*
+Assets/Mirror/Runtime/Empty/*
 !Assets/Mirror/Runtime/Transport/Ignorance
 !Assets/Mirror/Runtime/Transport/Ignorance.*
+Builds
