@@ -38,7 +38,6 @@ namespace IgnoranceTransport
             "IGNORANCE",
             "IGNORANCE_1",
             "IGNORANCE_1_4",
-            "IGNORANCE_NO_UPNP",
             "IGNORANCE_MIRROR_POLLING"
         };
 
