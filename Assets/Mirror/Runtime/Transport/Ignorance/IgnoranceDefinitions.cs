@@ -83,9 +83,7 @@ namespace IgnoranceTransport
     {
         // Client
         ClientWantsToStop,
-        ClientRequestsStatusUpdate,
-        // ENet internal
-        ResponseToClientStatusRequest,
+        ClientStatusRequest,
         // Server
         ServerKickPeer
     }

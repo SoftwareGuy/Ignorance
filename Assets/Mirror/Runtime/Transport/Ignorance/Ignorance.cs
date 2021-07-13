@@ -547,6 +547,8 @@ namespace IgnoranceTransport
             }
 
             // Step 3: Handle other commands.
+            // Ignorance 1.4.0b7: Was this ever used??
+            /*
             while (Client.Commands.TryDequeue(out commandPacket))
             {
                 switch (commandPacket.Type)
@@ -556,6 +558,7 @@ namespace IgnoranceTransport
                         break;
                 }
             }
+            */
 
             // Step 4: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
@@ -679,7 +682,7 @@ namespace IgnoranceTransport
 
                     if (statusUpdateTimer >= clientStatusUpdateInterval)
                     {
-                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
                         statusUpdateTimer = 0f;
                     }
                 }
