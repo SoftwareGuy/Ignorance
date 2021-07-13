@@ -48,7 +48,7 @@ namespace IgnoranceTransport
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
                 // Cannot do that.
-                Debug.LogError("A worker thread is already running. Cannot start another.");
+                Debug.LogError("Ignorance Client: A worker thread is already running. Cannot start another.");
                 return;
             }
 
@@ -73,13 +73,16 @@ namespace IgnoranceTransport
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
 
-            Debug.Log("Client has dispatched worker thread.");
+            Debug.Log("Ignorance Client: Dispatched worker thread.");
         }
 
         public void Stop()
         {
-            Debug.Log("Telling client thread to stop, this may take a while depending on network load");
-            CeaseOperation = true;
+            if (WorkerThread != null && WorkerThread.IsAlive)
+            {
+                Debug.Log("Ignorance Client: Stop acknowledged. This may take a while depending on network load...");
+                CeaseOperation = true;
+            }
         }
 
         // This runs in a seperate thread, be careful accessing anything outside of it's thread
@@ -93,7 +96,7 @@ namespace IgnoranceTransport
             Address clientAddress = new Address();
             Peer clientPeer;
             Host clientENetHost;
-            Event clientENetEvent;
+            Event clientEvent;
             IgnoranceClientStats icsu = default;
 
             // Grab the setup information.
@@ -103,18 +106,18 @@ namespace IgnoranceTransport
             }
             else
             {
-                Debug.LogError("Ignorance Client: Startup failure: Invalid thread parameters. Aborting.");
+                Debug.LogError("Ignorance Client: Startup failure; Invalid thread parameters. Aborting.");
                 return;
             }
 
             // Attempt to initialize ENet inside the thread.
             if (Library.Initialize())
             {
-                Debug.Log("Ignorance Client: ENet initialized.");
+                Debug.Log("Ignorance Client: ENet Native successfully initialized.");
             }
             else
             {
-                Debug.LogError("Ignorance Client: Failed to initialize ENet. This threads' fucked.");
+                Debug.LogError("Ignorance Client: Failed to initialize ENet Native. This threads' fucked.");
                 return;
             }
 
@@ -144,7 +147,7 @@ namespace IgnoranceTransport
                                 CeaseOperation = true;
                                 break;
 
-                            case IgnoranceCommandType.ClientRequestsStatusUpdate:
+                            case IgnoranceCommandType.ClientStatusRequest:
                                 // Respond with statistics so far.
                                 if (!clientPeer.IsSet)
                                     break;
@@ -173,7 +176,7 @@ namespace IgnoranceTransport
                         int ret = clientPeer.Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
 
                         if (ret < 0 && setupInfo.Verbosity > 0)
-                            Debug.LogWarning($"Ignorance Client: ENet error code {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
+                            Debug.LogWarning($"Ignorance Client: ENet error {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
                     }
 
                     // Step 2:
@@ -187,26 +190,29 @@ namespace IgnoranceTransport
                         int incomingPacketLength;
 
                         // Any events worth checking out?
-                        if (clientENetHost.CheckEvents(out clientENetEvent) <= 0)
+                        if (clientENetHost.CheckEvents(out clientEvent) <= 0)
                         {
                             // If service time is met, break out of it.
-                            if (clientENetHost.Service(setupInfo.PollTime, out clientENetEvent) <= 0) break;
+                            if (clientENetHost.Service(setupInfo.PollTime, out clientEvent) <= 0) break;
 
                             // Poll is done.
                             pollComplete = true;
                         }
 
                         // Setup the packet references.
-                        incomingPeer = clientENetEvent.Peer;
+                        incomingPeer = clientEvent.Peer;
 
                         // Now, let's handle those events.
-                        switch (clientENetEvent.Type)
+                        switch (clientEvent.Type)
                         {
                             case EventType.None:
                             default:
                                 break;
 
                             case EventType.Connect:
+                                if (setupInfo.Verbosity > 0)
+                                    Debug.Log("Ignorance Client: Connected to server.");
+
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
                                 {
                                     NativePeerId = incomingPeer.ID,
@@ -217,6 +223,9 @@ namespace IgnoranceTransport
 
                             case EventType.Disconnect:
                             case EventType.Timeout:
+                                if (setupInfo.Verbosity > 0)
+                                    Debug.Log("Ignorance Client: Disconnected from server.");
+
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
                                 {
                                     WasDisconnect = true
@@ -226,7 +235,7 @@ namespace IgnoranceTransport
 
                             case EventType.Receive:
                                 // Receive event type usually includes a packet; so cache its reference.
-                                incomingPacket = clientENetEvent.Packet;
+                                incomingPacket = clientEvent.Packet;
 
                                 if (!incomingPacket.IsSet)
                                 {
@@ -249,7 +258,7 @@ namespace IgnoranceTransport
 
                                 IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
                                 {
-                                    Channel = clientENetEvent.ChannelID,
+                                    Channel = clientEvent.ChannelID,
                                     NativePeerId = incomingPeer.ID,
                                     Payload = incomingPacket
                                 };
@@ -260,7 +269,7 @@ namespace IgnoranceTransport
                     }
                 }
 
-                Debug.Log("Ignorance Server: Shutdown commencing, disconnecting and flushing connection.");
+                Debug.Log("Ignorance Client: Shutdown commencing. Disconnecting and flushing connection.");
 
                 // Flush the client and disconnect.
                 clientPeer.Disconnect(0);
@@ -275,6 +284,7 @@ namespace IgnoranceTransport
 
             // Deinitialize
             Library.Deinitialize();
+
             if (setupInfo.Verbosity > 0)
                 Debug.Log("Ignorance Client: Shutdown complete.");
         }

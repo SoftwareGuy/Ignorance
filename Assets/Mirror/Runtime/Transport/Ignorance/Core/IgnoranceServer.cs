@@ -47,7 +47,7 @@ namespace IgnoranceTransport
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
                 // Cannot do that.
-                Debug.LogError("A worker thread is already running. Cannot start another.");
+                Debug.LogError("Ignorance Server: A worker thread is already running. Cannot start another.");
                 return;
             }
 
@@ -75,14 +75,19 @@ namespace IgnoranceTransport
 
             // Announce
             if (Verbosity > 0)
-                Debug.Log("Server has dispatched worker thread.");
+                Debug.Log("Ignorance Server: Dispatched worker thread.");
         }
 
         public void Stop()
         {
-            if (Verbosity > 0)
-                Debug.Log("Telling server thread to stop, this may take a while depending on network load");
-            CeaseOperation = true;
+            // v1.4.0b7: Mirror may call this; if the worker thread isn't alive then don't announce it.
+            if (WorkerThread != null && WorkerThread.IsAlive)
+            {
+                if (Verbosity > 0)
+                    Debug.Log("Ignorance Server: Server stop acknowledged. Depending on network load, this may take a moment or two...");
+
+                CeaseOperation = true;
+            }
         }
 
         private void ThreadWorker(Object parameters)
@@ -105,18 +110,18 @@ namespace IgnoranceTransport
             }
             else
             {
-                Debug.LogError("Ignorance Server: Startup failure: Invalid thread parameters. Aborting.");
+                Debug.LogError("Ignorance Server: Startup failure; Invalid thread parameters. Aborting.");
                 return;
             }
 
             // Attempt to initialize ENet inside the thread.
             if (Library.Initialize())
             {
-                Debug.Log("Ignorance Server: ENet initialized.");
+                Debug.Log("Ignorance Server: ENet Native successfully initialized.");
             }
             else
             {
-                Debug.LogError("Ignorance Server: Failed to initialize ENet. This threads' fucked.");
+                Debug.LogError("Ignorance Server: Failed to initialize ENet Native. This threads' fucked.");
                 return;
             }
 
@@ -146,8 +151,9 @@ namespace IgnoranceTransport
                                 uint targetPeer = commandPacket.PeerId;
 
                                 if (!serverPeerArray[targetPeer].IsSet) continue;
+
                                 if (setupInfo.Verbosity > 0)
-                                    Debug.Log($"Ignorance Server: Booting Peer {targetPeer} off this server instance.");
+                                    Debug.Log($"Ignorance Server: Booting ENet Peer {targetPeer} off this server instance.");
 
                                 IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
                                 {
@@ -174,7 +180,7 @@ namespace IgnoranceTransport
                             int ret = serverPeerArray[outgoingPacket.NativePeerId].Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
 
                             if (ret < 0 && setupInfo.Verbosity > 0)
-                                Debug.LogWarning($"Ignorance Server: ENet error code {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
+                                Debug.LogWarning($"Ignorance Server: ENet error {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
                         }
                         else
                         {
@@ -207,6 +213,7 @@ namespace IgnoranceTransport
                         // Setup the packet references.
                         incomingPeer = serverENetEvent.Peer;
 
+                        // What type are you?
                         switch (serverENetEvent.Type)
                         {
                             // Idle.
@@ -217,7 +224,7 @@ namespace IgnoranceTransport
                             // Connection Event.
                             case EventType.Connect:
                                 if (setupInfo.Verbosity > 1)
-                                    Debug.Log("Ignorance Server: Here comes a new Peer connection.");
+                                    Debug.Log($"Ignorance Server: Hello new peer with ID {incomingPeer.ID}!");
 
                                 IgnoranceConnectionEvent ice = new IgnoranceConnectionEvent()
                                 {
@@ -238,7 +245,7 @@ namespace IgnoranceTransport
                                 if (!serverPeerArray[incomingPeer.ID].IsSet) break;
 
                                 if (setupInfo.Verbosity > 1)
-                                    Debug.Log("Ignorance Server: Peer disconnection.");
+                                    Debug.Log($"Ignorance Server: Bye bye Peer {incomingPeer.ID}; They have disconnected.");
 
                                 IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
                                 {
@@ -301,9 +308,6 @@ namespace IgnoranceTransport
                     serverPeerArray[i].DisconnectNow(0);
                 }
             }
-
-            // Flush again to ensure ENet gets those Disconnection stuff out.
-            // May not be needed; better to err on side of caution
 
             if (setupInfo.Verbosity > 0)
                 Debug.Log("Ignorance Server: Shutdown complete.");
