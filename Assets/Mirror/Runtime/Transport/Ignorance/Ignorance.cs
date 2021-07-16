@@ -114,14 +114,16 @@ namespace IgnoranceTransport
             if (Client != null)
                 Client.Stop();
 
-			// TODO: Figure this one out to see if it's related to a race condition.
-			// Maybe experiment with a while loop to pause main thread when disconnecting, 
-			// since client might not stop on a dime.			
-			// while(Client.IsAlive) ;
+            // TODO: Figure this one out to see if it's related to a race condition.
+            // Maybe experiment with a while loop to pause main thread when disconnecting, 
+            // since client might not stop on a dime.			
+            // while(Client.IsAlive) ;
             // v1.4.0b1: Probably fixed in IgnoranceClient.cs; need further testing.
-			
+
             // ignoreDataPackets = true;
-            ClientState = ConnectionState.Disconnected;
+            // ForcedDisconnection = true;
+          
+            // ClientState = ConnectionState.Disconnected;
         }
 
 #if !MIRROR_37_0_OR_NEWER
@@ -504,6 +506,7 @@ namespace IgnoranceTransport
             // Now handle the incoming messages.
             while (Client.Incoming.TryDequeue(out incomingPacket))
             {
+                /*
                 // Temporary fix: if ENet thread is too fast for Mirror, then ignore the packet.
                 // This is seen sometimes if you stop the client and there's still stuff in the queue.
                 if (ignoreDataPackets)
@@ -512,8 +515,10 @@ namespace IgnoranceTransport
                         Debug.Log("ProcessClientPackets cycle skipped; ignoring data packet");
                     break;
                 }
-
+                */
                 // Switch between the packet types.
+                // print($"Incoming packet type: {incomingPacket.EventType}");
+
                 switch(incomingPacket.EventType)
                 {
                     case 0x00:
@@ -560,6 +565,12 @@ namespace IgnoranceTransport
                             Debug.Log($"Ignorance Client has been disconnected from server.");
 
                         ignoreDataPackets = true;
+                        OnClientDisconnected?.Invoke();
+                        break;
+
+                    case 0x03:
+                        // Mirror-invoked client shutdown.
+                        ClientState = ConnectionState.Disconnected;
                         OnClientDisconnected?.Invoke();
                         break;
 

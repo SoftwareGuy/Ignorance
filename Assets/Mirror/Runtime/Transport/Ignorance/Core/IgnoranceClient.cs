@@ -33,17 +33,17 @@ namespace IgnoranceTransport
         public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
         public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
         public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
-        public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
         public ConcurrentQueue<IgnoranceClientStats> StatusUpdates = new ConcurrentQueue<IgnoranceClientStats>();
 
         public bool IsAlive => WorkerThread != null && WorkerThread.IsAlive;
 
         private volatile bool CeaseOperation = false;
+        public volatile bool IsStoppingOrStopped = true;
         private Thread WorkerThread;
 
         public void Start()
         {
-            Debug.Log("IgnoranceClient.Start()");
+            Debug.Log("Ignorance Client: Initializing worker thread.");
 
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
@@ -72,15 +72,34 @@ namespace IgnoranceTransport
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
 
+            IsStoppingOrStopped = false;
             Debug.Log("Ignorance Client: Dispatched worker thread.");
         }
 
         public void Stop()
         {
-            if (WorkerThread != null && WorkerThread.IsAlive)
+            if (!IsStoppingOrStopped)
             {
+                if (WorkerThread == null || !WorkerThread.IsAlive)
+                {
+                    Debug.LogError("Ignorance Client: Attempted to stop a dead/null thread...");
+                    return;
+                }
+
                 Debug.Log("Ignorance Client: Stop acknowledged. This may take a while depending on network load...");
+                IsStoppingOrStopped = true;
                 CeaseOperation = true;
+
+                // v1.4.0b7: Tell Mirror we've have a user-triggered stop.
+                // This hopefully should prevent jank limbo status
+                Incoming.Enqueue(new IgnoranceIncomingPacket
+                {
+                    EventType = 0x03
+                });
+            } else
+            {
+
+                Debug.LogWarning("Ignorance Client: Attempted to stop a worker that's already being stopped");
             }
         }
 
@@ -241,6 +260,7 @@ namespace IgnoranceTransport
                                 incomingQueuePacket.PeerIp = incomingPeer.IP;
 
                                 Incoming.Enqueue(incomingQueuePacket);
+                                CeaseOperation = true;
                                 break;
 
 
@@ -288,10 +308,10 @@ namespace IgnoranceTransport
                 clientENetHost.Flush();
 
                 // Fix for client stuck in limbo, since the disconnection event may not be fired until next loop.
-                Incoming.Enqueue(new IgnoranceIncomingPacket {
-                    EventType = 0x02
-                });
+                // Incoming.Enqueue(new IgnoranceIncomingPacket { EventType = 0x02 });
             }
+
+            IsStoppingOrStopped = true;
 
             // Deinitialize
             Library.Deinitialize();
