@@ -78,7 +78,7 @@ namespace IgnoranceTransport
 
         public void Stop()
         {
-            if (!IsStoppingOrStopped)
+            if (!CeaseOperation)
             {
                 if (WorkerThread == null || !WorkerThread.IsAlive)
                 {
@@ -87,19 +87,20 @@ namespace IgnoranceTransport
                 }
 
                 Debug.Log("Ignorance Client: Stop acknowledged. This may take a while depending on network load...");
-                IsStoppingOrStopped = true;
+                // IsStoppingOrStopped = true;
                 CeaseOperation = true;
 
                 // v1.4.0b7: Tell Mirror we've have a user-triggered stop.
                 // This hopefully should prevent jank limbo status
                 Incoming.Enqueue(new IgnoranceIncomingPacket
                 {
-                    EventType = 0x03
+                    EventType = 0x03    // Mirror-initiated shutdown.
                 });
-            } else
+            }
+            else
             {
-
-                Debug.LogWarning("Ignorance Client: Attempted to stop a worker that's already being stopped");
+                if (Verbosity > 1)
+                    Debug.LogWarning("Ignorance Client: Attempted to stop a worker that's already being stopped");
             }
         }
 
@@ -286,7 +287,7 @@ namespace IgnoranceTransport
                                     incomingPacket.Dispose();
                                     break;
                                 }
-                                
+
                                 incomingQueuePacket.Channel = clientEvent.ChannelID;
                                 // v1.4.0b7: 0x00 = Connection Data Event
                                 incomingQueuePacket.EventType = 0x00;

@@ -41,7 +41,7 @@ namespace IgnoranceTransport
     public struct IgnoranceIncomingPacket
     {
         public byte Channel;
-        public byte EventType;  // v1.4.0b7: Used to determine what's going on and remove a queue.        
+        public byte EventType;  // v1.4.0b7: Used to determine what's going on and remove a queue.
         public ushort PeerPort;
         public uint NativePeerId;
         public string PeerIp;       

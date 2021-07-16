@@ -110,20 +110,12 @@ namespace IgnoranceTransport
         public override bool ClientConnected() => ClientState == ConnectionState.Connected;
 
         public override void ClientDisconnect()
-        {
+        {           
             if (Client != null)
+            {
+                ClientState = ConnectionState.Disconnecting;
                 Client.Stop();
-
-            // TODO: Figure this one out to see if it's related to a race condition.
-            // Maybe experiment with a while loop to pause main thread when disconnecting, 
-            // since client might not stop on a dime.			
-            // while(Client.IsAlive) ;
-            // v1.4.0b1: Probably fixed in IgnoranceClient.cs; need further testing.
-
-            // ignoreDataPackets = true;
-            // ForcedDisconnection = true;
-          
-            // ClientState = ConnectionState.Disconnected;
+            }
         }
 
 #if !MIRROR_37_0_OR_NEWER
