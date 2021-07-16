@@ -444,7 +444,7 @@ namespace IgnoranceTransport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
 #if !MIRROR_41_0_OR_NEWER
                 if (!enabled) break;
-#endif                    
+#endif
             }
 
             // Disconnection events.
@@ -465,12 +465,13 @@ namespace IgnoranceTransport
         private void ProcessClientPackets()
         {
             IgnoranceIncomingPacket incomingPacket;
-            IgnoranceCommandPacket commandPacket;
             IgnoranceClientStats clientStats;
             Packet payload;
-            IgnoranceConnectionEvent connectionEvent;
+            // IgnoranceConnectionEvent connectionEvent;
 
             // Handle connection events.
+            // v1.4.0b7: Skip this; since we've merged it with the other queue.
+            /*
             while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
             {
                 if (LogType == IgnoranceLogType.Verbose)
@@ -499,7 +500,7 @@ namespace IgnoranceTransport
                     OnClientConnected?.Invoke();
                 }
             }
-
+            */
             // Now handle the incoming messages.
             while (Client.Incoming.TryDequeue(out incomingPacket))
             {
@@ -512,55 +513,70 @@ namespace IgnoranceTransport
                     break;
                 }
 
-
-                // Otherwise client recieved data, advise Mirror.
-                // print($"Byte array: {incomingPacket.RentedByteArray.Length}. Packet Length: {incomingPacket.Length}");
-                payload = incomingPacket.Payload;
-                int length = payload.Length;
-                ArraySegment<byte> dataSegment;
-
-                // Copy to working buffer and dispose of it.
-                if (length > InternalPacketBuffer.Length)
+                // Switch between the packet types.
+                switch(incomingPacket.EventType)
                 {
-                    // Unity's favourite: A fresh 'n' tasty GC Allocation!
-                    byte[] oneFreshNTastyGcAlloc = new byte[length];
+                    case 0x00:
+                        // Standard Data Event. Consume as normal.
+                        payload = incomingPacket.Payload;
+                        int length = payload.Length;
+                        ArraySegment<byte> dataSegment;
 
-                    payload.CopyTo(oneFreshNTastyGcAlloc);
-                    dataSegment = new ArraySegment<byte>(oneFreshNTastyGcAlloc, 0, length);
+                        // Copy to working buffer and dispose of it.
+                        if (length > InternalPacketBuffer.Length)
+                        {
+                            // Unity's favourite: A fresh 'n' tasty GC Allocation!
+                            byte[] oneFreshNTastyGcAlloc = new byte[length];
+
+                            payload.CopyTo(oneFreshNTastyGcAlloc);
+                            dataSegment = new ArraySegment<byte>(oneFreshNTastyGcAlloc, 0, length);
+                        }
+                        else
+                        {
+                            payload.CopyTo(InternalPacketBuffer);
+                            dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
+                        }
+
+                        // Dispose of the ENet Packet, freeing native memory.
+                        payload.Dispose();
+
+                        OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
+                        break;
+
+                    case 0x01:
+                        // Client connected event. Tell Mirror.
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.Log($"Ignorance Client successfully connected to server at address {incomingPacket.PeerIp}:{incomingPacket.PeerPort}.");
+
+                        ignoreDataPackets = false;
+                        OnClientConnected?.Invoke();
+                        break;
+
+                    case 0x02:
+                        // Client disconnected event. Tell Mirror.
+                        ClientState = ConnectionState.Disconnected;
+
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.Log($"Ignorance Client has been disconnected from server.");
+
+                        ignoreDataPackets = true;
+                        OnClientDisconnected?.Invoke();
+                        break;
+
+                    default:
+                        Debug.LogWarning($"Ignorance: Unknown packet event type {incomingPacket.EventType.ToString("{0:X2}")}! Was this queue item corrupted? Maybe it's a bug...");
+                        break;
                 }
-                else
-                {
-                    payload.CopyTo(InternalPacketBuffer);
-                    dataSegment = new ArraySegment<byte>(InternalPacketBuffer, 0, length);
-                }
 
-                payload.Dispose();
-
-                OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
-
+#if !MIRROR_41_0_OR_NEWER
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-#if !MIRROR_41_0_OR_NEWER
                 if (!enabled)
                     break;
 #endif
             }
 
-            // Step 3: Handle other commands.
-            // Ignorance 1.4.0b7: Was this ever used??
-            /*
-            while (Client.Commands.TryDequeue(out commandPacket))
-            {
-                switch (commandPacket.Type)
-                {
-                    // ...
-                    default:
-                        break;
-                }
-            }
-            */
-
-            // Step 4: Handle status updates.
+            // Step 3: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
                 ClientStatistics = clientStats;
         }

@@ -37,15 +37,18 @@ namespace IgnoranceTransport
         Verbose
     }
 
-    // Struct optimized for cache efficiency. (Thanks Vincenzo!)
+    // Incoming packet struct.
     public struct IgnoranceIncomingPacket
     {
         public byte Channel;
+        public byte EventType;  // v1.4.0b7: Used to determine what's going on and remove a queue.        
+        public ushort PeerPort;
         public uint NativePeerId;
+        public string PeerIp;       
         public Packet Payload;
     }
 
-    // Struct optimized for cache efficiency. (Thanks Vincenzo!)
+    // Outgoing packet struct.
     public struct IgnoranceOutgoingPacket
     {
         public byte Channel;
@@ -53,7 +56,7 @@ namespace IgnoranceTransport
         public Packet Payload;
     }
 
-    // Struct optimized for cache efficiency. (Thanks Vincenzo!)
+    // Connection event struct.
     public struct IgnoranceConnectionEvent
     {
         public bool WasDisconnect;

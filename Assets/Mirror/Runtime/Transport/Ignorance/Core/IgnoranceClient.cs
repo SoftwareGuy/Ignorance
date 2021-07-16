@@ -67,7 +67,6 @@ namespace IgnoranceTransport
             if (Incoming != null) while (Incoming.TryDequeue(out _)) ;
             if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
             if (Commands != null) while (Commands.TryDequeue(out _)) ;
-            if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _)) ;
             if (StatusUpdates != null) while (StatusUpdates.TryDequeue(out _)) ;
 
             WorkerThread = new Thread(ThreadWorker);
@@ -185,6 +184,7 @@ namespace IgnoranceTransport
                     // a slow networking day.
                     while (!pollComplete)
                     {
+                        IgnoranceIncomingPacket incomingQueuePacket = default;
                         Packet incomingPacket;
                         Peer incomingPeer;
                         int incomingPacketLength;
@@ -213,12 +213,21 @@ namespace IgnoranceTransport
                                 if (setupInfo.Verbosity > 0)
                                     Debug.Log("Ignorance Client: Connected to server.");
 
+                                // v1.4.0b7: 0x01 = Connection Established
+                                incomingQueuePacket.EventType = 0x01;
+                                incomingQueuePacket.PeerPort = incomingPeer.Port;
+                                incomingQueuePacket.PeerIp = incomingPeer.IP;
+
+                                Incoming.Enqueue(incomingQueuePacket);
+
+                                /*
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
                                 {
                                     NativePeerId = incomingPeer.ID,
                                     IP = incomingPeer.IP,
                                     Port = incomingPeer.Port
                                 });
+                                */
                                 break;
 
                             case EventType.Disconnect:
@@ -226,10 +235,12 @@ namespace IgnoranceTransport
                                 if (setupInfo.Verbosity > 0)
                                     Debug.Log("Ignorance Client: Disconnected from server.");
 
-                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
-                                {
-                                    WasDisconnect = true
-                                });
+                                // v1.4.0b7: 0x02 = Connection Disconnected
+                                incomingQueuePacket.EventType = 0x02;
+                                incomingQueuePacket.PeerPort = incomingPeer.Port;
+                                incomingQueuePacket.PeerIp = incomingPeer.IP;
+
+                                Incoming.Enqueue(incomingQueuePacket);
                                 break;
 
 
@@ -255,13 +266,14 @@ namespace IgnoranceTransport
                                     incomingPacket.Dispose();
                                     break;
                                 }
-
-                                IgnoranceIncomingPacket incomingQueuePacket = new IgnoranceIncomingPacket
-                                {
-                                    Channel = clientEvent.ChannelID,
-                                    NativePeerId = incomingPeer.ID,
-                                    Payload = incomingPacket
-                                };
+                                
+                                incomingQueuePacket.Channel = clientEvent.ChannelID;
+                                // v1.4.0b7: 0x00 = Connection Data Event
+                                incomingQueuePacket.EventType = 0x00;
+                                incomingQueuePacket.PeerPort = incomingPeer.Port;
+                                incomingQueuePacket.NativePeerId = incomingPeer.ID;
+                                incomingQueuePacket.PeerIp = incomingPeer.IP;
+                                incomingQueuePacket.Payload = incomingPacket;
 
                                 Incoming.Enqueue(incomingQueuePacket);
                                 break;
@@ -276,9 +288,8 @@ namespace IgnoranceTransport
                 clientENetHost.Flush();
 
                 // Fix for client stuck in limbo, since the disconnection event may not be fired until next loop.
-                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
-                {
-                    WasDisconnect = true
+                Incoming.Enqueue(new IgnoranceIncomingPacket {
+                    EventType = 0x02
                 });
             }
 
