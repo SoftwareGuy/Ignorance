@@ -1042,8 +1042,6 @@ MonoBehaviour:
   runInBackground: 1
   autoStartServerBuild: 1
   serverTickRate: 60
-  serverBatching: 0
-  serverBatchInterval: 0
   offlineScene: 
   onlineScene: 
   transport: {fileID: 1886246553}
