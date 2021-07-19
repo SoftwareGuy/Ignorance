@@ -78,9 +78,10 @@ namespace IgnoranceTransport
 
         public void Stop()
         {
-            if (WorkerThread != null && WorkerThread.IsAlive)
+            if (WorkerThread != null && !CeaseOperation)
             {
                 Debug.Log("Ignorance Client: Stop acknowledged. This may take a while depending on network load...");
+                
                 CeaseOperation = true;
             }
         }
@@ -94,10 +95,13 @@ namespace IgnoranceTransport
 
             ThreadParamInfo setupInfo;
             Address clientAddress = new Address();
-            Peer clientPeer;
-            Host clientENetHost;
-            Event clientEvent;
+            Peer clientPeer;        // The peer object that represents the client's connection.
+            Host clientHost;        // NOT related to Mirror "Client Host". This is the client's ENet Host Object.
+            Event clientEvent;      // Used when clients get events on the network.
             IgnoranceClientStats icsu = default;
+
+            // Unused for now
+            // bool emergencyStop = false;
 
             // Grab the setup information.
             if (parameters.GetType() == typeof(ThreadParamInfo))
@@ -125,11 +129,11 @@ namespace IgnoranceTransport
             clientAddress.SetHost(setupInfo.Address);
             clientAddress.Port = (ushort)setupInfo.Port;
 
-            using (clientENetHost = new Host())
+            using (clientHost = new Host())
             {
                 // TODO: Maybe try catch this
-                clientENetHost.Create();
-                clientPeer = clientENetHost.Connect(clientAddress, setupInfo.Channels);
+                clientHost.Create();
+                clientPeer = clientHost.Connect(clientAddress, setupInfo.Channels);
 
                 while (!CeaseOperation)
                 {
@@ -145,6 +149,7 @@ namespace IgnoranceTransport
 
                             case IgnoranceCommandType.ClientWantsToStop:
                                 CeaseOperation = true;
+                                // emergencyStop = true;
                                 break;
 
                             case IgnoranceCommandType.ClientStatusRequest:
@@ -157,7 +162,7 @@ namespace IgnoranceTransport
                                 icsu.BytesReceived = clientPeer.BytesReceived;
                                 icsu.BytesSent = clientPeer.BytesSent;
 
-                                icsu.PacketsReceived = clientENetHost.PacketsReceived;
+                                icsu.PacketsReceived = clientHost.PacketsReceived;
                                 icsu.PacketsSent = clientPeer.PacketsSent;
                                 icsu.PacketsLost = clientPeer.PacketsLost;
 
@@ -165,8 +170,16 @@ namespace IgnoranceTransport
                                 break;
                         }
                     }
-                    // Step 1: Send out data.
-                    // ---> Sending to Server
+
+                    // Emergency stop? Then break out of the loop, we're done here.
+                    /* if(emergencyStop)
+                    {
+                        Debug.LogWarning("Emergency Stop 1 Reached!");
+                        break;
+                    }
+                    */
+
+                    // Step 1: Sending to Server
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
                     {
                         // TODO: Revise this, could we tell the Peer to disconnect right here?                       
@@ -176,11 +189,17 @@ namespace IgnoranceTransport
                         int ret = clientPeer.Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
 
                         if (ret < 0 && setupInfo.Verbosity > 0)
-                            Debug.LogWarning($"Ignorance Client: ENet error {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
+                            Debug.LogWarning($"Ignorance Client: ENet error {ret} while sending packet to Server via Peer {outgoingPacket.NativePeerId}.");
                     }
 
-                    // Step 2:
-                    // <----- Receive Data packets
+                    // Emergency stop? Then break out of the loop, we're done here.
+                    /* if (emergencyStop)
+                    {
+                        Debug.LogWarning("Emergency Stop 2 Reached!");
+                        break;
+                    } */
+
+                    // Step 2: Receive Data packets
                     // This loops until polling is completed. It may take a while, if it's
                     // a slow networking day.
                     while (!pollComplete)
@@ -190,10 +209,10 @@ namespace IgnoranceTransport
                         int incomingPacketLength;
 
                         // Any events worth checking out?
-                        if (clientENetHost.CheckEvents(out clientEvent) <= 0)
+                        if (clientHost.CheckEvents(out clientEvent) <= 0)
                         {
                             // If service time is met, break out of it.
-                            if (clientENetHost.Service(setupInfo.PollTime, out clientEvent) <= 0) break;
+                            if (clientHost.Service(setupInfo.PollTime, out clientEvent) <= 0) break;
 
                             // Poll is done.
                             pollComplete = true;
@@ -213,8 +232,9 @@ namespace IgnoranceTransport
                                 if (setupInfo.Verbosity > 0)
                                     Debug.Log("Ignorance Client: Connected to server.");
 
-                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
+                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
+                                    EventType = 0x00,
                                     NativePeerId = incomingPeer.ID,
                                     IP = incomingPeer.IP,
                                     Port = incomingPeer.Port
@@ -226,10 +246,7 @@ namespace IgnoranceTransport
                                 if (setupInfo.Verbosity > 0)
                                     Debug.Log("Ignorance Client: Disconnected from server.");
 
-                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
-                                {
-                                    WasDisconnect = true
-                                });
+                                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent { EventType = 0x01 });
                                 break;
 
 
@@ -267,19 +284,25 @@ namespace IgnoranceTransport
                                 break;
                         }
                     }
+
+                    // Emergency stop? Then break out of the loop, we're done here.
+                    /*
+                    if (emergencyStop)
+                    {
+                        Debug.LogWarning("Emergency Stop 3 Reached!");
+                        break;
+                    }
+                    */
                 }
 
                 Debug.Log("Ignorance Client: Shutdown commencing. Disconnecting and flushing connection.");
 
                 // Flush the client and disconnect.
                 clientPeer.Disconnect(0);
-                clientENetHost.Flush();
+                clientHost.Flush();
 
                 // Fix for client stuck in limbo, since the disconnection event may not be fired until next loop.
-                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent()
-                {
-                    WasDisconnect = true
-                });
+                ConnectionEvents.Enqueue(new IgnoranceConnectionEvent { EventType = 0x01 });
             }
 
             // Deinitialize
