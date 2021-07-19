@@ -102,7 +102,7 @@ Rigidbody2D:
   m_LinearDrag: 0
   m_AngularDrag: 0
   m_GravityScale: 0
-  m_Material: {fileID: 6200000, guid: 97a3e4cddb8635c4eba1265f44d106bf, type: 2}
+  m_Material: {fileID: 6200000, guid: 315510c0721e82f4cad07c2669b863fa, type: 2}
   m_Interpolate: 2
   m_SleepingMode: 1
   m_CollisionDetection: 1
@@ -122,7 +122,7 @@ MonoBehaviour:
   sceneId: 0
   serverOnly: 0
   visible: 0
-  m_AssetId: 
+  m_AssetId: 5339554c46006dd4e91cae9ff34c095d
   hasSpawned: 0
 --- !u!114 &440842259441939327
 MonoBehaviour:
@@ -143,6 +143,8 @@ MonoBehaviour:
   localRotationSensitivity: 0.01
   localScaleSensitivity: 0.01
   compressRotation: 0
+  interpolatePosition: 1
+  interpolateRotation: 1
   interpolateScale: 1
   syncScale: 1
 --- !u!58 &8881572407762724401
