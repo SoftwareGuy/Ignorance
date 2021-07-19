@@ -56,7 +56,7 @@ namespace IgnoranceTransport
     // Struct optimized for cache efficiency. (Thanks Vincenzo!)
     public struct IgnoranceConnectionEvent
     {
-        public bool WasDisconnect;
+        public byte EventType;
         public ushort Port;
         public uint NativePeerId;
         public string IP;
