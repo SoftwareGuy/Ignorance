@@ -378,3 +378,5 @@ Assets/Mirror/Runtime/Empty/*
 !Assets/Mirror/Runtime/Transport/Ignorance
 !Assets/Mirror/Runtime/Transport/Ignorance.*
 Builds
+Assets/Mirror/Runtime/Batching
+Assets/Mirror/Runtime/SnapshotInterpolation
