@@ -155,9 +155,9 @@ namespace IgnoranceTransport
                                 if (setupInfo.Verbosity > 0)
                                     Debug.Log($"Ignorance Server: Booting ENet Peer {targetPeer} off this server instance.");
 
-                                IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
+                                IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent
                                 {
-                                    WasDisconnect = true,
+                                    EventType = 0x01,
                                     NativePeerId = targetPeer
                                 };
 
@@ -247,9 +247,9 @@ namespace IgnoranceTransport
                                 if (setupInfo.Verbosity > 1)
                                     Debug.Log($"Ignorance Server: Bye bye Peer {incomingPeer.ID}; They have disconnected.");
 
-                                IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent()
+                                IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent
                                 {
-                                    WasDisconnect = true,
+                                    EventType = 0x01,
                                     NativePeerId = incomingPeer.ID
                                 };
 
