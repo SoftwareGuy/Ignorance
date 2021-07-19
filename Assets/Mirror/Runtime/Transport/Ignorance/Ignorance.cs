@@ -71,7 +71,7 @@ namespace IgnoranceTransport
         public void Awake()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                Debug.Log($"Thanks for using Ignorance {IgnoranceInternals.Version}. Keep up to date, report bugs and support the developer at https://github.com/SoftwareGuy/Ignorance!");
+                print($"Thanks for using Ignorance {IgnoranceInternals.Version}. Keep up to date, report bugs and support the developer at https://github.com/SoftwareGuy/Ignorance!");
         }
 
         public override string ToString()
@@ -100,7 +100,7 @@ namespace IgnoranceTransport
                 throw new ArgumentException($"You used an invalid URI: {uri}. Please use {IgnoranceInternals.Scheme}://host:port instead", nameof(uri));
 
             if (!uri.IsDefaultPort)
-				// Set the communication port to the one specified.
+                // Set the communication port to the one specified.
                 port = uri.Port;
 
             // Pass onwards to the proper handler.
@@ -112,14 +112,18 @@ namespace IgnoranceTransport
         public override void ClientDisconnect()
         {
             if (Client != null)
-                Client.Stop();
+            {
+                Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
+                // Client.Stop();
+            }
 
-			// TODO: Figure this one out to see if it's related to a race condition.
-			// Maybe experiment with a while loop to pause main thread when disconnecting, 
-			// since client might not stop on a dime.			
-			// while(Client.IsAlive) ;
+
+            // TODO: Figure this one out to see if it's related to a race condition.
+            // Maybe experiment with a while loop to pause main thread when disconnecting, 
+            // since client might not stop on a dime.			
+            // while(Client.IsAlive) ;
             // v1.4.0b1: Probably fixed in IgnoranceClient.cs; need further testing.
-			
+
             // ignoreDataPackets = true;
             ClientState = ConnectionState.Disconnected;
         }
@@ -453,7 +457,7 @@ namespace IgnoranceTransport
                 adjustedConnectionId = (int)disconnectionEvent.NativePeerId + 1;
 
                 if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"ProcessServerPackets fired; handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
+                    Debug.Log($"Ignorance Server: ProcessServerPackets fired; handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
 
                 ConnectionLookupDict.Remove(adjustedConnectionId);
 
@@ -465,42 +469,10 @@ namespace IgnoranceTransport
         private void ProcessClientPackets()
         {
             IgnoranceIncomingPacket incomingPacket;
-            IgnoranceCommandPacket commandPacket;
             IgnoranceClientStats clientStats;
             Packet payload;
-            IgnoranceConnectionEvent connectionEvent;
 
-            // Handle connection events.
-            while (Client.ConnectionEvents.TryDequeue(out connectionEvent))
-            {
-                if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"ProcessClientConnectionEvents fired: processing a client ConnectionEvents queue item.");
-
-                if (connectionEvent.WasDisconnect)
-                {
-                    // Disconnected from server.
-                    ClientState = ConnectionState.Disconnected;
-
-                    if (LogType != IgnoranceLogType.Nothing)
-                        Debug.Log($"Ignorance Client has been disconnected from server.");
-
-                    ignoreDataPackets = true;
-                    OnClientDisconnected?.Invoke();
-                }
-                else
-                {
-                    // Connected to server.
-                    ClientState = ConnectionState.Connected;
-
-                    if (LogType != IgnoranceLogType.Nothing)
-                        Debug.Log($"Ignorance Client successfully connected to server at address {connectionEvent.IP}:{connectionEvent.Port}");
-
-                    ignoreDataPackets = false;
-                    OnClientConnected?.Invoke();
-                }
-            }
-
-            // Now handle the incoming messages.
+            // Handle the incoming messages.
             while (Client.Incoming.TryDequeue(out incomingPacket))
             {
                 // Temporary fix: if ENet thread is too fast for Mirror, then ignore the packet.
@@ -508,7 +480,7 @@ namespace IgnoranceTransport
                 if (ignoreDataPackets)
                 {
                     if (LogType == IgnoranceLogType.Verbose)
-                        Debug.Log("ProcessClientPackets cycle skipped; ignoring data packet");
+                        Debug.Log("Ignorance Client: ProcessClientPackets cycle skipped; ignoring data packet");
                     break;
                 }
 
@@ -538,29 +510,16 @@ namespace IgnoranceTransport
 
                 OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
 
+#if !MIRROR_41_0_OR_NEWER
                 // Some messages can disable the transport
                 // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-#if !MIRROR_41_0_OR_NEWER
+
                 if (!enabled)
                     break;
 #endif
             }
 
-            // Step 3: Handle other commands.
-            // Ignorance 1.4.0b7: Was this ever used??
-            /*
-            while (Client.Commands.TryDequeue(out commandPacket))
-            {
-                switch (commandPacket.Type)
-                {
-                    // ...
-                    default:
-                        break;
-                }
-            }
-            */
-
-            // Step 4: Handle status updates.
+            // Step 3: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
                 ClientStatistics = clientStats;
         }
@@ -572,10 +531,10 @@ namespace IgnoranceTransport
         public override void ServerEarlyUpdate()
         {
             // This is used by Mirror to consume the incoming server packets.
-    #if !MIRROR_41_0_OR_NEWER
+#if !MIRROR_41_0_OR_NEWER
             if (!enabled)
                 return;
-    #endif
+#endif
             // Process Server Events...
             if (Server.IsAlive)
                 ProcessServerPackets();
@@ -584,9 +543,9 @@ namespace IgnoranceTransport
         public override void ClientEarlyUpdate()
         {
             // This is used by Mirror to consume the incoming client packets.
-    #if !MIRROR_41_0_OR_NEWER
+#if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
-    #endif
+#endif
             if (Client.IsAlive)
             {
                 ProcessClientPackets();
@@ -614,9 +573,9 @@ namespace IgnoranceTransport
         private bool fixedUpdateCompletedWork;
         public void FixedUpdate()
         {
-    #if !MIRROR_41_0_OR_NEWER
+#if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
-    #endif
+#endif
             if (fixedUpdateCompletedWork) return;
 
             ProcessENetPackets();
@@ -667,11 +626,57 @@ namespace IgnoranceTransport
         // Processes and Executes All Packets.
         private void ProcessENetPackets()
         {
+            // --- SERVER WORLD --- //
+
             // Process Server Events...
             if (Server.IsAlive)
                 ProcessServerPackets();
 
-            // Process Client Events...
+            // --- CLIENT WORLD --- //
+
+            // To prevent clients being stuck in limbo...
+            // We need to handle connection events first before we do anything else.
+            // If we do this inside a Client.IsAlive check, then the thread might be done before
+            // the next 
+
+            // Handle connection events.
+            while (Client.ConnectionEvents.TryDequeue(out IgnoranceConnectionEvent connectionEvent))
+            {
+                if (LogType == IgnoranceLogType.Verbose)
+                    Debug.Log($"Ignorance Client Debug: Processing a client ConnectionEvents queue item. Type: {connectionEvent.EventType.ToString("{0:X2}")}");
+
+                switch (connectionEvent.EventType)
+                {
+                    case 0x00:
+                        // Connected to server.
+                        ClientState = ConnectionState.Connected;
+
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.Log($"Ignorance Client has successfully connected to server at {connectionEvent.IP}:{connectionEvent.Port}");
+
+                        ignoreDataPackets = false;
+                        OnClientConnected?.Invoke();
+                        break;
+
+                    case 0x01:
+                        // Disconnected from server.
+                        ClientState = ConnectionState.Disconnected;
+
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.Log($"Ignorance Client has been disconnected from server.");
+
+                        ignoreDataPackets = true;
+                        OnClientDisconnected?.Invoke();
+                        break;
+
+                    default:
+                        // Unknown type
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.LogWarning($"Ignorance Client: Unknown connection event type {connectionEvent.EventType.ToString("{0:X2}")}.");
+                        break;
+                }
+            }
+
             if (Client.IsAlive)
             {
                 ProcessClientPackets();
@@ -693,7 +698,8 @@ namespace IgnoranceTransport
         public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
 
         // UDP Recommended Max MTU = 1200.
-        public override int GetMaxBatchSize(int channelId) {
+        public override int GetMaxBatchSize(int channelId)
+        {
             bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
             return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
         }
