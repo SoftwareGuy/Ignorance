@@ -90,9 +90,10 @@ namespace IgnoranceTransport
 
     // TODO: Optimize struct for Cache performance.
     public struct PeerConnectionData
-    {
+    {        
         public ushort Port;
-        public uint NativePeerId;       
+        public uint NativePeerId;
+        // public bool IsOccupied;
         public string IP;
     }
 }

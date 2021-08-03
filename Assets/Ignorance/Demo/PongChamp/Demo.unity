@@ -988,7 +988,6 @@ GameObject:
   - component: {fileID: 1886246552}
   - component: {fileID: 1886246551}
   - component: {fileID: 1886246553}
-  - component: {fileID: 1886246554}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -1049,7 +1048,7 @@ MonoBehaviour:
   maxConnections: 4
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
-  authenticator: {fileID: 1886246554}
+  authenticator: {fileID: 0}
   playerPrefab: {fileID: 1240244544407914, guid: a85b24263182aae4bbc1829bb2b73d7a,
     type: 3}
   autoCreatePlayer: 1
@@ -1069,7 +1068,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   port: 7777
   LogType: 1
-  DebugDisplay: 0
+  DebugDisplay: 1
   serverBindsAll: 1
   serverBindAddress: 
   serverMaxPeerCapacity: 50
@@ -1079,26 +1078,6 @@ MonoBehaviour:
   Channels: 0100000002000000
   PacketBufferCapacity: 4096
   MaxAllowedPacketSize: 33554432
---- !u!114 &1886246554
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1886246549}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 28496b776660156428f00cf78289c1ec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  OnServerAuthenticated:
-    m_PersistentCalls:
-      m_Calls: []
-  OnClientAuthenticated:
-    m_PersistentCalls:
-      m_Calls: []
-  username: asdf
-  password: fdsa1
 --- !u!1001 &543632697568170294
 PrefabInstance:
   m_ObjectHideFlags: 0

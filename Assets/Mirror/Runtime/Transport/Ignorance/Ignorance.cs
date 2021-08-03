@@ -114,9 +114,8 @@ namespace IgnoranceTransport
             if (Client != null)
             {
                 Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
-                // Client.Stop();
+                Client.Stop();
             }
-
 
             // TODO: Figure this one out to see if it's related to a race condition.
             // Maybe experiment with a while loop to pause main thread when disconnecting, 
@@ -211,10 +210,22 @@ namespace IgnoranceTransport
 
         public override string ServerGetClientAddress(int connectionId)
         {
+            if (peerConnectionData == null)
+                return "(unavailable)";
+
+            // Need to adjust the string...
+            if (!string.IsNullOrEmpty(peerConnectionData[connectionId - 1].IP))
+                return $"{peerConnectionData[connectionId - 1].IP}:{peerConnectionData[connectionId - 1].Port}";
+            else
+                return "(unavailable)";
+
+            /*
             if (ConnectionLookupDict.TryGetValue(connectionId, out PeerConnectionData details))
                 return $"{details.IP}:{details.Port}";
 
             return "(unavailable)";
+            */
+
         }
 
 #if !MIRROR_37_0_OR_NEWER
@@ -285,7 +296,8 @@ namespace IgnoranceTransport
                 Server.Stop();
             }
 
-            ConnectionLookupDict.Clear();
+            peerConnectionData = null;
+            // ConnectionLookupDict.Clear();
         }
 
         public override Uri ServerUri()
@@ -366,6 +378,9 @@ namespace IgnoranceTransport
             // Allocates once, that's it.
             if (InternalPacketBuffer == null)
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
+
+            // Setup the peer connection array.
+            peerConnectionData = new PeerConnectionData[420];
         }
 
         private void InitializeClientBackend()
@@ -405,14 +420,24 @@ namespace IgnoranceTransport
                 if (LogType == IgnoranceLogType.Verbose)
                     Debug.Log($"Processing a server connection event from ENet native peer {connectionEvent.NativePeerId}. This peer would be Mirror ConnID {adjustedConnectionId}.");
 
+                // Cache that peer.
+                // NOTE: We cache the peers native id and do some magic later.
+                peerConnectionData[(int)connectionEvent.NativePeerId] = new PeerConnectionData
+                {
+                    IP = connectionEvent.IP,
+                    NativePeerId = connectionEvent.NativePeerId,
+                    Port = connectionEvent.Port
+                };
+
                 // TODO: Investigate ArgumentException: An item with the same key has already been added. Key: <id>
+                /*
                 ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
                 {
                     NativePeerId = connectionEvent.NativePeerId,
                     IP = connectionEvent.IP,
                     Port = connectionEvent.Port
                 });
-
+                */
                 OnServerConnected?.Invoke(adjustedConnectionId);
             }
 
@@ -456,10 +481,11 @@ namespace IgnoranceTransport
             {
                 adjustedConnectionId = (int)disconnectionEvent.NativePeerId + 1;
 
+                // The array is no longer occupied.
+                peerConnectionData[(int)connectionEvent.NativePeerId] = default;
+
                 if (LogType == IgnoranceLogType.Verbose)
                     Debug.Log($"Ignorance Server: ProcessServerPackets fired; handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
-
-                ConnectionLookupDict.Remove(adjustedConnectionId);
 
                 // Invoke Mirror handler.
                 OnServerDisconnected?.Invoke(adjustedConnectionId);
@@ -471,6 +497,44 @@ namespace IgnoranceTransport
             IgnoranceIncomingPacket incomingPacket;
             IgnoranceClientStats clientStats;
             Packet payload;
+
+            // Handle connection events.
+            while (Client.ConnectionEvents.TryDequeue(out IgnoranceConnectionEvent connectionEvent))
+            {
+                if (LogType == IgnoranceLogType.Verbose)
+                    Debug.Log($"Ignorance Client Debug: Processing a client ConnectionEvents queue item. Type: {connectionEvent.EventType.ToString("{0:X2}")}");
+
+                switch (connectionEvent.EventType)
+                {
+                    case 0x00:
+                        // Connected to server.
+                        ClientState = ConnectionState.Connected;
+
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.Log($"Ignorance Client has successfully connected to server at {connectionEvent.IP}:{connectionEvent.Port}");
+
+                        ignoreDataPackets = false;
+                        OnClientConnected?.Invoke();
+                        break;
+
+                    case 0x01:
+                        // Disconnected from server.
+                        ClientState = ConnectionState.Disconnected;
+
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.Log($"Ignorance Client has been disconnected from server.");
+
+                        ignoreDataPackets = true;
+                        OnClientDisconnected?.Invoke();
+                        break;
+
+                    default:
+                        // Unknown type.
+                        if (LogType != IgnoranceLogType.Nothing)
+                            Debug.LogWarning($"Ignorance Client: Unknown connection event type {connectionEvent.EventType.ToString("{0:X2}")}.");
+                        break;
+                }
+            }
 
             // Handle the incoming messages.
             while (Client.Incoming.TryDequeue(out incomingPacket))
@@ -546,22 +610,18 @@ namespace IgnoranceTransport
 #if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
 #endif
-            if (Client.IsAlive)
+            ProcessClientPackets();
+
+            if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
             {
-                ProcessClientPackets();
+                statusUpdateTimer += Time.deltaTime;
 
-                if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
+                if (statusUpdateTimer >= clientStatusUpdateInterval)
                 {
-                    statusUpdateTimer += Time.deltaTime;
-
-                    if (statusUpdateTimer >= clientStatusUpdateInterval)
-                    {
-                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
-                        statusUpdateTimer = 0f;
-                    }
+                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                    statusUpdateTimer = 0f;
                 }
             }
-
         }
 #else
         // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
@@ -569,8 +629,8 @@ namespace IgnoranceTransport
 
         // FixedUpdate can be called many times per frame.
         // Once we've handled stuff, we set a flag so that we don't poll again for this frame.
-
         private bool fixedUpdateCompletedWork;
+
         public void FixedUpdate()
         {
 #if !MIRROR_41_0_OR_NEWER
@@ -578,7 +638,10 @@ namespace IgnoranceTransport
 #endif
             if (fixedUpdateCompletedWork) return;
 
-            ProcessENetPackets();
+            if (Server.IsAlive)
+                ProcessServerPackets();
+
+            ProcessClientPackets();
 
             // Flip the bool to signal we've done our work.
             fixedUpdateCompletedWork = true;
@@ -594,7 +657,12 @@ namespace IgnoranceTransport
 #endif
             // Process what FixedUpdate missed, only if the boolean is not set.
             if (!fixedUpdateCompletedWork)
-                ProcessENetPackets();
+            {
+                if (Server.IsAlive)
+                    ProcessServerPackets();
+
+                ProcessClientPackets();
+            }
 
             // Flip back the bool, so it can be reset.
             fixedUpdateCompletedWork = false;
@@ -610,90 +678,18 @@ namespace IgnoranceTransport
                     new Vector2(32, Screen.height - 240), new Vector2(200, 160)),
 
                     "-- CLIENT --\n" +
-                    $"State: {ClientState}\n" +
+                    $"State: {ClientState} ({(Client.IsAlive ? "Alive" : "Dead")}) \n" +
                     $"Incoming Queue: {Client.Incoming.Count}\n" +
                     $"Outgoing Queue: {Client.Outgoing.Count}\n\n" +
 
                     "-- SERVER --\n" +
+                    $"State: {(Server.IsAlive ? "Alive" : "Dead")} \n" +
                     $"Incoming Queue: {Server.Incoming.Count}\n" +
                     $"Outgoing Queue: {Server.Outgoing.Count}\n" +
                     $"ConnEvent Queue: {Server.ConnectionEvents.Count}"
-                );
+                );;
         }
         #endregion
-
-#pragma warning disable IDE0051 // Remove unused private members
-        // Processes and Executes All Packets.
-        private void ProcessENetPackets()
-        {
-            // --- SERVER WORLD --- //
-
-            // Process Server Events...
-            if (Server.IsAlive)
-                ProcessServerPackets();
-
-            // --- CLIENT WORLD --- //
-
-            // To prevent clients being stuck in limbo...
-            // We need to handle connection events first before we do anything else.
-            // If we do this inside a Client.IsAlive check, then the thread might be done before
-            // the next 
-
-            // Handle connection events.
-            while (Client.ConnectionEvents.TryDequeue(out IgnoranceConnectionEvent connectionEvent))
-            {
-                if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"Ignorance Client Debug: Processing a client ConnectionEvents queue item. Type: {connectionEvent.EventType.ToString("{0:X2}")}");
-
-                switch (connectionEvent.EventType)
-                {
-                    case 0x00:
-                        // Connected to server.
-                        ClientState = ConnectionState.Connected;
-
-                        if (LogType != IgnoranceLogType.Nothing)
-                            Debug.Log($"Ignorance Client has successfully connected to server at {connectionEvent.IP}:{connectionEvent.Port}");
-
-                        ignoreDataPackets = false;
-                        OnClientConnected?.Invoke();
-                        break;
-
-                    case 0x01:
-                        // Disconnected from server.
-                        ClientState = ConnectionState.Disconnected;
-
-                        if (LogType != IgnoranceLogType.Nothing)
-                            Debug.Log($"Ignorance Client has been disconnected from server.");
-
-                        ignoreDataPackets = true;
-                        OnClientDisconnected?.Invoke();
-                        break;
-
-                    default:
-                        // Unknown type
-                        if (LogType != IgnoranceLogType.Nothing)
-                            Debug.LogWarning($"Ignorance Client: Unknown connection event type {connectionEvent.EventType.ToString("{0:X2}")}.");
-                        break;
-                }
-            }
-
-            if (Client.IsAlive)
-            {
-                ProcessClientPackets();
-
-                if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
-                {
-                    statusUpdateTimer += Time.deltaTime;
-
-                    if (statusUpdateTimer >= clientStatusUpdateInterval)
-                    {
-                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                        statusUpdateTimer = 0f;
-                    }
-                }
-            }
-        }
-#pragma warning restore IDE0051 // Remove unused private members
 
         public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
 
@@ -710,6 +706,7 @@ namespace IgnoranceTransport
         private IgnoranceServer Server = new IgnoranceServer();
         private IgnoranceClient Client = new IgnoranceClient();
         private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
+        private PeerConnectionData[] peerConnectionData;
 
         private enum ConnectionState { Connecting, Connected, Disconnecting, Disconnected }
         private ConnectionState ClientState = ConnectionState.Disconnected;
