@@ -43,8 +43,6 @@ namespace IgnoranceTransport
 
         public void Start()
         {
-            Debug.Log("IgnoranceClient.Start()");
-
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
                 // Cannot do that.
@@ -295,9 +293,7 @@ namespace IgnoranceTransport
 
             // Fix for client stuck in limbo, since the disconnection event may not be fired until next loop, again.
             if (!alreadyNotifiedAboutDisconnect)
-            {
                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent { EventType = 0x01 });
-            }
 
             // Deinitialize
             Library.Deinitialize();
