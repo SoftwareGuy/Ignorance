@@ -705,7 +705,6 @@ namespace IgnoranceTransport
         private string cachedConnectionAddress = string.Empty;
         private IgnoranceServer Server = new IgnoranceServer();
         private IgnoranceClient Client = new IgnoranceClient();
-        private Dictionary<int, PeerConnectionData> ConnectionLookupDict = new Dictionary<int, PeerConnectionData>();
         private PeerConnectionData[] peerConnectionData;
 
         private enum ConnectionState { Connecting, Connected, Disconnecting, Disconnected }
