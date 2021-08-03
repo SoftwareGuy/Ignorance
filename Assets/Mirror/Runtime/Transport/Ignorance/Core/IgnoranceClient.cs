@@ -214,7 +214,7 @@ namespace IgnoranceTransport
 
                             case EventType.Connect:
                                 if (setupInfo.Verbosity > 0)
-                                    Debug.Log("Ignorance Client: Connected to server.");
+                                    Debug.Log("Ignorance Client: ENet has connected to the server.");
 
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent
                                 {
@@ -228,7 +228,7 @@ namespace IgnoranceTransport
                             case EventType.Disconnect:
                             case EventType.Timeout:
                                 if (setupInfo.Verbosity > 0)
-                                    Debug.Log("Ignorance Client: Disconnected from server.");
+                                    Debug.Log("Ignorance Client: ENet has been disconnected from the server.");
 
                                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent { EventType = 0x01 });
                                 CeaseOperation = true;
@@ -276,7 +276,7 @@ namespace IgnoranceTransport
                         break;
                 }
 
-                Debug.Log("Ignorance Client: Shutdown commencing. Disconnecting and flushing connection.");
+                Debug.Log("Ignorance Client: Thread shutdown commencing. Disconnecting and flushing connection.");
 
                 // Flush the client and disconnect.
                 clientPeer.Disconnect(0);

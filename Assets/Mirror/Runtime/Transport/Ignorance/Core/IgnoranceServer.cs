@@ -296,7 +296,7 @@ namespace IgnoranceTransport
                 }
 
                 if (Verbosity > 0)
-                    Debug.Log("Ignorance Server: Shutdown commencing, flushing connections.");
+                    Debug.Log("Ignorance Server: Thread shutdown commencing. Flushing connections.");
 
                 // Cleanup and flush everything.
                 serverENetHost.Flush();
