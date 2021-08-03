@@ -297,7 +297,6 @@ namespace IgnoranceTransport
             if (!alreadyNotifiedAboutDisconnect)
             {
                 ConnectionEvents.Enqueue(new IgnoranceConnectionEvent { EventType = 0x01 });
-                alreadyNotifiedAboutDisconnect = true;
             }
 
             // Deinitialize
