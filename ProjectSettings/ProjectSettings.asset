@@ -169,6 +169,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
     Android: studio.oiran.IgnoranceTransportForMirror
+    Standalone: studio.oiran.IgnoranceTransport
   buildNumber: {}
   AndroidBundleVersionCode: 1
   AndroidMinSdkVersion: 19
