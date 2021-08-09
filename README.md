@@ -23,25 +23,19 @@ Mirror itself.
 ENet supports a maximum of 4096 peers connected at the same time with up to 255 channels. Channels allow you to split up network communications so you can have channels
 for data that are mission critical as well as non-essential data. The native library has also been proven to be superior when compared to Unity's own LLAPI library.
 
+Ignorance Standalone
+------------
+See [STANDALONE.md](https://github.com/SoftwareGuy/Ignorance/blob/master/STANDALONE.md).
+
 Not using Mirror? Read This First
 ------------
+Ignorance itself was **not** designed to be used outside of Mirror. If you are using Mirage, then you can still get Ignorance goodness in your project by using the Ignorance port available for that network stack.
 
-*tl;dr: If you are using Mirror, skip this. If you're using Mirage, there's a Ignorance port available for Mirage. This mini-rant is solely to 
-cover my ass because some developers are trying to use this Mirror-oriented transport with their own networking stack and it pains me inside.*
+If you are using your own network stack or you are trying to plumb Ignorance to another networking solution that already exists, you are **much** better off using the [ENet-CSharp wrapper](https://github.com/SoftwareGuy/ENet-CSharp) to talk to ENet directly. You could also try Ignorance Standalone which is mentioned above.
 
-Please allow me to make this *very* clear: Ignorance is **not designed to be used outside of the Mirror Networking stack**. Why is this, you ask?
+I will **not** be able to provide support for Ignorance in non-Mirror environments, *unless* you are using the Ignorance Core in the Standalone configuration mentioned above. Even then, designing your own networking stack is **no easy feat** and unless you are absolutely sure you want to do that, I advise you not to roll your own networking. Use something battle tested like Mirror instead.
 
-A few people have approached me and asked "hey can I use this with my own networking solution?" or they go ahead and try to shoehorn Ignorance into their own network stack,
-make a mess of it and then either blame me for the failure, come crying to me and beg for me to figure out what they did wrong or why Ignorance doesn't do what they want it to
-on their own stack. Some others don't even know half of what Ignorance does under the bonnet and they look at me strangely when shit breaks.
-
-If you are going to use your own network stack, you are **much better off using the [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp) repository** to create
-your own ENet bridge between Managed C# and Native C ENet worlds. You can study Ignorance as a implementation example of a high-performance glue layer that sits between your code
-and ENet, but trying to shoehorn Ignorance into your own network stack will most likely lead you to pain, misery and probably questioning yourself why you are even doing this in
-the first place.
-
-In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). Do not expect support, if any at all. 
-I have enough to deal with keeping Ignorance up to date and running as smoothly as possible in Mirror environments than have to deal with countless unsupported usage cases.
+In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). I have enough to deal with keeping Ignorance up to date and running as smoothly as possible in Mirror environments than have to deal with countless unsupported usage cases. If you use this code in a unsupported usage case, then *you are on your own*. Sounds harsh, but it is what it is.
 
 Thank you for attending my TED talk, now on with the show.
 
@@ -97,9 +91,9 @@ Follow the instructions below.
 How to use
 ----------
 
-I have included a pre-configured sample scene so you can get started easily. Otherwise add the script 
-called **Ignorance** to your NetworkManager object, removing any TCP-based or other UDP-based transport. 
-Then set the script to be used in NetworkManagers' "Transport" field.
+I have included two pre-configured sample scenes so you can get started easily. One is Pong, one is a copy paste with some modifications
+of Mirror's Basic scene. Otherwise add the script called **Ignorance** to your NetworkManager object, removing any TCP-based or other 
+UDP-based transport (ie. KCP2K). Then set the script to be used in NetworkManagers' "Transport" field.
 
 FAQ (aka Please Read This First)
 --------------------------------
@@ -132,11 +126,13 @@ Credits
 -   [Katori](https://github.com/katori): Helped kickstart the threaded version that evolved into short-lived Ignorance 2.x version, which later became 
 	Ignorance Threaded.
 
+-   [PhantomGamers](https://github.com/PhantomGamers): Got Mirror + Ignorance working as a BepInEx client-side side-load modification for a game. Holy shit, that's cool.   
+
 -   [BigBoxVR](https://github.com/GabeBigBoxVR): Pull requests and found a race condition that threatened stability. Also uses Ignorance in Population One, a VR title.
 
 -   [Martin](https://github.com/martindevans): Pull requests, testing with Dissonance. Great VoIP asset for Unity.
 
--   [vis2k](https://github.com/vis2k) and [Paul](https://github.com/paulpach): Mirror and MirrorNG developers respectively.
+-   [vis2k](https://github.com/vis2k) and [Paul](https://github.com/paulpach): Mirror and Mirage developers respectively.
 
 -   [c6burns](https://github.com/c6burns), [Petris](https://github.com/MichalPetryka), [shiena](https://github.com/shiena), [Draknith](https://github.com/FizzCube): Former buddies that helped a lot.
 
