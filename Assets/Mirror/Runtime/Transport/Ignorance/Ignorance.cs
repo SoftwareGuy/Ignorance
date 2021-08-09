@@ -618,7 +618,7 @@ namespace IgnoranceTransport
 
                 if (statusUpdateTimer >= clientStatusUpdateInterval)
                 {
-                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
+                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
                     statusUpdateTimer = 0f;
                 }
             }
