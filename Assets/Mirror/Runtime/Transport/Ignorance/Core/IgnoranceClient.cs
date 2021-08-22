@@ -5,6 +5,7 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using ENet;
@@ -126,9 +127,22 @@ namespace IgnoranceTransport
 
             using (clientHost = new Host())
             {
-                // TODO: Maybe try catch this
-                clientHost.Create();
-                clientPeer = clientHost.Connect(clientAddress, setupInfo.Channels);
+                try
+                {
+                    clientHost.Create();
+                    clientPeer = clientHost.Connect(clientAddress, setupInfo.Channels);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"Ignorance Client: While attempting to create client object, we caught an exception:\n{ex.Message}");
+                    Debug.LogError($"Looks like something went wrong. It may be worth getting the Debug ENet libraries and having it spit out" +
+                        $" a logfile for further debugging. Alternatively, you could restart your device to ensure jank is cleared out of memory." +
+                        $" If problems persist, please file a support ticket.");
+
+                    Library.Deinitialize();
+                    return;
+                }
+
 
                 while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
                 {

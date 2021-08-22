@@ -4,6 +4,7 @@
 // Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using ENet;
@@ -133,7 +134,20 @@ namespace IgnoranceTransport
             using (serverENetHost = new Host())
             {
                 // Create the server object.
-                serverENetHost.Create(serverAddress, setupInfo.Peers, setupInfo.Channels);
+                try
+                {
+                    serverENetHost.Create(serverAddress, setupInfo.Peers, setupInfo.Channels);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Ignorance Server: While attempting to create server host object, we caught an exception:\n{ex.Message}");
+                    Debug.LogError($"If you are getting a \"Host creation call failed\" exception, please ensure you don't have a server already running on the same IP and Port.\n" +
+                        $"Multiple server instances running on the same port are not supported. Also check to see if ports are not in-use by another applicatio. In the worse case scenario, " +
+                        $"restart your device to ensure no random background ENet threads are active that haven't been cleaned up correctly. If problems persist, please file a support ticket.");
+
+                    Library.Deinitialize();
+                    return;
+                }
 
                 // Loop until we're told to cease operations.
                 while (!CeaseOperation)
