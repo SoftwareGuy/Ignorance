@@ -24,10 +24,10 @@ namespace IgnoranceTransport
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0b7";
+        public const string Version = "1.4.0b8";
         public const string Scheme = "enet";
         public const string BindAllIPv4 = "0.0.0.0";
-        public const string BindAllMacs = "::0";
+        public const string BindAllIPv6 = "::0";
     }
 
     public enum IgnoranceLogType
