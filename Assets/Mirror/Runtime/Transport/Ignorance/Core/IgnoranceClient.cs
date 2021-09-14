@@ -132,12 +132,12 @@ namespace IgnoranceTransport
                     clientHost.Create();
                     clientPeer = clientHost.Connect(clientAddress, setupInfo.Channels);
                 }
-                catch (System.Exception ex)
+                catch (Exception ex)
                 {
-                    Debug.LogError($"Ignorance Client: While attempting to create client object, we caught an exception:\n{ex.Message}");
-                    Debug.LogError($"Looks like something went wrong. It may be worth getting the Debug ENet libraries and having it spit out" +
-                        $" a logfile for further debugging. Alternatively, you could restart your device to ensure jank is cleared out of memory." +
-                        $" If problems persist, please file a support ticket.");
+                    // Oops, something failed.
+                    Debug.LogError($"Ignorance Client: Looks like something went wrong. While attempting to create client object, we caught an exception:\n{ex.Message}");
+                    Debug.LogError($"You could try the debug-enabled version of the native ENet library which creates a logfile, or alternatively you could try restart " +
+                        $"your device to ensure jank is cleared out of memory. If problems persist, please file a support ticket explaining what happened.");
 
                     Library.Deinitialize();
                     return;
