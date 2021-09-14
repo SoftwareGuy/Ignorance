@@ -29,13 +29,13 @@ namespace IgnoranceTransport
         public bool serverBindsAll = true;
         [Tooltip("This is only used if Server Binds All is unticked.")]
         public string serverBindAddress = string.Empty;
-        [Tooltip("This tells ENet how many Peer slots to create. Helps performance, avoids looping over huge native arrays. Recommended: Max Mirror players, rounded to nearest 10. (Example: 16 -> 20).")]
+        [Tooltip("How many peers native ENet will support. Low sane numbers help performance, avoids looping over huge native arrays. Recommended: maximum Mirror players, rounded to nearest 10. (Example: 16 -> 20).")]
         public int serverMaxPeerCapacity = 50;
-        [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage. Lower values may (not) impact performance at high packet load.")]
+        [Tooltip("Server network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
         public int serverMaxNativeWaitTime = 1;
 
         [Header("Client Configuration")]
-        [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage used. This is for the client, unlike the one above. Higher value probably trades CPU for more responsive networking.")]
+        [Tooltip("Client network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
         public int clientMaxNativeWaitTime = 3;
         [Tooltip("Interval between asking ENet for client status updates. Set to -1 to disable.")]
         public int clientStatusUpdateInterval = -1;
@@ -45,9 +45,8 @@ namespace IgnoranceTransport
         public IgnoranceChannelTypes[] Channels;
 
         [Header("Low-level Tweaking")]
-        [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused.")]
+        [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused. If you have large packets, change this to something larger. Default is 4096 bytes (4KB).")]
         public int PacketBufferCapacity = 4096;
-
         [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. You can increase this, however beware this may open you up to allocation attacks.")]
         public int MaxAllowedPacketSize = 33554432;
         #endregion
@@ -361,7 +360,7 @@ namespace IgnoranceTransport
             // Set up the new IgnoranceServer reference.
             if (serverBindsAll)
                 // MacOS is special. It's also a massive thorn in my backside.
-                Server.BindAddress = IgnoranceInternals.BindAllMacs;
+                Server.BindAddress = IgnoranceInternals.BindAllIPv6;
             else
                 // Use the supplied bind address.
                 Server.BindAddress = serverBindAddress;
@@ -380,7 +379,7 @@ namespace IgnoranceTransport
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
 
             // Setup the peer connection array.
-            peerConnectionData = new PeerConnectionData[420];
+            peerConnectionData = new PeerConnectionData[serverMaxPeerCapacity]; // ...what was the original 420 value used for??
         }
 
         private void InitializeClientBackend()
