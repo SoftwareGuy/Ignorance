@@ -699,8 +699,6 @@ namespace IgnoranceTransport
         }
 #else
         // Mirror pre-46 work arounds. Should work somewhat.
-        public override int GetMaxPacketSize(int channelId = 0) => GetMaxBatchSize(channelId);
-
         // UDP Recommended Max MTU = 1200.
         public override int GetMaxBatchSize(int channelId)
         {
