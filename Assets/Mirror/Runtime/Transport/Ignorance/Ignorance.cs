@@ -31,7 +31,7 @@ namespace IgnoranceTransport
         public string serverBindAddress = string.Empty;
         [Tooltip("This tells ENet how many Peer slots to create. Helps performance, avoids looping over huge native arrays. Recommended: Max Mirror players, rounded to nearest 10. (Example: 16 -> 20).")]
         public int serverMaxPeerCapacity = 50;
-        [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage. Lower values may/may not impact performance at high packet load.")]
+        [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage. Lower values may (not) impact performance at high packet load.")]
         public int serverMaxNativeWaitTime = 1;
 
         [Header("Client Configuration")]
@@ -691,7 +691,16 @@ namespace IgnoranceTransport
         }
         #endregion
 
-        public override int GetMaxPacketSize(int channelId = 0) => MaxAllowedPacketSize;
+        // Mirror 46 (Mirror LTS) work arounds
+#if MIRROR_46_OR_NEWER
+        public override int GetMaxPacketSize(int channelId = 0)
+        {
+            bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
+            return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
+        }
+#else
+        // Mirror pre-46 work arounds. Should work somewhat.
+        public override int GetMaxPacketSize(int channelId = 0) => GetMaxBatchSize(channelId);
 
         // UDP Recommended Max MTU = 1200.
         public override int GetMaxBatchSize(int channelId)
@@ -699,6 +708,7 @@ namespace IgnoranceTransport
             bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
             return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
         }
+#endif
 
         #region Internals
         private bool ignoreDataPackets;
@@ -712,8 +722,6 @@ namespace IgnoranceTransport
         private byte[] InternalPacketBuffer;
 
         private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
-
-        private float statusUpdateTimer = 0f;
         #endregion
 
         #region Ignorance 1.4.x for Mirror Legacy Overrides
