@@ -691,22 +691,29 @@ namespace IgnoranceTransport
         #endregion
 
         // Mirror 46 (Mirror LTS) work arounds
-#if MIRROR_46_OR_NEWER
+
+#if MIRROR_46_0_OR_NEWER
         public override int GetMaxPacketSize(int channelId = 0)
         {
             bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
             return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
         }
 #else
-        // Mirror pre-46 work arounds. Should work somewhat.
         // UDP Recommended Max MTU = 1200.
-        public override int GetMaxBatchSize(int channelId)
+        // This fixes a weird compile error when updating, where Mirror 46 LTS complains about missing abstruct member or something.
+        // Shouldn't be needed, but whatever.
+        // Ignorance.cs(16,18): error CS0534: 'Ignorance' does not implement inherited abstract member 'Transport.GetMaxPacketSize(int)'
+        // FakeByte said it's not needed but apparently it is needed during the update process. Probably due to how Scripting Defines are
+		// added via the Mirror scripts.
+
+        public override int GetMaxPacketSize(int channelId = 0) => GetMaxBatchSize(channelId);
+
+        public int GetMaxBatchSize(int channelId)
         {
             bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
             return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
         }
 #endif
-
         #region Internals
         private bool ignoreDataPackets;
         private string cachedConnectionAddress = string.Empty;
