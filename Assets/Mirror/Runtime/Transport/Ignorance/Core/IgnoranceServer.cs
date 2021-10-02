@@ -5,6 +5,7 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using ENet;
 using UnityEngine;
@@ -38,6 +39,10 @@ namespace IgnoranceTransport
         public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
         public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
         public ConcurrentQueue<IgnoranceConnectionEvent> DisconnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
+        public ConcurrentQueue<IgnoranceServerStats> StatusUpdates = new ConcurrentQueue<IgnoranceServerStats>();
+
+        // Pools
+        public ConcurrentQueue<IgnoranceServerStats> RecycledServerStatBlocks = new ConcurrentQueue<IgnoranceServerStats>();
 
         // Thread
         private Thread WorkerThread;
@@ -100,6 +105,7 @@ namespace IgnoranceTransport
             Address serverAddress = new Address();
             Host serverENetHost;
             Event serverENetEvent;
+            IgnoranceClientStats peerStats = default;
 
             Peer[] serverPeerArray;
 
@@ -166,6 +172,37 @@ namespace IgnoranceTransport
                                 // Disconnect and reset the peer array's entry for that peer.
                                 serverPeerArray[targetPeer].DisconnectNow(0);
                                 serverPeerArray[targetPeer] = default;
+                                break;
+                            case IgnoranceCommandType.ServerStatusRequest:
+                                IgnoranceServerStats serverStats;
+                                if (!RecycledServerStatBlocks.TryDequeue(out serverStats))
+                                    serverStats.PeerStats = new Dictionary<int, IgnoranceClientStats>(setupInfo.Peers);
+                                serverStats.PeerStats.Clear();
+
+                                serverStats.BytesReceived = serverENetHost.BytesReceived;
+                                serverStats.BytesSent = serverENetHost.BytesSent;
+
+                                serverStats.PacketsReceived = serverENetHost.PacketsReceived;
+                                serverStats.PacketsSent = serverENetHost.PacketsSent;
+
+                                serverStats.PeersCount = serverENetHost.PeersCount;
+
+                                for (int i = 0; i < serverPeerArray.Length; i++)
+                                {
+                                    if (!serverPeerArray[i].IsSet) continue;
+
+                                    peerStats.RTT = serverPeerArray[i].RoundTripTime;
+
+                                    peerStats.BytesReceived = serverPeerArray[i].BytesReceived;
+                                    peerStats.BytesSent = serverPeerArray[i].BytesSent;
+
+                                    peerStats.PacketsSent = serverPeerArray[i].PacketsSent;
+                                    peerStats.PacketsLost = serverPeerArray[i].PacketsLost;
+
+                                    serverStats.PeerStats.Add(i, peerStats);
+                                }
+
+                                StatusUpdates.Enqueue(serverStats);
                                 break;
                         }
                     }
