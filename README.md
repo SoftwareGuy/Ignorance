@@ -18,6 +18,7 @@ Ignorance is a high-performance UDP based transport that plugs into [Mirror Netw
 The benefit of Ignorance is that you can utilize channels which allow you to split up network communications. This allows you to have channels for data that are mission critical and must be sent out the door as quickly as possible as well as channels that can send slower non-essential data.
 
 **Mirror LTS v46.x or Mirror Mainline v46.x onwards required.** Ignorance 1.4.0 (Non-Beta) will not work with older Mirror versions.
+
 Ignorance Standalone
 ------------
 See [STANDALONE.md](https://github.com/SoftwareGuy/Ignorance/blob/master/STANDALONE.md).
