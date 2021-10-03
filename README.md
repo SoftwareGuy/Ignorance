@@ -60,7 +60,7 @@ in the Unity Build Settings window. There are a lot of other benefits to be usin
 **Supported platforms, out of the box:**
 
 - 64Bit Desktop Platforms (Windows, Mac, Linux), Android (ARMv7/ARM64) including VR devices and iOS (ARMv7/ARM64).
-- 
+
 - If ENet native can run on it and it's supported by Unity, you're good to go with Ignorance.
 
 **Other platforms that require some extra work:**
