@@ -5,7 +5,6 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System;
-using System.Collections.Generic;
 using ENet;
 using Mirror;
 using UnityEngine;
@@ -114,17 +113,13 @@ namespace IgnoranceTransport
         {
             if (Client != null)
             {
-                Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
+                // Fix for the Client commands RingBuffer not being initialized if we're in host mode.
+                if (Client.Commands != null)
+                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
+
                 Client.Stop();
             }
 
-            // TODO: Figure this one out to see if it's related to a race condition.
-            // Maybe experiment with a while loop to pause main thread when disconnecting, 
-            // since client might not stop on a dime.			
-            // while(Client.IsAlive) ;
-            // v1.4.0b1: Probably fixed in IgnoranceClient.cs; need further testing.
-
-            // ignoreDataPackets = true;
             ClientState = ConnectionState.Disconnected;
         }
 
@@ -352,7 +347,7 @@ namespace IgnoranceTransport
             // Set up the new IgnoranceServer reference.
             if (serverBindsAll)
                 // MacOS is special. It's also a massive thorn in my backside.
-                Server.BindAddress = IgnoranceInternals.BindAllIPv6;
+                Server.BindAddress = IgnoranceInternals.BindAnyAddress;
             else
                 // Use the supplied bind address.
                 Server.BindAddress = serverBindAddress;
@@ -364,7 +359,7 @@ namespace IgnoranceTransport
             Server.PollTime = serverMaxNativeWaitTime;
             Server.MaximumPacketSize = MaxAllowedPacketSize;
             Server.Verbosity = (int)LogType;
-
+            Server.MaximumRingBufferSize = RingBufferCapacity;
             // Initializes the packet buffer.
             // Allocates once, that's it.
             if (InternalPacketBuffer == null)
@@ -389,6 +384,7 @@ namespace IgnoranceTransport
             Client.PollTime = clientMaxNativeWaitTime;
             Client.MaximumPacketSize = MaxAllowedPacketSize;
             Client.Verbosity = (int)LogType;
+            Client.MaximumRingBufferSize = RingBufferCapacity;
 
             // Initializes the packet buffer.
             // Allocates once, that's it.
@@ -601,6 +597,8 @@ namespace IgnoranceTransport
 #if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
 #endif
+
+            if(ClientState != ConnectionState.Disconnected)
             ProcessClientPackets();
 
             if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
@@ -632,7 +630,8 @@ namespace IgnoranceTransport
             if (Server.IsAlive)
                 ProcessServerPackets();
 
-            ProcessClientPackets();
+            if (ClientState != ConnectionState.Disconnected)
+                ProcessClientPackets();
 
             // Flip the bool to signal we've done our work.
             fixedUpdateCompletedWork = true;
@@ -652,7 +651,8 @@ namespace IgnoranceTransport
                 if (Server.IsAlive)
                     ProcessServerPackets();
 
-                ProcessClientPackets();
+                if (ClientState != ConnectionState.Disconnected)
+                    ProcessClientPackets();
             }
 
             // Flip back the bool, so it can be reset.
@@ -678,7 +678,7 @@ namespace IgnoranceTransport
                     $"Incoming Queue: {Server.Incoming.Count}\n" +
                     $"Outgoing Queue: {Server.Outgoing.Count}\n" +
                     $"ConnEvent Queue: {Server.ConnectionEvents.Count}"
-                );;
+                );
         }
         #endregion
 
