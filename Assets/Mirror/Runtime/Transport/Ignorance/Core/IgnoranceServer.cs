@@ -177,7 +177,7 @@ namespace IgnoranceTransport
                                 if (!serverPeerArray[targetPeer].IsSet) continue;
 
                                 if (setupInfo.Verbosity > 0)
-                                    Debug.Log($"Ignorance Server: Booting ENet Peer {targetPeer} off this server instance.");
+                                    Debug.Log($"Ignorance Server: Booting Peer {targetPeer} off");
 
                                 IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent
                                 {
@@ -337,6 +337,24 @@ namespace IgnoranceTransport
                 Debug.Log("Ignorance Server: Shutdown complete.");
 
             Library.Deinitialize();
+        }
+#endregion
+
+        private void SetupRingBuffersIfNull()
+        {
+            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. Capacity: {MaximumRingBufferSize} items." +
+                $"If they are already, this step will be skipped.");
+
+            if (Incoming == null)
+                Incoming = new RingBuffer<IgnoranceIncomingPacket>(MaximumRingBufferSize);
+            if (Outgoing == null)
+                Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(MaximumRingBufferSize);
+            if (Commands == null)
+                Commands = new RingBuffer<IgnoranceCommandPacket>(MaximumRingBufferSize);
+            if (ConnectionEvents == null)
+                ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(MaximumRingBufferSize);
+            if (DisconnectionEvents == null)
+                DisconnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(MaximumRingBufferSize);
         }
 
         private struct ThreadParamInfo
