@@ -13,6 +13,8 @@ using Event = ENet.Event;           // fixes CS0104 ambigous reference between t
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using Object = System.Object;       // fixes CS0104 ambigous reference between the same thing in UnityEngine
 
+using Ignorance.Thirdparty;
+
 namespace IgnoranceTransport
 {
     public class IgnoranceServer
@@ -27,18 +29,22 @@ namespace IgnoranceTransport
         public int MaximumPacketSize = 33554432;    // ENet.cs: uint maxPacketSize = 32 * 1024 * 1024 = 33554432
         // - Native poll waiting time
         public int PollTime = 1;
+        // - Verbosity.
         public int Verbosity = 1;
+        // - Queue Sizing
+        public int MaximumRingBufferSize = 10000;
 
         public bool IsAlive => WorkerThread != null && WorkerThread.IsAlive;
 
         private volatile bool CeaseOperation = false;
 
         // Queues
-        public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
-        public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
-        public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
-        public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
-        public ConcurrentQueue<IgnoranceConnectionEvent> DisconnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
+        // v1.4.0b9: Replace the queues with RingBuffers.
+        public RingBuffer<IgnoranceIncomingPacket> Incoming;
+        public RingBuffer<IgnoranceOutgoingPacket> Outgoing;
+        public RingBuffer<IgnoranceCommandPacket> Commands;
+        public RingBuffer<IgnoranceConnectionEvent> ConnectionEvents;
+        public RingBuffer<IgnoranceConnectionEvent> DisconnectionEvents;
 
         // Thread
         private Thread WorkerThread;
@@ -51,6 +57,9 @@ namespace IgnoranceTransport
                 Debug.LogError("Ignorance Server: A worker thread is already running. Cannot start another.");
                 return;
             }
+
+            // Setup the ring buffers.
+            SetupRingBuffersIfNull();
 
             CeaseOperation = false;
             ThreadParamInfo threadParams = new ThreadParamInfo()
@@ -91,6 +100,7 @@ namespace IgnoranceTransport
             }
         }
 
+        #region The meat and potatoes.
         private void ThreadWorker(Object parameters)
         {
             if (Verbosity > 0)
@@ -142,7 +152,7 @@ namespace IgnoranceTransport
                 {
                     Debug.LogError($"Ignorance Server: While attempting to create server host object, we caught an exception:\n{ex.Message}");
                     Debug.LogError($"If you are getting a \"Host creation call failed\" exception, please ensure you don't have a server already running on the same IP and Port.\n" +
-                        $"Multiple server instances running on the same port are not supported. Also check to see if ports are not in-use by another applicatio. In the worse case scenario, " +
+                        $"Multiple server instances running on the same port are not supported. Also check to see if ports are not in-use by another application. In the worse case scenario, " +
                         $"restart your device to ensure no random background ENet threads are active that haven't been cleaned up correctly. If problems persist, please file a support ticket.");
 
                     Library.Deinitialize();
@@ -238,7 +248,7 @@ namespace IgnoranceTransport
                             // Connection Event.
                             case EventType.Connect:
                                 if (setupInfo.Verbosity > 1)
-                                    Debug.Log($"Ignorance Server: Hello new peer with ID {incomingPeer.ID}!");
+                                    Debug.Log($"Ignorance Server: Peer ID {incomingPeer.ID} says Hi.");
 
                                 IgnoranceConnectionEvent ice = new IgnoranceConnectionEvent()
                                 {
@@ -259,7 +269,7 @@ namespace IgnoranceTransport
                                 if (!serverPeerArray[incomingPeer.ID].IsSet) break;
 
                                 if (setupInfo.Verbosity > 1)
-                                    Debug.Log($"Ignorance Server: Bye bye Peer {incomingPeer.ID}; They have disconnected.");
+                                    Debug.Log($"Ignorance Server: Peer {incomingPeer.ID} has disconnected.");
 
                                 IgnoranceConnectionEvent iced = new IgnoranceConnectionEvent
                                 {
