@@ -45,9 +45,11 @@ namespace IgnoranceTransport
         public IgnoranceChannelTypes[] Channels;
 
         [Header("Low-level Tweaking")]
+        [Tooltip("How many items the internal Ring Buffer will hold. If capacity is exceeded, you will get errors. You may need to experiment with this value if you have very high network IO.")]
+        public int RingBufferCapacity = 10000;
         [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused. If you have large packets, change this to something larger. Default is 4096 bytes (4KB).")]
         public int PacketBufferCapacity = 4096;
-        [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. You can increase this, however beware this may open you up to allocation attacks.")]
+        [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. This is the maximum allowed packet size, however note that internally ENet can only go to 32MB.")]
         public int MaxAllowedPacketSize = 33554432;
         #endregion
 
@@ -70,7 +72,7 @@ namespace IgnoranceTransport
         public void Awake()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                print($"Thanks for using Ignorance {IgnoranceInternals.Version}. Keep up to date, report bugs and support the developer at https://github.com/SoftwareGuy/Ignorance!");
+                print($"Ignorance {IgnoranceInternals.Version} has arrived. Keep up to date, report bugs and support the developer at https://github.com/SoftwareGuy/Ignorance!");
         }
 
         public override string ToString()
@@ -217,14 +219,6 @@ namespace IgnoranceTransport
                 return $"{peerConnectionData[connectionId - 1].IP}:{peerConnectionData[connectionId - 1].Port}";
             else
                 return "(unavailable)";
-
-            /*
-            if (ConnectionLookupDict.TryGetValue(connectionId, out PeerConnectionData details))
-                return $"{details.IP}:{details.Port}";
-
-            return "(unavailable)";
-            */
-
         }
 
 #if !MIRROR_37_0_OR_NEWER
@@ -238,13 +232,13 @@ namespace IgnoranceTransport
         {
             if (Server == null)
             {
-                Debug.LogError("Cannot enqueue data packet; our Server object is null. Something has gone wrong.");
+                Debug.LogError("Ignorance Error: Cannot enqueue data packet; our Server object is null. Something has gone wrong.");
                 return;
             }
 
             if (channelId < 0 || channelId > Channels.Length)
             {
-                Debug.LogError("Channel ID is out of bounds.");
+                Debug.LogError("Ignorance Error: Channel ID is out of bounds.");
                 return;
             }
 
@@ -258,7 +252,7 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Ignorance Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             serverOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, (PacketFlags)Channels[channelId]);
@@ -272,13 +266,12 @@ namespace IgnoranceTransport
             };
 
             Server.Outgoing.Enqueue(dispatchPacket);
-
         }
 
         public override void ServerStart()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                Debug.Log("Ignorance Server Instance starting up...");
+                Debug.Log("Ignorance: Server Instance starting up...");
 
             InitializeServerBackend();
 
@@ -290,13 +283,12 @@ namespace IgnoranceTransport
             if (Server != null)
             {
                 if (LogType != IgnoranceLogType.Nothing)
-                    Debug.Log("Ignorance Server Instance shutting down...");
+                    Debug.Log("Ignorance: Server Instance shutting down...");
 
                 Server.Stop();
             }
 
             peerConnectionData = null;
-            // ConnectionLookupDict.Clear();
         }
 
         public override Uri ServerUri()
@@ -327,6 +319,7 @@ namespace IgnoranceTransport
                     Debug.LogWarning("Please do not modify Ignorance Channel 0. The channel will be reset to Reliable delivery. If you need a channel with a different delivery, define and use it instead.");
                     Channels[0] = IgnoranceChannelTypes.Reliable;
                 }
+
                 if (Channels[1] != IgnoranceChannelTypes.Unreliable)
                 {
                     Debug.LogWarning("Please do not modify Ignorance Channel 1. The channel will be reset to Unreliable delivery. If you need a channel with a different delivery, define and use it instead.");
@@ -338,7 +331,6 @@ namespace IgnoranceTransport
                 Debug.LogWarning("Invalid Channels setting, fixing. If you've just added Ignorance to your NetworkManager GameObject, seeing this message is normal.");
                 Channels = new IgnoranceChannelTypes[2]
                 {
-
                     IgnoranceChannelTypes.Reliable,
                     IgnoranceChannelTypes.Unreliable
                 };
@@ -353,7 +345,7 @@ namespace IgnoranceTransport
         {
             if (Server == null)
             {
-                Debug.LogWarning("IgnoranceServer reference for Server mode was null. This shouldn't happen, but to be safe we'll reinitialize it.");
+                Debug.LogWarning("Ignorance: Server reference for Server mode was null. This shouldn't happen, but to be safe we'll attempt to reinitialize it.");
                 Server = new IgnoranceServer();
             }
 
