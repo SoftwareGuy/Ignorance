@@ -5,6 +5,7 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System;
+using System.Collections.Generic;
 using ENet;
 
 namespace IgnoranceTransport
@@ -44,7 +45,7 @@ namespace IgnoranceTransport
         public byte EventType;  // v1.4.0b7: Used to determine what's going on and remove a queue.
         public ushort PeerPort;
         public uint NativePeerId;
-        public string PeerIp;       
+        public string PeerIp;
         public Packet Payload;
     }
 
@@ -82,20 +83,33 @@ namespace IgnoranceTransport
         public ulong PacketsLost;
     }
 
+    public struct IgnoranceServerStats
+    {
+        // Stats only - may not always be used!
+        public ulong BytesReceived;
+        public ulong BytesSent;
+        public ulong PacketsReceived;
+        public ulong PacketsSent;
+        public ulong PeersCount;
+
+        public Dictionary<int, IgnoranceClientStats> PeerStats;
+    }
+
     public enum IgnoranceCommandType
     {
         // Client
         ClientWantsToStop,
         ClientStatusRequest,
         // Server
-        ServerKickPeer
+        ServerKickPeer,
+        ServerStatusRequest
     }
 
     // TODO: Optimize struct for Cache performance.
     public struct PeerConnectionData
     {
         public ushort Port;
-        public uint NativePeerId;       
+        public uint NativePeerId;
         public string IP;
     }
 }

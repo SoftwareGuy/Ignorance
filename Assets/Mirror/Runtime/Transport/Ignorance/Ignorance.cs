@@ -33,6 +33,8 @@ namespace IgnoranceTransport
         public int serverMaxPeerCapacity = 50;
         [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage. Lower values may/may not impact performance at high packet load.")]
         public int serverMaxNativeWaitTime = 1;
+        [Tooltip("Interval between asking ENet for server status updates. Set to -1 to disable.")]
+        public int serverStatusUpdateInterval = -1;
 
         [Header("Client Configuration")]
         [Tooltip("How long ENet waits in native world. The higher this value, the more CPU usage used. This is for the client, unlike the one above. Higher value probably trades CPU for more responsive networking.")]
@@ -54,6 +56,7 @@ namespace IgnoranceTransport
 
         #region Public Statistics
         public IgnoranceClientStats ClientStatistics;
+        public IgnoranceServerStats ServerStatistics;
         #endregion
 
 #if MIRROR_26_0_OR_NEWER
@@ -87,7 +90,7 @@ namespace IgnoranceTransport
             // Initialize.
             InitializeClientBackend();
 
-            // Get going.            
+            // Get going.
             ignoreDataPackets = false;
 
             // Start!
@@ -110,7 +113,7 @@ namespace IgnoranceTransport
         public override bool ClientConnected() => ClientState == ConnectionState.Connected;
 
         public override void ClientDisconnect()
-        {           
+        {
             if (Client != null)
             {
                 ClientState = ConnectionState.Disconnecting;
@@ -300,7 +303,7 @@ namespace IgnoranceTransport
         {
             if (Channels != null && Channels.Length >= 2)
             {
-                // Check to make sure that Channel 0 and 1 are correct.             
+                // Check to make sure that Channel 0 and 1 are correct.
                 if (Channels[0] != IgnoranceChannelTypes.Reliable)
                 {
                     Debug.LogWarning("Please do not modify Ignorance Channel 0. The channel will be reset to Reliable delivery. If you need a channel with a different delivery, define and use it instead.");
@@ -356,6 +359,10 @@ namespace IgnoranceTransport
             // Allocates once, that's it.
             if (InternalPacketBuffer == null)
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
+
+            // This is required to ensure that ServerStatistics peer stats are initialised before first update
+            if (ServerStatistics.PeerStats == null)
+                ServerStatistics.PeerStats = new Dictionary<int, IgnoranceClientStats>(serverMaxPeerCapacity);
         }
 
         private void InitializeClientBackend()
@@ -383,6 +390,7 @@ namespace IgnoranceTransport
         private void ProcessServerPackets()
         {
             IgnoranceIncomingPacket incomingPacket;
+            IgnoranceServerStats serverStats;
             IgnoranceConnectionEvent connectionEvent;
             int adjustedConnectionId;
             Packet payload;
@@ -453,6 +461,13 @@ namespace IgnoranceTransport
 
                 // Invoke Mirror handler.
                 OnServerDisconnected?.Invoke(adjustedConnectionId);
+            }
+
+            // Handle status updates.
+            if (Server.StatusUpdates.TryDequeue(out serverStats))
+            {
+                Server.RecycledServerStatBlocks.Enqueue(ServerStatistics);
+                ServerStatistics = serverStats;
             }
         }
 
@@ -597,7 +612,21 @@ namespace IgnoranceTransport
     #endif
             // Process Server Events...
             if (Server.IsAlive)
+            {
                 ProcessServerPackets();
+
+                if (serverStatusUpdateInterval > -1)
+                {
+                    serverStatusUpdateTimer += Time.deltaTime;
+
+                    if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
+                    {
+                        Server.Commands.Enqueue(new IgnoranceCommandPacket
+                            { Type = IgnoranceCommandType.ServerStatusRequest });
+                        serverStatusUpdateTimer = 0f;
+                    }
+                }
+            }
         }
 
         public override void ClientEarlyUpdate()
@@ -612,12 +641,12 @@ namespace IgnoranceTransport
 
                 if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
                 {
-                    statusUpdateTimer += Time.deltaTime;
+                    clientStatusUpdateTimer += Time.deltaTime;
 
-                    if (statusUpdateTimer >= clientStatusUpdateInterval)
+                    if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
                     {
                         Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientRequestsStatusUpdate });
-                        statusUpdateTimer = 0f;
+                        clientStatusUpdateTimer = 0f;
                     }
                 }
             }
@@ -688,7 +717,21 @@ namespace IgnoranceTransport
         {
             // Process Server Events...
             if (Server.IsAlive)
+            {
                 ProcessServerPackets();
+
+                if (serverStatusUpdateInterval > -1)
+                {
+                    serverStatusUpdateTimer += Time.deltaTime;
+
+                    if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
+                    {
+                        Server.Commands.Enqueue(new IgnoranceCommandPacket
+                            { Type = IgnoranceCommandType.ServerRequestsStatusUpdate });
+                        serverStatusUpdateTimer = 0f;
+                    }
+                }
+            }
 
             // Process Client Events...
             if (Client.IsAlive)
@@ -697,12 +740,12 @@ namespace IgnoranceTransport
 
                 if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
                 {
-                    statusUpdateTimer += Time.deltaTime;
+                    clientStatusUpdateTimer += Time.deltaTime;
 
-                    if (statusUpdateTimer >= clientStatusUpdateInterval)
+                    if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
                     {
                         Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                        statusUpdateTimer = 0f;
+                        clientStatusUpdateTimer = 0f;
                     }
                 }
             }
@@ -730,7 +773,8 @@ namespace IgnoranceTransport
 
         private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
 
-        private float statusUpdateTimer = 0f;
+        private float clientStatusUpdateTimer = 0f;
+        private float serverStatusUpdateTimer = 0f;
         #endregion
 
         #region Ignorance 1.4.x for Mirror Legacy Overrides
