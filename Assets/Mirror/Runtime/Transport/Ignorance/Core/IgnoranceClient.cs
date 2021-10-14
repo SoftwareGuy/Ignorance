@@ -6,9 +6,9 @@
 // to the LICENSE file for more information.
 
 using System;
-using System.Collections.Concurrent;
 using System.Threading;
 using ENet;
+using Ignorance.Thirdparty;
 using UnityEngine;
 using Event = ENet.Event;           // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
@@ -29,13 +29,15 @@ namespace IgnoranceTransport
         public int MaximumPacketSize = 33554432;
         // General Verbosity by default.
         public int Verbosity = 1;
+        // Maximum ring buffer capacity.
+        public int MaximumRingBufferSize = 10000;
 
         // Queues
-        public ConcurrentQueue<IgnoranceIncomingPacket> Incoming = new ConcurrentQueue<IgnoranceIncomingPacket>();
-        public ConcurrentQueue<IgnoranceOutgoingPacket> Outgoing = new ConcurrentQueue<IgnoranceOutgoingPacket>();
-        public ConcurrentQueue<IgnoranceCommandPacket> Commands = new ConcurrentQueue<IgnoranceCommandPacket>();
-        public ConcurrentQueue<IgnoranceConnectionEvent> ConnectionEvents = new ConcurrentQueue<IgnoranceConnectionEvent>();
-        public ConcurrentQueue<IgnoranceClientStats> StatusUpdates = new ConcurrentQueue<IgnoranceClientStats>();
+        public RingBuffer<IgnoranceIncomingPacket> Incoming;
+        public RingBuffer<IgnoranceOutgoingPacket> Outgoing;
+        public RingBuffer<IgnoranceCommandPacket> Commands;
+        public RingBuffer<IgnoranceConnectionEvent> ConnectionEvents;
+        public RingBuffer<IgnoranceClientStats> StatusUpdates;
 
         public bool IsAlive => WorkerThread != null && WorkerThread.IsAlive;
 
@@ -50,6 +52,9 @@ namespace IgnoranceTransport
                 Debug.LogError("Ignorance Client: A worker thread is already running. Cannot start another.");
                 return;
             }
+
+            // Setup the ring buffers.
+            SetupRingBuffersIfNull();
 
             CeaseOperation = false;
             ThreadParamInfo threadParams = new ThreadParamInfo()
@@ -85,6 +90,7 @@ namespace IgnoranceTransport
             }
         }
 
+        #region The meat and potatoes.
         // This runs in a seperate thread, be careful accessing anything outside of it's thread
         // or you may get an AccessViolation/crash.
         private void ThreadWorker(Object parameters)
@@ -315,7 +321,24 @@ namespace IgnoranceTransport
             if (setupInfo.Verbosity > 0)
                 Debug.Log("Ignorance Client: Shutdown complete.");
         }
+        #endregion
 
+        private void SetupRingBuffersIfNull()
+        {
+            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. Capacity: {MaximumRingBufferSize} items. " +
+                $"If they are already, this step will be skipped.");
+
+            if (Incoming == null)
+                Incoming = new RingBuffer<IgnoranceIncomingPacket>(MaximumRingBufferSize);
+            if (Outgoing == null)
+                Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(MaximumRingBufferSize);
+            if (Commands == null)
+                Commands = new RingBuffer<IgnoranceCommandPacket>(MaximumRingBufferSize);
+            if (ConnectionEvents == null)
+                ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(MaximumRingBufferSize);
+            if (StatusUpdates == null)
+                StatusUpdates = new RingBuffer<IgnoranceClientStats>(MaximumRingBufferSize);
+        }
 
         private struct ThreadParamInfo
         {
