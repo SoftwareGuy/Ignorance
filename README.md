@@ -13,31 +13,34 @@ _I'd appreciate [a coffee](https://ko-fi.com/coburn) if you use this transport._
 
 _"Probably the fastest transport out there for Mirror..." - FSE_Vincenzo, 2021 (Mirror Discord)_
 
-Ignorance 1.4 is a ENet-powered transport that plugs into the [Mirror Networking](https://github.com/vis2k/Mirror) project. It provides a high-performance
-implementation of the tried and true native ENet C library which provides reliable UDP communications for your game projects. Variants of ENet are used by Triple-A
-game companies for their networking. Reliable UDP has a lot of benefits over TCP which was the default in Mirror.
+Ignorance is a high-performance UDP based transport that plugs into [Mirror Networking](https://github.com/vis2k/Mirror). By harnessing the power of the tried and true ENet native library, it provides reliable and unreliable UDP communications with up to 4096 connected peers (clients) and 255 channels. Reliable UDP has a lot of benefits over TCP which was the default in Mirror until KCP was implemented.
 
-Ignorance was originally intended to replace Unity's LLAPI Transport that ships with Mirror, however since it uses native libraries it was deemed too risky to ship with 
-Mirror itself.
+The benefit of Ignorance is that you can utilize channels which allow you to split up network communications. This allows you to have channels for data that are mission critical and must be sent out the door as quickly as possible as well as channels that can send slower non-essential data.
 
-ENet supports a maximum of 4096 peers connected at the same time with up to 255 channels. Channels allow you to split up network communications so you can have channels
-for data that are mission critical as well as non-essential data. The native library has also been proven to be superior when compared to Unity's own LLAPI library.
+**Mirror LTS v46.x or Mirror Mainline v46.x onwards required.** Ignorance 1.4.0 (Non-Beta) will not work with older Mirror versions.
 
 Ignorance Standalone
 ------------
 See [STANDALONE.md](https://github.com/SoftwareGuy/Ignorance/blob/master/STANDALONE.md).
 
-Not using Mirror? Read This First
+Licensing Warning
 ------------
-Ignorance itself was **not** designed to be used outside of Mirror. If you are using Mirage, then you can still get Ignorance goodness in your project by using the Ignorance port available for that network stack.
+Ignorance is licensed under MIT license. However, there has been recent cases where other developers have been using the full Ignorance source or parts thereof, stripping the MIT licensing and slapping their own license on it instead. This falls in violation of the MIT license as it clearly states that copyright notices must remain intact.
+
+In short, don't be a code thief and respect the MIT license.
+
+Ignorance with Mirror/Mirage/et al.
+------------
+Ignorance itself was **not** designed to be used outside of Mirror. However, you can utilize *Ignorance Standalone* to get the same performance but without the Mirror Transport bindings.  
+
+Mirage has it's own Ignorance NG port which is mantained by the Mirage team themselves.
+
+🐟-Net uses/used a mashed up version of Ignorance called *Fluidity*. For reasons that won't be disclosed here, do not report any Fludity bugs here.
 
 If you are using your own network stack or you are trying to plumb Ignorance to another networking solution that already exists, you are **much** better off using the [ENet-CSharp wrapper](https://github.com/SoftwareGuy/ENet-CSharp) to talk to ENet directly. You could also try Ignorance Standalone which is mentioned above.
 
-I will **not** be able to provide support for Ignorance in non-Mirror environments, *unless* you are using the Ignorance Core in the Standalone configuration mentioned above. Even then, designing your own networking stack is **no easy feat** and unless you are absolutely sure you want to do that, I advise you not to roll your own networking. Use something battle tested like Mirror instead.
+In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). Ignorance Standalone should work fine.
 
-In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). I have enough to deal with keeping Ignorance up to date and running as smoothly as possible in Mirror environments than have to deal with countless unsupported usage cases. If you use this code in a unsupported usage case, then *you are on your own*. Sounds harsh, but it is what it is.
-
-Thank you for attending my TED talk, now on with the show.
 
 Ignorance in Action
 ------------
@@ -49,20 +52,16 @@ Ignorance in Action
 What devices are supported?
 ------------
 
-**IMPORTANT:** Ignorance does not support building for x86 (32bit) targets. Majority of devices come with 64bit operating systems now. 
+**IMPORTANT: 32Bit Desktop Targets are NOT supported. Target 64Bit for Desktop or bust.**
 
 The native library, ENet, does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** 
-in the Unity Build Settings window. There are a lot of other benefits to be using a 64bit runtime as well. 
-
-If you cannot build for 64bit, open a support ticket.
+in the Unity Build Settings window. There are a lot of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
 
 **Supported platforms, out of the box:**
 
-- 64Bit Desktop Platforms (Windows, Mac, Linux), Android and iOS (ARMv7/ARM64).
+- 64Bit Desktop Platforms (Windows, Mac, Linux), Android (ARMv7/ARM64) including VR devices and iOS (ARMv7/ARM64).
 
-- Android-powered VR devices
-
-- If ENet native can run on it and it's supported by Unity, you're good with Ignorance.
+- If ENet native can run on it and it's supported by Unity, you're good to go with Ignorance.
 
 **Other platforms that require some extra work:**
 
@@ -86,14 +85,16 @@ Installation
 ------------
 
 Download the Unity Package from Releases that is the latest one. Simply import the Unity Package and Unity will do the rest. 
-Follow the instructions below.
+Follow the instructions below. 
+
+Alternatively you can use the code from the master branch, which is often up to date compared to the releases.
 
 How to use
 ----------
 
 I have included two pre-configured sample scenes so you can get started easily. One is Pong, one is a copy paste with some modifications
 of Mirror's Basic scene. Otherwise add the script called **Ignorance** to your NetworkManager object, removing any TCP-based or other 
-UDP-based transport (ie. KCP2K). Then set the script to be used in NetworkManagers' "Transport" field.
+UDP-based transport (ie. kcp2k). Then set the script to be used in NetworkManagers' "Transport" field.
 
 FAQ (aka Please Read This First)
 --------------------------------
@@ -132,11 +133,7 @@ Credits
 
 -   [Martin](https://github.com/martindevans): Pull requests, testing with Dissonance. Great VoIP asset for Unity.
 
--   [vis2k](https://github.com/vis2k) and [Paul](https://github.com/paulpach): Mirror and Mirage developers respectively.
-
--   [c6burns](https://github.com/c6burns), [Petris](https://github.com/MichalPetryka), [shiena](https://github.com/shiena), [Draknith](https://github.com/FizzCube): Former buddies that helped a lot.
-
--   [nxrighthere](https://github.com/nxrighthere): Author of ENet-CSharp in which I forked and made custom improvements to it.
+-   [c6burns](https://github.com/c6burns), [Petris](https://github.com/MichalPetryka), [shiena](https://github.com/shiena), [Draknith](https://github.com/FizzCube), [nxrighthere](https://github.com/nxrighthere), [vis2k](https://github.com/vis2k), [Paul](https://github.com/paulpach)
 
 -   The Mirror Discord and the others who I have missed. Thanks a lot, you know who you are.
 
