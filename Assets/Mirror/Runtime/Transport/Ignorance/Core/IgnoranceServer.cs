@@ -5,15 +5,13 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System;
-using System.Collections.Concurrent;
 using System.Threading;
 using ENet;
+using Ignorance.Thirdparty;
 using UnityEngine;
 using Event = ENet.Event;           // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using Object = System.Object;       // fixes CS0104 ambigous reference between the same thing in UnityEngine
-
-using Ignorance.Thirdparty;
 
 namespace IgnoranceTransport
 {
@@ -342,7 +340,7 @@ namespace IgnoranceTransport
 
         private void SetupRingBuffersIfNull()
         {
-            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. Capacity: {MaximumRingBufferSize} items." +
+            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. Capacity: {MaximumRingBufferSize} items. " +
                 $"If they are already, this step will be skipped.");
 
             if (Incoming == null)
