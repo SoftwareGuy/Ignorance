@@ -24,7 +24,7 @@ namespace IgnoranceTransport
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0b9";
+        public const string Version = "1.4.0b10";
         public const string Scheme = "enet";
         public const string BindAnyAddress = "::0";
     }

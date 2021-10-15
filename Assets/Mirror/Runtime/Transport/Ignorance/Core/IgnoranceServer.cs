@@ -30,7 +30,8 @@ namespace IgnoranceTransport
         // - Verbosity.
         public int Verbosity = 1;
         // - Queue Sizing
-        public int MaximumRingBufferSize = 10000;
+        public int IncomingOutgoingBufferSize = 5000;
+        public int ConnectionEventBufferSize = 100;
 
         public bool IsAlive => WorkerThread != null && WorkerThread.IsAlive;
 
@@ -340,19 +341,19 @@ namespace IgnoranceTransport
 
         private void SetupRingBuffersIfNull()
         {
-            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. Capacity: {MaximumRingBufferSize} items. " +
+            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. " +
                 $"If they are already, this step will be skipped.");
 
             if (Incoming == null)
-                Incoming = new RingBuffer<IgnoranceIncomingPacket>(MaximumRingBufferSize);
+                Incoming = new RingBuffer<IgnoranceIncomingPacket>(IncomingOutgoingBufferSize);
             if (Outgoing == null)
-                Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(MaximumRingBufferSize);
+                Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(IncomingOutgoingBufferSize);
             if (Commands == null)
-                Commands = new RingBuffer<IgnoranceCommandPacket>(MaximumRingBufferSize);
+                Commands = new RingBuffer<IgnoranceCommandPacket>(IncomingOutgoingBufferSize);
             if (ConnectionEvents == null)
-                ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(MaximumRingBufferSize);
+                ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
             if (DisconnectionEvents == null)
-                DisconnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(MaximumRingBufferSize);
+                DisconnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
         }
 
         private struct ThreadParamInfo

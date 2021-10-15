@@ -30,8 +30,8 @@ namespace IgnoranceTransport
         // General Verbosity by default.
         public int Verbosity = 1;
         // Maximum ring buffer capacity.
-        public int MaximumRingBufferSize = 10000;
-
+        public int IncomingOutgoingBufferSize = 5000;
+        public int ConnectionEventBufferSize = 100;
         // Queues
         public RingBuffer<IgnoranceIncomingPacket> Incoming;
         public RingBuffer<IgnoranceOutgoingPacket> Outgoing;
@@ -325,19 +325,19 @@ namespace IgnoranceTransport
 
         private void SetupRingBuffersIfNull()
         {
-            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. Capacity: {MaximumRingBufferSize} items. " +
+            Debug.Log($"Ignorance: Setting up ring buffers if they're not already created. " +
                 $"If they are already, this step will be skipped.");
 
             if (Incoming == null)
-                Incoming = new RingBuffer<IgnoranceIncomingPacket>(MaximumRingBufferSize);
+                Incoming = new RingBuffer<IgnoranceIncomingPacket>(IncomingOutgoingBufferSize);
             if (Outgoing == null)
-                Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(MaximumRingBufferSize);
+                Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(IncomingOutgoingBufferSize);
             if (Commands == null)
-                Commands = new RingBuffer<IgnoranceCommandPacket>(MaximumRingBufferSize);
+                Commands = new RingBuffer<IgnoranceCommandPacket>(IncomingOutgoingBufferSize);
             if (ConnectionEvents == null)
-                ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(MaximumRingBufferSize);
+                ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
             if (StatusUpdates == null)
-                StatusUpdates = new RingBuffer<IgnoranceClientStats>(MaximumRingBufferSize);
+                StatusUpdates = new RingBuffer<IgnoranceClientStats>(ConnectionEventBufferSize);
         }
 
         private struct ThreadParamInfo

@@ -29,7 +29,7 @@ namespace IgnoranceTransport
         [Tooltip("This is only used if Server Binds All is unticked.")]
         public string serverBindAddress = string.Empty;
         [Tooltip("How many peers native ENet will support. Low sane numbers help performance, avoids looping over huge native arrays. Recommended: maximum Mirror players, rounded to nearest 10. (Example: 16 -> 20).")]
-        public int serverMaxPeerCapacity = 50;
+        public int serverMaxPeerCapacity = 64;
         [Tooltip("Server network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
         public int serverMaxNativeWaitTime = 1;
 
@@ -43,9 +43,19 @@ namespace IgnoranceTransport
         [Tooltip("You must define your channels in the array shown here, otherwise ENet will not know what channel delivery type to use.")]
         public IgnoranceChannelTypes[] Channels;
 
-        [Header("Low-level Tweaking")]
-        [Tooltip("How many items the internal Ring Buffer will hold. If capacity is exceeded, you will get errors. You may need to experiment with this value if you have very high network IO.")]
-        public int RingBufferCapacity = 10000;
+        [Header("Ring Buffer Tweaking")]
+        [Tooltip("Affects client only. Defines the capacity of Client Incoming/Outgoing ring buffers. It is up to you to ensure that the buffer doesn't overflow - increase as required. This value translates to packets per second under a worse-case scenario.")]
+        public int ClientDataBufferSize = 1000;
+        [Tooltip("Affects client only. Defines the capacity of Client connection event buffer. This is probably best to keep small as connection events are literally minimal in Mirror.")]
+        public int ClientConnEventBufferSize = 10;
+
+        [Tooltip("Affects Server only. Defines the capacity of Server Incoming/Outgoing ring buffers. It is up to you to ensure that the buffer doesn't overflow. This value translates to packets per second under a worse-case scenario.\n\n" +
+            "Unlike the client value, it is recommended that you keep this resonably high as Servers process more network IO than clients.")]
+        public int ServerDataBufferSize = 5000;
+        [Tooltip("Affects Server only. Defines the capacity of server connection event buffer. This is probably best to keep moderately small unless you expect to have a large influx of users connecting/disconnecting at once.")]
+        public int ServerConnEventBufferSize = 100;
+
+        [Header("Danger: I hope you know what you're doing!")]
         [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused. If you have large packets, change this to something larger. Default is 4096 bytes (4KB).")]
         public int PacketBufferCapacity = 4096;
         [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. This is the maximum allowed packet size, however note that internally ENet can only go to 32MB.")]
@@ -359,7 +369,10 @@ namespace IgnoranceTransport
             Server.PollTime = serverMaxNativeWaitTime;
             Server.MaximumPacketSize = MaxAllowedPacketSize;
             Server.Verbosity = (int)LogType;
-            Server.MaximumRingBufferSize = RingBufferCapacity;
+
+            Server.IncomingOutgoingBufferSize = ServerDataBufferSize;
+            Server.ConnectionEventBufferSize = ServerConnEventBufferSize;
+
             // Initializes the packet buffer.
             // Allocates once, that's it.
             if (InternalPacketBuffer == null)
@@ -384,8 +397,9 @@ namespace IgnoranceTransport
             Client.PollTime = clientMaxNativeWaitTime;
             Client.MaximumPacketSize = MaxAllowedPacketSize;
             Client.Verbosity = (int)LogType;
-            Client.MaximumRingBufferSize = RingBufferCapacity;
 
+            Client.IncomingOutgoingBufferSize = ClientDataBufferSize;
+            Client.ConnectionEventBufferSize = ClientConnEventBufferSize;
             // Initializes the packet buffer.
             // Allocates once, that's it.
             if (InternalPacketBuffer == null)
