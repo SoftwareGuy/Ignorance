@@ -6,6 +6,7 @@
 // to the LICENSE file for more information.
 using System;
 using ENet;
+using IgnoranceCore;
 using Mirror;
 using UnityEngine;
 

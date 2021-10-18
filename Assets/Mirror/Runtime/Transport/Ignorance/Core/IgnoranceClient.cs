@@ -8,13 +8,13 @@
 using System;
 using System.Threading;
 using ENet;
-using Ignorance.Thirdparty;
+using IgnoranceThirdparty;
 using UnityEngine;
 using Event = ENet.Event;           // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using EventType = ENet.EventType;   // fixes CS0104 ambigous reference between the same thing in UnityEngine
 using Object = System.Object;       // fixes CS0104 ambigous reference between the same thing in UnityEngine
 
-namespace IgnoranceTransport
+namespace IgnoranceCore
 {
     public class IgnoranceClient
     {

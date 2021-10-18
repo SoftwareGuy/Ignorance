@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace Ignorance.Thirdparty
+namespace IgnoranceThirdparty
 {
     /// <summary>
     /// Implementation of the Disruptor pattern

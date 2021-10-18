@@ -7,7 +7,7 @@
 using System;
 using ENet;
 
-namespace IgnoranceTransport
+namespace IgnoranceCore
 {
     // Snipped from the transport files, as this will help
     // me keep things up to date.
@@ -24,7 +24,7 @@ namespace IgnoranceTransport
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0b10";
+        public const string Version = "1.4.0b11";
         public const string Scheme = "enet";
         public const string BindAnyAddress = "::0";
     }
