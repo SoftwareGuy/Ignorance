@@ -15,9 +15,10 @@ namespace IgnoranceTransport
     public class Ignorance : Transport
     {
         #region Inspector options
+        [Header("Essentials")]
         public int port = 7777;
 
-        [Header("Debug & Logging Configuration")]
+        [Header("Debug & Logging")]
         [Tooltip("How verbose do you want Ignorance to be?")]
         public IgnoranceLogType LogType = IgnoranceLogType.Standard;
         [Tooltip("Uses OnGUI to present you with statistics for Server and Client backend instances.")]
