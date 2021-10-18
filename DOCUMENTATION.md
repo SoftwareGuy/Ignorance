@@ -69,7 +69,7 @@ This option... | ...does this.
 -------------- | -------------
 Client Data Buffer Size | Defines how many slots in the ring buffer for data packets coming from the server. This may require tweaking if the server is sending a lot of packet data to your client or you have a very fast paced game.
 Client Conn Event Buffer Size | Defines how many slots in the ring buffer for connection events. The default is sane enough. Probably overkill for a client, now that I think about it...
-Server Data Buffer Size | Defines how many slots in the ring buffer for data packets coming from clients. This will require tweaking depending on how chatty your client network code is.
+Server Data Buffer Size | Defines how many slots in the ring buffer for data packets coming from clients. This will require tweaking depending on how chatty your client network code is. The default should be enough for a majority of projects, but a value like 10000 might be required for others while a turn-based game might be fine with the default or even less. Your mileage may vary.
 Server Conn Event Buffer Size | Defines how many slots in the ring buffer for connection events. The default should be sane enough. This is only useful if you have lots of clients connecting/disconnecting at once.
 
 NOTE: A connection event is either a ENet Connect or Disconnect. In other words, when a ENet client connects to the server or disconnects, a event is raised and placed into the queue for processing by Mirror.
