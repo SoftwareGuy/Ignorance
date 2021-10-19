@@ -19,6 +19,11 @@ The benefit of Ignorance is that you can utilize channels which allow you to spl
 
 **Mirror LTS v46.x or Mirror Mainline v46.x onwards required.** Ignorance 1.4.0 (Non-Beta) will not work with older Mirror versions.
 
+Documentation
+------------
+See [DOCUMENTATION.md](https://github.com/SoftwareGuy/Ignorance/blob/master/DOCUMENTATION.md).
+
+
 Ignorance Standalone
 ------------
 See [STANDALONE.md](https://github.com/SoftwareGuy/Ignorance/blob/master/STANDALONE.md).
