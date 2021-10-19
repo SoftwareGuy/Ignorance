@@ -726,20 +726,29 @@ w
         private void OnGUI()
         {
             if (DebugDisplay)
-                GUI.Box(new Rect(
-                    new Vector2(32, Screen.height - 240), new Vector2(200, 160)),
+            {
+                if (Client != null)
+                    GUI.Box(new Rect(
+                        new Vector2(32, Screen.height - 220), new Vector2(200, 100)),
+                        "-- CLIENT --\n" +
+                        $"State: {ClientState} ({(Client.IsAlive ? "Alive" : "Dead")}) \n" +
+                        $"In: {(Client.Incoming != null ? $"{Client.Incoming.Count}" : "n/a")}\n" +
+                        $"Out: {(Client.Outgoing != null ? $"{Client.Outgoing.Count}" : "n/a")}\n" +
+                        $"ConnEvents: {(Client.ConnectionEvents != null ? $"{Client.ConnectionEvents.Count}" : "n/a")}"
+                    );
 
-                    "-- CLIENT --\n" +
-                    $"State: {ClientState} ({(Client.IsAlive ? "Alive" : "Dead")}) \n" +
-                    $"Incoming Queue: {Client.Incoming.Count}\n" +
-                    $"Outgoing Queue: {Client.Outgoing.Count}\n\n" +
+                if (Server != null)
+                    GUI.Box(new Rect(
+                        new Vector2(32, Screen.height - 110), new Vector2(200, 100)),
 
-                    "-- SERVER --\n" +
-                    $"State: {(Server.IsAlive ? "Alive" : "Dead")} \n" +
-                    $"Incoming Queue: {Server.Incoming.Count}\n" +
-                    $"Outgoing Queue: {Server.Outgoing.Count}\n" +
-                    $"ConnEvent Queue: {Server.ConnectionEvents.Count}"
-                );
+                        "-- SERVER --\n" +
+                        $"State: {(Server.IsAlive ? "Alive" : "Dead")} \n" +
+                        $"In: {(Server.Incoming != null ? $"{Server.Incoming.Count}" : "n/a")}\n" +
+                        $"Out: {(Server.Outgoing != null ? $"{Server.Outgoing.Count}" : "n/a")}\n" +
+                        $"ConnEvents: {(Server.ConnectionEvents != null ? $"{Server.ConnectionEvents.Count}" : "n/a")}"
+                    );
+
+            }
         }
         #endregion
 
