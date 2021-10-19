@@ -388,7 +388,7 @@ namespace IgnoranceCore
             if (Outgoing == null)
                 Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(IncomingOutgoingBufferSize);
             if (Commands == null)
-                Commands = new RingBuffer<IgnoranceCommandPacket>(IncomingOutgoingBufferSize);
+                Commands = new RingBuffer<IgnoranceCommandPacket>(100);
             if (ConnectionEvents == null)
                 ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
             if (DisconnectionEvents == null)
