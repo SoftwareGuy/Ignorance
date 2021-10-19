@@ -595,7 +595,7 @@ namespace IgnoranceTransport
 
             // Step 3: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
-                ClientStatistics = clientStats;
+                ClientStatistics = clientStats;          
         }
 
         #region Main Thread Processing and Polling
@@ -632,7 +632,7 @@ namespace IgnoranceTransport
 #if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
 #endif
-w
+
             if(ClientState != ConnectionState.Disconnected)
             ProcessClientPackets();
 
@@ -666,17 +666,20 @@ w
                 ProcessServerPackets();
 
             if (ClientState != ConnectionState.Disconnected)
+            {
                 ProcessClientPackets();
 
-            if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
-            {
-                clientStatusUpdateTimer += Time.deltaTime;
-
-                if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
+                if (clientStatusUpdateInterval > -1)
                 {
-                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                    clientStatusUpdateTimer = 0f;
+                    clientStatusUpdateTimer += Time.deltaTime;
+
+                    if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
+                    {
+                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
+                        clientStatusUpdateTimer = 0f;
+                    }
                 }
+
             }
 
             // Flip the bool to signal we've done our work.
@@ -713,7 +716,21 @@ w
 
 
                 if (ClientState != ConnectionState.Disconnected)
+                {
                     ProcessClientPackets();
+
+                    if (clientStatusUpdateInterval > -1)
+                    {
+                        clientStatusUpdateTimer += Time.deltaTime;
+
+                        if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
+                        {
+                            Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
+                            clientStatusUpdateTimer = 0f;
+                        }
+                    }
+                }
+
             }
 
             // Flip back the bool, so it can be reset.
@@ -729,23 +746,24 @@ w
             {
                 if (Client != null)
                     GUI.Box(new Rect(
-                        new Vector2(32, Screen.height - 220), new Vector2(200, 100)),
+                        new Vector2(32, Screen.height - 220), new Vector2(240, 100)),
                         "-- CLIENT --\n" +
                         $"State: {ClientState} ({(Client.IsAlive ? "Alive" : "Dead")}) \n" +
-                        $"In: {(Client.Incoming != null ? $"{Client.Incoming.Count}" : "n/a")}\n" +
-                        $"Out: {(Client.Outgoing != null ? $"{Client.Outgoing.Count}" : "n/a")}\n" +
-                        $"ConnEvents: {(Client.ConnectionEvents != null ? $"{Client.ConnectionEvents.Count}" : "n/a")}"
+                        $"Round Trip Time: {ClientStatistics.RTT} \n" +
+                        $"Bytes In/Out: {ClientStatistics.BytesReceived} / {ClientStatistics.BytesSent} \n" +
+                        $"Queue In/Out: {(Client.Incoming != null ? $"{Client.Incoming.Count}" : "0")} / {(Client.Outgoing != null ? $"{Client.Outgoing.Count}" : "0")} \n" +
+                        $"ConnEvents: {(Client.ConnectionEvents != null ? $"{Client.ConnectionEvents.Count}" : "0")}"
                     );
 
                 if (Server != null)
                     GUI.Box(new Rect(
-                        new Vector2(32, Screen.height - 110), new Vector2(200, 100)),
+                        new Vector2(32, Screen.height - 110), new Vector2(240, 100)),
 
                         "-- SERVER --\n" +
                         $"State: {(Server.IsAlive ? "Alive" : "Dead")} \n" +
-                        $"In: {(Server.Incoming != null ? $"{Server.Incoming.Count}" : "n/a")}\n" +
-                        $"Out: {(Server.Outgoing != null ? $"{Server.Outgoing.Count}" : "n/a")}\n" +
-                        $"ConnEvents: {(Server.ConnectionEvents != null ? $"{Server.ConnectionEvents.Count}" : "n/a")}"
+                        $"Bytes In/Out: {ServerStatistics.BytesReceived} / {ServerStatistics.BytesSent} \n" +
+                        $"Queue In/Out: {(Server.Incoming != null ? $"{Server.Incoming.Count}" : "0")} / {(Server.Outgoing != null ? $"{Server.Outgoing.Count}" : "0")} \n" +
+                        $"ConnEvents: {(Server.ConnectionEvents != null ? $"{Server.ConnectionEvents.Count}" : "0")}"
                     );
 
             }
