@@ -6,6 +6,7 @@
 // to the LICENSE file for more information.
 
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using ENet;
 using IgnoranceThirdparty;
@@ -149,41 +150,56 @@ namespace IgnoranceCore
                     return;
                 }
 
-
+                // TODO: What the fuck is this?
+                /*
                 while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
                 {
                     switch (commandPacket.Type)
                     {
-                        default:
-                            break;
-
                         case IgnoranceCommandType.ClientWantsToStop:
                             CeaseOperation = true;
                             break;
 
-                        case IgnoranceCommandType.ClientStatusRequest:
-                            // Respond with statistics so far.
-                            if (!clientPeer.IsSet)
-                                break;
-
-                            icsu.RTT = clientPeer.RoundTripTime;
-
-                            icsu.BytesReceived = clientPeer.BytesReceived;
-                            icsu.BytesSent = clientPeer.BytesSent;
-
-                            icsu.PacketsReceived = clientHost.PacketsReceived;
-                            icsu.PacketsSent = clientPeer.PacketsSent;
-                            icsu.PacketsLost = clientPeer.PacketsLost;
-
-                            StatusUpdates.Enqueue(icsu);
+                        default:
                             break;
                     }
                 }
+                */
 
                 // Process network events as long as we're not ceasing operation.
                 while (!CeaseOperation)
                 {
                     bool pollComplete = false;
+
+                    while (Commands.TryDequeue(out IgnoranceCommandPacket ignoranceCommandPacket))
+                    {
+                        switch (ignoranceCommandPacket.Type)
+                        {
+                            case IgnoranceCommandType.ClientStatusRequest:
+                                // Respond with statistics so far.
+                                if (!clientPeer.IsSet)
+                                    break;
+
+                                icsu.RTT = clientPeer.RoundTripTime;
+
+                                icsu.BytesReceived = clientPeer.BytesReceived;
+                                icsu.BytesSent = clientPeer.BytesSent;
+
+                                icsu.PacketsReceived = clientHost.PacketsReceived;
+                                icsu.PacketsSent = clientPeer.PacketsSent;
+                                icsu.PacketsLost = clientPeer.PacketsLost;
+
+                                StatusUpdates.Enqueue(icsu);
+                                break;
+
+                            case IgnoranceCommandType.ClientWantsToStop:
+                                CeaseOperation = true;
+                                break;
+                        }
+                    }
+
+                    if (CeaseOperation)
+                        break;
 
                     // Step 1: Sending to Server
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
@@ -333,11 +349,11 @@ namespace IgnoranceCore
             if (Outgoing == null)
                 Outgoing = new RingBuffer<IgnoranceOutgoingPacket>(IncomingOutgoingBufferSize);
             if (Commands == null)
-                Commands = new RingBuffer<IgnoranceCommandPacket>(IncomingOutgoingBufferSize);
+                Commands = new RingBuffer<IgnoranceCommandPacket>(100);
             if (ConnectionEvents == null)
                 ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
             if (StatusUpdates == null)
-                StatusUpdates = new RingBuffer<IgnoranceClientStats>(ConnectionEventBufferSize);
+                StatusUpdates = new RingBuffer<IgnoranceClientStats>(10);
         }
 
         private struct ThreadParamInfo
