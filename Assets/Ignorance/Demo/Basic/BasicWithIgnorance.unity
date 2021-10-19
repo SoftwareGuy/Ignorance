@@ -176,8 +176,9 @@ MonoBehaviour:
   serverBindAddress: 
   serverMaxPeerCapacity: 64
   serverMaxNativeWaitTime: 1
+  serverStatusUpdateInterval: 3
   clientMaxNativeWaitTime: 1
-  clientStatusUpdateInterval: -1
+  clientStatusUpdateInterval: 3
   Channels: 0100000002000000
   ClientDataBufferSize: 1000
   ClientConnEventBufferSize: 10

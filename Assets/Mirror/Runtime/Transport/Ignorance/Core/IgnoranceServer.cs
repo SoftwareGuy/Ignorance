@@ -5,6 +5,7 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using ENet;
 using IgnoranceThirdparty;
@@ -44,6 +45,9 @@ namespace IgnoranceCore
         public RingBuffer<IgnoranceCommandPacket> Commands;
         public RingBuffer<IgnoranceConnectionEvent> ConnectionEvents;
         public RingBuffer<IgnoranceConnectionEvent> DisconnectionEvents;
+        public RingBuffer<IgnoranceServerStats> StatusUpdates;
+
+        public RingBuffer<IgnoranceServerStats> RecycledServerStatBlocks = new RingBuffer<IgnoranceServerStats>(100);
 
         // Thread
         private Thread WorkerThread;
@@ -78,6 +82,7 @@ namespace IgnoranceCore
             if (Commands != null) while (Commands.TryDequeue(out _)) ;
             if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _)) ;
             if (DisconnectionEvents != null) while (DisconnectionEvents.TryDequeue(out _)) ;
+            if (StatusUpdates != null) while (StatusUpdates.TryDequeue(out _)) ;
 
             WorkerThread = new Thread(ThreadWorker);
             WorkerThread.Start(threadParams);
@@ -112,6 +117,7 @@ namespace IgnoranceCore
             Event serverENetEvent;
 
             Peer[] serverPeerArray;
+            IgnoranceClientStats peerStats = default;
 
             // Grab the setup information.
             if (parameters.GetType() == typeof(ThreadParamInfo))
@@ -189,6 +195,39 @@ namespace IgnoranceCore
                                 // Disconnect and reset the peer array's entry for that peer.
                                 serverPeerArray[targetPeer].DisconnectNow(0);
                                 serverPeerArray[targetPeer] = default;
+                                break;
+
+                            case IgnoranceCommandType.ServerStatusRequest:
+                                IgnoranceServerStats serverStats;
+                                if (!RecycledServerStatBlocks.TryDequeue(out serverStats))
+                                    serverStats.PeerStats = new Dictionary<int, IgnoranceClientStats>(setupInfo.Peers);
+
+                                serverStats.PeerStats.Clear();
+
+                                serverStats.BytesReceived = serverENetHost.BytesReceived;
+                                serverStats.BytesSent = serverENetHost.BytesSent;
+
+                                serverStats.PacketsReceived = serverENetHost.PacketsReceived;
+                                serverStats.PacketsSent = serverENetHost.PacketsSent;
+
+                                serverStats.PeersCount = serverENetHost.PeersCount;
+
+                                for (int i = 0; i < serverPeerArray.Length; i++)
+                                {
+                                    if (!serverPeerArray[i].IsSet) continue;
+
+                                    peerStats.RTT = serverPeerArray[i].RoundTripTime;
+
+                                    peerStats.BytesReceived = serverPeerArray[i].BytesReceived;
+                                    peerStats.BytesSent = serverPeerArray[i].BytesSent;
+
+                                    peerStats.PacketsSent = serverPeerArray[i].PacketsSent;
+                                    peerStats.PacketsLost = serverPeerArray[i].PacketsLost;
+
+                                    serverStats.PeerStats.Add(i, peerStats);
+                                }
+
+                                StatusUpdates.Enqueue(serverStats);
                                 break;
                         }
                     }
@@ -354,6 +393,8 @@ namespace IgnoranceCore
                 ConnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
             if (DisconnectionEvents == null)
                 DisconnectionEvents = new RingBuffer<IgnoranceConnectionEvent>(ConnectionEventBufferSize);
+            if (StatusUpdates == null)
+                StatusUpdates = new RingBuffer<IgnoranceServerStats>(10);
         }
 
         private struct ThreadParamInfo

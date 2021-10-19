@@ -5,6 +5,7 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System;
+using System.Collections.Generic;
 using ENet;
 using IgnoranceCore;
 using Mirror;
@@ -34,6 +35,8 @@ namespace IgnoranceTransport
         public int serverMaxPeerCapacity = 64;
         [Tooltip("Server network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
         public int serverMaxNativeWaitTime = 1;
+        [Tooltip("Interval between asking ENet for server status updates. Set to -1 to disable.")]
+        public int serverStatusUpdateInterval = -1;
 
         [Header("Client Configuration")]
         [Tooltip("Client network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
@@ -66,6 +69,7 @@ namespace IgnoranceTransport
 
         #region Public Statistics
         public IgnoranceClientStats ClientStatistics;
+        public IgnoranceServerStats ServerStatistics;
         #endregion
 
 #if MIRROR_26_0_OR_NEWER
@@ -380,8 +384,12 @@ namespace IgnoranceTransport
             if (InternalPacketBuffer == null)
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
 
+            // This is required to ensure that ServerStatistics peer stats are initialised before first update
+            if (ServerStatistics.PeerStats == null)
+                ServerStatistics.PeerStats = new Dictionary<int, IgnoranceClientStats>(serverMaxPeerCapacity);
+
             // Setup the peer connection array.
-            peerConnectionData = new PeerConnectionData[serverMaxPeerCapacity]; // ...what was the original 420 value used for??
+            peerConnectionData = new PeerConnectionData[serverMaxPeerCapacity];
         }
 
         private void InitializeClientBackend()
@@ -414,6 +422,7 @@ namespace IgnoranceTransport
             IgnoranceConnectionEvent connectionEvent;
             int adjustedConnectionId;
             Packet payload;
+            IgnoranceServerStats serverStats;
 
             // Incoming connection events.
             while (Server.ConnectionEvents.TryDequeue(out connectionEvent))
@@ -432,15 +441,6 @@ namespace IgnoranceTransport
                     Port = connectionEvent.Port
                 };
 
-                // TODO: Investigate ArgumentException: An item with the same key has already been added. Key: <id>
-                /*
-                ConnectionLookupDict.Add(adjustedConnectionId, new PeerConnectionData
-                {
-                    NativePeerId = connectionEvent.NativePeerId,
-                    IP = connectionEvent.IP,
-                    Port = connectionEvent.Port
-                });
-                */
                 OnServerConnected?.Invoke(adjustedConnectionId);
             }
 
@@ -488,10 +488,17 @@ namespace IgnoranceTransport
                 peerConnectionData[(int)connectionEvent.NativePeerId] = default;
 
                 if (LogType == IgnoranceLogType.Verbose)
-                    Debug.Log($"Ignorance Server: ProcessServerPackets fired; handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
+                    Debug.Log($"Ignorance Server: Handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
 
                 // Invoke Mirror handler.
                 OnServerDisconnected?.Invoke(adjustedConnectionId);
+            }
+
+            // Handle status updates.
+            if (Server.StatusUpdates.TryDequeue(out serverStats))
+            {
+                Server.RecycledServerStatBlocks.Enqueue(ServerStatistics);
+                ServerStatistics = serverStats;
             }
         }
 
@@ -603,8 +610,20 @@ namespace IgnoranceTransport
                 return;
 #endif
             // Process Server Events...
-            if (Server.IsAlive)
+            if (Server.IsAlive) {
                 ProcessServerPackets();
+
+                if (serverStatusUpdateInterval > -1)
+                {
+                    serverStatusUpdateTimer += Time.deltaTime;
+
+                    if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
+                    {
+                        Server.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ServerStatusRequest });
+                        serverStatusUpdateTimer = 0f;
+                    }
+                }
+            }
         }
 
         public override void ClientEarlyUpdate()
@@ -613,18 +632,18 @@ namespace IgnoranceTransport
 #if !MIRROR_41_0_OR_NEWER
             if (!enabled) return;
 #endif
-
+w
             if(ClientState != ConnectionState.Disconnected)
             ProcessClientPackets();
 
             if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
             {
-                statusUpdateTimer += Time.deltaTime;
+                clientStatusUpdateTimer += Time.deltaTime;
 
-                if (statusUpdateTimer >= clientStatusUpdateInterval)
+                if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
                 {
                     Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                    statusUpdateTimer = 0f;
+                    clientStatusUpdateTimer = 0f;
                 }
             }
         }
@@ -649,6 +668,17 @@ namespace IgnoranceTransport
             if (ClientState != ConnectionState.Disconnected)
                 ProcessClientPackets();
 
+            if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
+            {
+                clientStatusUpdateTimer += Time.deltaTime;
+
+                if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
+                {
+                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
+                    clientStatusUpdateTimer = 0f;
+                }
+            }
+
             // Flip the bool to signal we've done our work.
             fixedUpdateCompletedWork = true;
         }
@@ -665,7 +695,22 @@ namespace IgnoranceTransport
             if (!fixedUpdateCompletedWork)
             {
                 if (Server.IsAlive)
+                {
                     ProcessServerPackets();
+
+                    if (serverStatusUpdateInterval > -1)
+                    {
+                        serverStatusUpdateTimer += Time.deltaTime;
+
+                        if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
+                        {
+                            Server.Commands.Enqueue(new IgnoranceCommandPacket
+                            { Type = IgnoranceCommandType.ServerStatusRequest });
+                            serverStatusUpdateTimer = 0f;
+                        }
+                    }
+                }
+
 
                 if (ClientState != ConnectionState.Disconnected)
                     ProcessClientPackets();
@@ -734,6 +779,8 @@ namespace IgnoranceTransport
         private byte[] InternalPacketBuffer;
 
         private const PacketFlags ReliableOrUnreliableFragmented = PacketFlags.Reliable | PacketFlags.UnreliableFragmented;
+        private float clientStatusUpdateTimer = 0f;
+        private float serverStatusUpdateTimer = 0f;
         #endregion
 
         #region Ignorance 1.4.x for Mirror Legacy Overrides

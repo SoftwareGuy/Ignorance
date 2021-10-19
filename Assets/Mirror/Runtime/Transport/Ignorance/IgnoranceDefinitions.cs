@@ -5,6 +5,7 @@
 // Ignorance Transport is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using System;
+using System.Collections.Generic;
 using ENet;
 
 namespace IgnoranceCore
@@ -24,7 +25,7 @@ namespace IgnoranceCore
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0b11";
+        public const string Version = "1.4.0b12";
         public const string Scheme = "enet";
         public const string BindAnyAddress = "::0";
     }
@@ -81,7 +82,20 @@ namespace IgnoranceCore
         ClientWantsToStop,
         ClientStatusRequest,
         // Server
-        ServerKickPeer
+        ServerKickPeer,
+        ServerStatusRequest
+    }
+
+    public struct IgnoranceServerStats
+    {
+        // Stats only - may not always be used!
+        public ulong BytesReceived;
+        public ulong BytesSent;
+        public ulong PacketsReceived;
+        public ulong PacketsSent;
+        public ulong PeersCount;
+
+        public Dictionary<int, IgnoranceClientStats> PeerStats;
     }
 
     // TODO: Optimize struct for Cache performance.
