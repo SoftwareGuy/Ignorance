@@ -35,14 +35,14 @@ namespace IgnoranceTransport
         public int serverMaxPeerCapacity = 64;
         [Tooltip("Server network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
         public int serverMaxNativeWaitTime = 1;
-        [Tooltip("Interval between asking ENet for server status updates. Set to -1 to disable.")]
-        public int serverStatusUpdateInterval = -1;
+        [Tooltip("Interval between asking ENet for server status updates. Set to <= 0 to disable.")]
+        public int serverStatusUpdateInterval = 0;
 
         [Header("Client Configuration")]
         [Tooltip("Client network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
         public int clientMaxNativeWaitTime = 3;
-        [Tooltip("Interval between asking ENet for client status updates. Set to -1 to disable.")]
-        public int clientStatusUpdateInterval = -1;
+        [Tooltip("Interval between asking ENet for client status updates. Set to <= 0 to disable.")]
+        public int clientStatusUpdateInterval = 0;
 
         [Header("Channel Configuration")]
         [Tooltip("You must define your channels in the array shown here, otherwise ENet will not know what channel delivery type to use.")]
@@ -410,10 +410,51 @@ namespace IgnoranceTransport
 
             Client.IncomingOutgoingBufferSize = ClientDataBufferSize;
             Client.ConnectionEventBufferSize = ClientConnEventBufferSize;
-            // Initializes the packet buffer.
-            // Allocates once, that's it.
+
+            // Initializes the packet buffer. Allocates once, that's it.
             if (InternalPacketBuffer == null)
                 InternalPacketBuffer = new byte[PacketBufferCapacity];
+        }
+
+        #region Main Thread Processing and Polling
+        public void ServerPump()
+        {
+            // Process Server Events...
+            if (Server.IsAlive)
+            {
+                ProcessServerPackets();
+
+                if (serverStatusUpdateInterval > 0)
+                {
+                    serverStatusUpdateTimer += Time.deltaTime;
+
+                    if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
+                    {
+                        Server.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ServerStatusRequest });
+                        serverStatusUpdateTimer = 0f;
+                    }
+                }
+            }
+        }
+
+        public void ClientPump()
+        {
+            // Only process client packets if we're not disconnected...
+            if (ClientState != ConnectionState.Disconnected)
+                ProcessClientPackets();
+
+            // Used if we're connected and the client status update interval is above 0.
+            if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > 0)
+            {
+                clientStatusUpdateTimer += Time.deltaTime;
+
+                if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
+                {
+                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
+                    clientStatusUpdateTimer = 0f;
+                }
+            }
+
         }
 
         private void ProcessServerPackets()
@@ -470,13 +511,7 @@ namespace IgnoranceTransport
 
                 payload.Dispose();
 
-                OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);
-
-                // Some messages can disable the transport
-                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-#if !MIRROR_41_0_OR_NEWER
-                if (!enabled) break;
-#endif                    
+                OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);               
             }
 
             // Disconnection events.
@@ -501,6 +536,7 @@ namespace IgnoranceTransport
                 ServerStatistics = serverStats;
             }
         }
+
 
         private void ProcessClientPackets()
         {
@@ -583,158 +619,57 @@ namespace IgnoranceTransport
                 payload.Dispose();
 
                 OnClientDataReceived?.Invoke(dataSegment, incomingPacket.Channel);
-
-#if !MIRROR_41_0_OR_NEWER
-                // Some messages can disable the transport
-                // If the transport was disabled by any of the messages, we have to break out of the loop and wait until we've been re-enabled.
-
-                if (!enabled)
-                    break;
-#endif
             }
 
             // Step 3: Handle status updates.
             if (Client.StatusUpdates.TryDequeue(out clientStats))
-                ClientStatistics = clientStats;          
+                ClientStatistics = clientStats;
         }
+        #endregion
 
-        #region Main Thread Processing and Polling
-        // Ignorance 1.4.0b5: To use Mirror's polling or not use Mirror's polling, that is up to the developer to decide
-#if IGNORANCE_MIRROR_POLLING
-        // This section will be compiled in instead if you enable IGNORANCE_MIRROR_POLLING.
-        public override void ServerEarlyUpdate()
-        {
-            // This is used by Mirror to consume the incoming server packets.
-#if !MIRROR_41_0_OR_NEWER
-            if (!enabled)
-                return;
-#endif
-            // Process Server Events...
-            if (Server.IsAlive) {
-                ProcessServerPackets();
 
-                if (serverStatusUpdateInterval > -1)
-                {
-                    serverStatusUpdateTimer += Time.deltaTime;
-
-                    if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
-                    {
-                        Server.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ServerStatusRequest });
-                        serverStatusUpdateTimer = 0f;
-                    }
-                }
-            }
-        }
-
-        public override void ClientEarlyUpdate()
-        {
-            // This is used by Mirror to consume the incoming client packets.
-#if !MIRROR_41_0_OR_NEWER
-            if (!enabled) return;
-#endif
-
-            if(ClientState != ConnectionState.Disconnected)
-            ProcessClientPackets();
-
-            if (ClientState == ConnectionState.Connected && clientStatusUpdateInterval > -1)
-            {
-                clientStatusUpdateTimer += Time.deltaTime;
-
-                if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
-                {
-                    Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                    clientStatusUpdateTimer = 0f;
-                }
-            }
-        }
-#else
-        // IMPORTANT: Set Ignorance' execution order before everything else. Yes, that's -32000 !!
-        // This ensures it has priority over other things.
-
+        #region Main Thread Processing and Polling - Ignorance Flavour
+#if !IGNORANCE_MIRROR_POLLING
         // FixedUpdate can be called many times per frame.
         // Once we've handled stuff, we set a flag so that we don't poll again for this frame.
         private bool fixedUpdateCompletedWork;
 
-        public void FixedUpdate()
+        private void FixedUpdate()
         {
-#if !MIRROR_41_0_OR_NEWER
-            if (!enabled) return;
-#endif
             if (fixedUpdateCompletedWork) return;
 
-            if (Server.IsAlive)
-                ProcessServerPackets();
-
-            if (ClientState != ConnectionState.Disconnected)
-            {
-                ProcessClientPackets();
-
-                if (clientStatusUpdateInterval > -1)
-                {
-                    clientStatusUpdateTimer += Time.deltaTime;
-
-                    if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
-                    {
-                        Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                        clientStatusUpdateTimer = 0f;
-                    }
-                }
-
-            }
+            ServerPump();
+            ClientPump();
 
             // Flip the bool to signal we've done our work.
             fixedUpdateCompletedWork = true;
         }
 
-        // Normally, Mirror blocks Update() due to poor design decisions...
-        // But thanks to Vincenzo, we've found a way to bypass that block.
-        // Update is called once per frame. We don't have to worry about this shit now.
-        public new void Update()
+        private new void Update()
         {
-#if !MIRROR_41_0_OR_NEWER
-            if (!enabled) return;
-#endif
             // Process what FixedUpdate missed, only if the boolean is not set.
             if (!fixedUpdateCompletedWork)
             {
-                if (Server.IsAlive)
-                {
-                    ProcessServerPackets();
-
-                    if (serverStatusUpdateInterval > -1)
-                    {
-                        serverStatusUpdateTimer += Time.deltaTime;
-
-                        if (serverStatusUpdateTimer >= serverStatusUpdateInterval)
-                        {
-                            Server.Commands.Enqueue(new IgnoranceCommandPacket
-                            { Type = IgnoranceCommandType.ServerStatusRequest });
-                            serverStatusUpdateTimer = 0f;
-                        }
-                    }
-                }
-
-
-                if (ClientState != ConnectionState.Disconnected)
-                {
-                    ProcessClientPackets();
-
-                    if (clientStatusUpdateInterval > -1)
-                    {
-                        clientStatusUpdateTimer += Time.deltaTime;
-
-                        if (clientStatusUpdateTimer >= clientStatusUpdateInterval)
-                        {
-                            Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientStatusRequest });
-                            clientStatusUpdateTimer = 0f;
-                        }
-                    }
-                }
-
+                ServerPump();
+                ClientPump();
             }
 
             // Flip back the bool, so it can be reset.
             fixedUpdateCompletedWork = false;
+        }
+#endif
+        #endregion
+
+        #region Main Thread Processing and Polling - Mirror Flavour
+#if IGNORANCE_MIRROR_POLLING
+        public override void ClientEarlyUpdate()
+        {
+            ClientPump();
+        }
+
+        public override void ServerEarlyUpdate()
+        {
+            ServerPump();
         }
 #endif
         #endregion

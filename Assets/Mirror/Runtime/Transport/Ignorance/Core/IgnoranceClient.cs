@@ -107,9 +107,6 @@ namespace IgnoranceCore
             IgnoranceClientStats icsu = default;
             bool alreadyNotifiedAboutDisconnect = false;
 
-            // Unused for now
-            // bool emergencyStop = false;
-
             // Grab the setup information.
             if (parameters.GetType() == typeof(ThreadParamInfo))
                 setupInfo = (ThreadParamInfo)parameters;
@@ -150,22 +147,6 @@ namespace IgnoranceCore
                     return;
                 }
 
-                // TODO: What the fuck is this?
-                /*
-                while (Commands.TryDequeue(out IgnoranceCommandPacket commandPacket))
-                {
-                    switch (commandPacket.Type)
-                    {
-                        case IgnoranceCommandType.ClientWantsToStop:
-                            CeaseOperation = true;
-                            break;
-
-                        default:
-                            break;
-                    }
-                }
-                */
-
                 // Process network events as long as we're not ceasing operation.
                 while (!CeaseOperation)
                 {
@@ -198,6 +179,7 @@ namespace IgnoranceCore
                         }
                     }
 
+                    // If something outside the thread has told us to stop execution, then we need to break out of this while loop.
                     if (CeaseOperation)
                         break;
 
