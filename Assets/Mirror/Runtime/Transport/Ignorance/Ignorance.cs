@@ -72,7 +72,6 @@ namespace IgnoranceTransport
         public IgnoranceServerStats ServerStatistics;
         #endregion
 
-#if MIRROR_26_0_OR_NEWER
         public override bool Available()
         {
             // Ignorance is not available for Unity WebGL, the PS4 (no dev kit to confirm) or Switch (port exists but I have no access to said code).
@@ -139,14 +138,10 @@ namespace IgnoranceTransport
             ClientState = ConnectionState.Disconnected;
         }
 
-#if !MIRROR_37_0_OR_NEWER
-        public override void ClientSend(int channelId, ArraySegment<byte> segment)
-#else
         // v1.4.0b6: Mirror rearranged the ClientSend params, so we need to apply a fix for that or
         // we end up using the obsoleted version. The obsolete version isn't a fatal error, but
         // it's best to stick with the new structures.
         public override void ClientSend(ArraySegment<byte> segment, int channelId)
-#endif
         {
             if (Client == null)
             {
@@ -194,10 +189,6 @@ namespace IgnoranceTransport
             return Server != null && Server.IsAlive;
         }
 
-#if !MIRROR_37_0_OR_NEWER
-        // Workaround for legacy Mirror versions.
-        public override bool ServerDisconnect(int connectionId) => LegacyServerDisconnect(connectionId);
-#else
         // Current version Mirror server disconnection routine.
         public override void ServerDisconnect(int connectionId)
         {
@@ -218,7 +209,6 @@ namespace IgnoranceTransport
             // Pass the packet onto the thread for dispatch.
             Server.Commands.Enqueue(kickPacket);
         }
-#endif
 
         public override string ServerGetClientAddress(int connectionId)
         {
@@ -232,14 +222,10 @@ namespace IgnoranceTransport
                 return "(unavailable)";
         }
 
-#if !MIRROR_37_0_OR_NEWER
-        public override void ServerSend(int connectionId, int channelId, ArraySegment<byte> segment)
-#else
         // v1.4.0b6: Mirror rearranged the ServerSend params, so we need to apply a fix for that or
         // we end up using the obsoleted version. The obsolete version isn't a fatal error, but
         // it's best to stick with the new structures.
         public override void ServerSend(int connectionId, ArraySegment<byte> segment, int channelId)
-#endif
         {
             if (Server == null)
             {
@@ -706,29 +692,12 @@ namespace IgnoranceTransport
         #endregion
 
         // Mirror 46 (Mirror LTS) work arounds
-
-#if MIRROR_46_0_OR_NEWER
         public override int GetMaxPacketSize(int channelId = 0)
         {
             bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
             return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
         }
-#else
-        // UDP Recommended Max MTU = 1200.
-        // This fixes a weird compile error when updating, where Mirror 46 LTS complains about missing abstruct member or something.
-        // Shouldn't be needed, but whatever.
-        // Ignorance.cs(16,18): error CS0534: 'Ignorance' does not implement inherited abstract member 'Transport.GetMaxPacketSize(int)'
-        // FakeByte said it's not needed but apparently it is needed during the update process. Probably due to how Scripting Defines are
-		// added via the Mirror scripts.
 
-        public override int GetMaxPacketSize(int channelId = 0) => GetMaxBatchSize(channelId);
-
-        public int GetMaxBatchSize(int channelId)
-        {
-            bool isFragmentedAlready = ((PacketFlags)Channels[channelId] & ReliableOrUnreliableFragmented) > 0;
-            return isFragmentedAlready ? MaxAllowedPacketSize : 1200;
-        }
-#endif
         #region Internals
         private bool ignoreDataPackets;
         private string cachedConnectionAddress = string.Empty;
@@ -744,32 +713,5 @@ namespace IgnoranceTransport
         private float clientStatusUpdateTimer = 0f;
         private float serverStatusUpdateTimer = 0f;
         #endregion
-
-        #region Ignorance 1.4.x for Mirror Legacy Overrides
-#if !MIRROR_37_0_OR_NEWER
-        public bool LegacyMirror_ServerDisconnect(int connectionId)
-        {
-            if (Server == null)
-            {
-                Debug.LogError("Cannot enqueue kick packet; our Server object is null. Something has gone wrong.");
-                // Return here because otherwise we will get a NRE when trying to enqueue the kick packet.
-                return false;
-            }
-
-            // Enqueue the kick packet...
-            IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
-            {
-                Type = IgnoranceCommandType.ServerKickPeer,
-                PeerId = (uint)connectionId - 1 // ENet's native peer ID will be ConnID - 1
-            };
-
-            // Pass the packet onto the thread for dispatch.
-            Server.Commands.Enqueue(kickPacket);
-            return true;
-        }
-#endif
-        #endregion
-#endif
-
     }
 }
