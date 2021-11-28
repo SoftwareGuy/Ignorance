@@ -1,1 +1,0 @@
-Please do NOT remove the "_x86" part on the filename. It is used internally to let the ENet wrapper know we're wanting the 32Bit version of ENet.
