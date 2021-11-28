@@ -15,17 +15,17 @@ namespace IgnoranceCore
     [Serializable]
     public enum IgnoranceChannelTypes
     {
-        Reliable = PacketFlags.Reliable,                                        // TCP Emulation.
-        ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,   // TCP Emulation, but no sequencing.
-        Unreliable = PacketFlags.Unsequenced,                                   // Pure UDP.
+        Reliable = PacketFlags.Reliable,                                        // Reliable UDP (TCP-like emulation)
+        ReliableUnsequenced = PacketFlags.Reliable | PacketFlags.Unsequenced,   // Reliable UDP (TCP-like emulation w/o sequencing)
+        Unreliable = PacketFlags.Unsequenced,                                   // Pure UDP, high velocity packet action.
         UnreliableFragmented = PacketFlags.UnreliableFragmented,                // Pure UDP, but fragmented.
         UnreliableSequenced = PacketFlags.None,                                 // Pure UDP, but sequenced.
-        Unthrottled = PacketFlags.Unthrottled,                                  // Apparently ENet's version of Taco Bell.
+        Unthrottled = PacketFlags.Unthrottled,                                  // Pure UDP. Literally turbo mode.
     }
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0b13";
+        public const string Version = "1.4.0b14";
         public const string Scheme = "enet";
         public const string BindAnyAddress = "::0";
     }
@@ -65,9 +65,10 @@ namespace IgnoranceCore
         public uint PeerId;
     }
 
+    // Stats only - may not always be used!
     public struct IgnoranceClientStats
     {
-        // Stats only - may not always be used!
+        
         public uint RTT;
         public ulong BytesReceived;
         public ulong BytesSent;
@@ -86,9 +87,10 @@ namespace IgnoranceCore
         ServerStatusRequest
     }
 
+    // Stats only - may not always be used!
     public struct IgnoranceServerStats
     {
-        // Stats only - may not always be used!
+        
         public ulong BytesReceived;
         public ulong BytesSent;
         public ulong PacketsReceived;
@@ -98,12 +100,10 @@ namespace IgnoranceCore
         public Dictionary<int, IgnoranceClientStats> PeerStats;
     }
 
-    // TODO: Optimize struct for Cache performance.
     public struct PeerConnectionData
     {        
         public ushort Port;
         public uint NativePeerId;
-        // public bool IsOccupied;
         public string IP;
     }
 }

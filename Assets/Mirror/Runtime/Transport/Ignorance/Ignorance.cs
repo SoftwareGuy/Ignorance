@@ -126,6 +126,8 @@ namespace IgnoranceTransport
 
         public override void ClientDisconnect()
         {
+            ClientState = ConnectionState.Disconnecting;
+
             if (Client != null)
             {
                 // Fix for the Client commands RingBuffer not being initialized if we're in host mode.
@@ -134,13 +136,13 @@ namespace IgnoranceTransport
 
                 Client.Stop();
             }
+            else
+            {
+                throw new InvalidOperationException("Cannot disconnect the client instance. The Ignorance Client instance is null.");
+            }
 
-            ClientState = ConnectionState.Disconnected;
         }
 
-        // v1.4.0b6: Mirror rearranged the ClientSend params, so we need to apply a fix for that or
-        // we end up using the obsoleted version. The obsolete version isn't a fatal error, but
-        // it's best to stick with the new structures.
         public override void ClientSend(ArraySegment<byte> segment, int channelId)
         {
             if (Client == null)
@@ -159,6 +161,7 @@ namespace IgnoranceTransport
             Packet clientOutgoingPacket = default;
             int byteCount = segment.Count;
             int byteOffset = segment.Offset;
+
             // Set our desired flags...
             PacketFlags desiredFlags = (PacketFlags)Channels[channelId];
 
@@ -166,11 +169,10 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Warning: Client trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Ignorance Client: Trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             clientOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, desiredFlags);
-            // byteCount
 
             // Enqueue the packet.
             IgnoranceOutgoingPacket dispatchPacket = new IgnoranceOutgoingPacket
@@ -229,13 +231,13 @@ namespace IgnoranceTransport
         {
             if (Server == null)
             {
-                Debug.LogError("Ignorance Error: Cannot enqueue data packet; our Server object is null. Something has gone wrong.");
+                Debug.LogError("Ignorance Server: Cannot enqueue data packet; our Server object is null. Something has gone wrong.");
                 return;
             }
 
             if (channelId < 0 || channelId > Channels.Length)
             {
-                Debug.LogError("Ignorance Error: Channel ID is out of bounds.");
+                Debug.LogError("Ignorance Server: Channel ID is out of bounds.");
                 return;
             }
 
@@ -249,7 +251,7 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Nothing && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Ignorance Warning: Server trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Ignorance Server: Trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             serverOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, (PacketFlags)Channels[channelId]);
@@ -268,7 +270,7 @@ namespace IgnoranceTransport
         public override void ServerStart()
         {
             if (LogType != IgnoranceLogType.Nothing)
-                Debug.Log("Ignorance: Server Instance starting up...");
+                Debug.Log("Ignorance Server: Instance starting up...");
 
             InitializeServerBackend();
 
@@ -280,7 +282,7 @@ namespace IgnoranceTransport
             if (Server != null)
             {
                 if (LogType != IgnoranceLogType.Nothing)
-                    Debug.Log("Ignorance: Server Instance shutting down...");
+                    Debug.Log("Ignorance Server: Instance shutting down...");
 
                 Server.Stop();
             }
@@ -342,7 +344,7 @@ namespace IgnoranceTransport
         {
             if (Server == null)
             {
-                Debug.LogWarning("Ignorance: Server reference for Server mode was null. This shouldn't happen, but to be safe we'll attempt to reinitialize it.");
+                Debug.LogWarning("Ignorance Server: Reference for Server mode was null. This shouldn't happen, but to be safe we'll attempt to reinitialize it.");
                 Server = new IgnoranceServer();
             }
 
@@ -382,7 +384,7 @@ namespace IgnoranceTransport
         {
             if (Client == null)
             {
-                Debug.LogWarning("Ignorance: IgnoranceClient reference for Client mode was null. This shouldn't happen, but to be safe we'll reinitialize it.");
+                Debug.LogWarning("Ignorance Client: Backend instance reference was null. This shouldn't happen, but to be safe we'll reinitialize it.");
                 Client = new IgnoranceClient();
             }
 
@@ -497,7 +499,7 @@ namespace IgnoranceTransport
 
                 payload.Dispose();
 
-                OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);               
+                OnServerDataReceived?.Invoke(adjustedConnectionId, dataSegment, incomingPacket.Channel);
             }
 
             // Disconnection events.
