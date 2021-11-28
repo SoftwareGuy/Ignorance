@@ -1179,8 +1179,8 @@ namespace ENet
         #region Editor Specific Native Library Names
 #if UNITY_EDITOR
 #if UNITY_EDITOR_OSX
-		        // Unity Editor on macOS needs to use libenet.
-		        private const string nativeLibrary = "libenet";
+		// Unity Editor on macOS needs to use libenet.
+		private const string nativeLibrary = "libenet";
 #else
         // All other platforms should be using "enet".
         private const string nativeLibrary = "enet";
@@ -1197,9 +1197,6 @@ namespace ENet
 #elif __IOS__ || UNITY_IOS
             // We're building for a certain mobile fruity OS.
 		    private const string nativeLibrary = "__Internal";
-#elif UNITY_STANDALONE_LINUX && !UNITY_64
-            // 32bit Linux Server Support.
-            private const string nativeLibrary = "enet_x86";
 #else
     		// Assume everything else, Windows et al.		
 		    private const string nativeLibrary = "enet";
