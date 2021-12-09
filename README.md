@@ -2,14 +2,14 @@
   <img src="http://oiran.studio/images/ignorance14.png" alt="Ignorance 1.4 Logo"/>
 </p>
 
-Ignorance 1.4 Beta
+Ignorance 1.4 Long Term Support (LTS)
 =============
 [![Ko-Fi](https://img.shields.io/badge/Donate-Ko--Fi-red)](https://ko-fi.com/coburn) 
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue)](https://paypal.me/coburn64) 
 [![GitHub issues](https://img.shields.io/github/issues/SoftwareGuy/Ignorance.svg)](https://github.com/SoftwareGuy/Ignorance/issues)
 ![GitHub last commit](https://img.shields.io/github/last-commit/SoftwareGuy/Ignorance.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
 
-_I'd appreciate [a coffee](https://ko-fi.com/coburn) if you use this transport._
+_I'd appreciate [a coffee](https://ko-fi.com/coburn) if you use this transport in your project and you want to help keep my bills paid and lights on._
 
 _"Probably the fastest transport out there for Mirror..." - FSE_Vincenzo, 2021 (Mirror Discord)_
 
@@ -17,78 +17,32 @@ Ignorance is a high-performance UDP based transport that plugs into [Mirror Netw
 
 The benefit of Ignorance is that you can utilize channels which allow you to split up network communications. This allows you to have channels for data that are mission critical and must be sent out the door as quickly as possible as well as channels that can send slower non-essential data.
 
-**Mirror LTS v46.x or Mirror Mainline v46.x onwards required.** Ignorance 1.4.0 (Non-Beta) will not work with older Mirror versions.
-
-Documentation
+Long Term Support
 ------------
-See [DOCUMENTATION.md](https://github.com/SoftwareGuy/Ignorance/blob/master/DOCUMENTATION.md).
+After years of developing Ignorance and all the blood, stress and tears, it's time for me to put this transport into LTS status. **Does that mean I'm no longer working on this?** 
 
+No, Ignorance will continue to get updates. You will get support when you need it and I will try to keep it up to date with any breaking changes the Mirror transport interface.
 
-Ignorance Standalone
+This somewhat painful decision comes after a grave misunderstanding and over dramatization of an issue between myself and the Mirror project leader over petty things. I'll refrain from explaining it in full here but I have decided given the said persons' actions, I'm unwanted. And due to this, I've been slowly migrating away from Mirror for my own personal projects.
+
+If the said leader reads this, it's never too late to apologize. My door is open.
+
+Licensing
 ------------
-See [STANDALONE.md](https://github.com/SoftwareGuy/Ignorance/blob/master/STANDALONE.md).
+Ignorance is licensed under MIT license. However, there has been recent cases where other developers have been using the full Ignorance source or parts thereof, stripping the MIT licensing and slapping their own license on it instead.
 
-Licensing Warning
-------------
-Ignorance is licensed under MIT license. However, there has been recent cases where other developers have been using the full Ignorance source or parts thereof, stripping the MIT licensing and slapping their own license on it instead. This falls in violation of the MIT license as it clearly states that copyright notices must remain intact.
+This falls in violation of the MIT license as it clearly states that copyright notices must remain intact. In short, don't be a code thief and respect the MIT license.
 
-In short, don't be a code thief and respect the MIT license.
+Requirements
+-----------
+- Mirror LTS 46.x, Mirror from Asset Store or Mirror Master
+- Unity 2019 LTS minimum, Unity 2020 LTS recommended. Whatever the minimum is for Mirror will do, really
+- Basic knowledge of Unity Engine and Mirror Networking
 
-Ignorance with Mirror/Mirage/et al.
-------------
-Ignorance itself was **not** designed to be used outside of Mirror. However, you can utilize *Ignorance Standalone* to get the same performance but without the Mirror Transport bindings.  
-
-Mirage has it's own Ignorance NG port which is mantained by the Mirage team themselves.
-
-🐟-Net uses/used a mashed up version of Ignorance called *Fluidity*. For reasons that won't be disclosed here, do not report any Fludity bugs here.
-
-If you are using your own network stack or you are trying to plumb Ignorance to another networking solution that already exists, you are **much** better off using the [ENet-CSharp wrapper](https://github.com/SoftwareGuy/ENet-CSharp) to talk to ENet directly. You could also try Ignorance Standalone which is mentioned above.
-
-In short: Ignorance is not designed out of the box to work with anything other than Mirror (and by extension, Mirage if you count the port). Ignorance Standalone should work fine.
-
-
-Ignorance in Action
-------------
-
-- **If you own a copy of Population One, congrats.** That game uses Ignorance as its primary network transport layer. It also earns its spot into the first major game that is using Ignorance.
-
-- Ignorance was used in a "Vinesauce is Hope" walking simulation demo which had multiple server instances running with over 300 CCU each. [Video clips available here](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu).
-
-What devices are supported?
-------------
-
-**IMPORTANT: 32Bit Desktop Targets are NOT supported. Target 64Bit for Desktop or bust.**
-
-The native library, ENet, does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** 
-in the Unity Build Settings window. There are a lot of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
-
-**Supported platforms, out of the box:**
-
-- 64Bit Desktop Platforms (Windows, Mac, Linux), Android (ARMv7/ARM64) including VR devices and iOS (ARMv7/ARM64).
-
-- If ENet native can run on it and it's supported by Unity, you're good to go with Ignorance.
-
-**Other platforms that require some extra work:**
-
-- Consoles, like the Nintendo Switch, PlayStation 4 and PlayStation 5. I do not have development clearance to build the native library for these platforms, so they require additional work to get functioning.
-
-For more info, see the FAQ.
-
-
-Dependencies
-------------
-
-Please note that the repository doesn't include Mirror, instead it only provides you the Ignorance code.
-
-Make sure you have Mirror installed and up to date before installing Ignorance.
-
--   [ENet-CSharp](https://github.com/SoftwareGuy/ENet-CSharp): **Slightly modified version included**
-
--   [Mirror Networking](https://github.com/vis2k/Mirror): use the latest Asset Store release. Git Master also supported but not recommended.
+**Ignorance 1.4 LTS will not work with older Mirror versions.** You can backport 1.4 LTS to your older Mirror project, but that support is on you.
 
 Installation
 ------------
-
 Download the Unity Package from Releases that is the latest one. Simply import the Unity Package and Unity will do the rest. 
 Follow the instructions below. 
 
@@ -96,15 +50,54 @@ Alternatively you can use the code from the master branch, which is often up to 
 
 How to use
 ----------
-
 I have included two pre-configured sample scenes so you can get started easily. One is Pong, one is a copy paste with some modifications
 of Mirror's Basic scene. Otherwise add the script called **Ignorance** to your NetworkManager object, removing any TCP-based or other 
 UDP-based transport (ie. kcp2k). Then set the script to be used in NetworkManagers' "Transport" field.
 
-FAQ (aka Please Read This First)
---------------------------------
+Documentation
+------------
+See [DOCUMENTATION.md](https://github.com/SoftwareGuy/Ignorance/blob/master/DOCUMENTATION.md).
 
-See [FAQ.md](https://github.com/SoftwareGuy/Ignorance/blob/master/FAQ.md).
+For *Ignorance Standalone*, see [STANDALONE.md](https://github.com/SoftwareGuy/Ignorance/blob/master/STANDALONE.md).
+
+For the FAQ (aka Please Read This First), see [FAQ.md](https://github.com/SoftwareGuy/Ignorance/blob/master/FAQ.md).
+
+Ignorance with Mirage/et al.
+------------
+- Mirage users: You're better off using the new NanoSockets-powered Mirage Reliable UDP transport
+
+- FishNet users: Fluidity (the one you probably used) was a hacked and mashed up version of Ignorance. For reasons that won't be disclosed here, do not report any Fludity bugs here.
+
+- Other usages: Ignorance itself was **not** designed to be used outside of Mirror. However, you can utilize *Ignorance Standalone* to get the same performance but without the Mirror Transport bindings. 
+
+If you are using your own network stack or you are trying to plumb Ignorance to another networking solution that already exists, you are **much** better off using the [ENet-CSharp wrapper](https://github.com/SoftwareGuy/ENet-CSharp) to talk to ENet directly. You could also try Ignorance Standalone which is mentioned above.
+
+Ignorance in Action
+------------
+- **If you own a copy of Population One, congrats.** That game uses Ignorance as its primary network transport layer. It also earns its spot into the first major game that is using Ignorance.
+
+- Ignorance was used in a "Vinesauce is Hope" walking simulation demo which had multiple server instances running with over 300 CCU each. [Video clips available here](https://clips.twitch.tv/UglyColdbloodedAlfalfaAllenHuhu).
+
+What devices are supported?
+------------
+**IMPORTANT: 32Bit Desktop Targets are NOT supported. Target 64Bit for Desktop or bust.**
+
+The native library, ENet, does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** platform in the Unity Build Settings window. 
+There are a lot of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
+
+**Supported platforms, out of the box:**
+
+- 64Bit Desktop Platforms (Windows, Mac, Linux), Android (ARMv7/ARM64) including VR devices and iOS (ARMv7/ARM64).
+
+- If ENet native can run on it and it's supported by Unity, you're good to go with Ignorance.
+
+- **Apple M1 Device Users** must recompile ENet Native for their M1 processors. Using Ignorance straight out of the box will result not be able to load the x86_64 library on Apple Silicon.
+
+**Other platforms that require some extra work:**
+
+- Consoles like the Nintendo Switch, PlayStation 4 and PlayStation 5. I do not have development clearance to build the native library for these platforms, so they require additional work to get functioning.
+
+For more info, see the FAQ.
 
 I found a bug, where do I report it?
 --------------------------------
