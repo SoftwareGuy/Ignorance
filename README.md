@@ -23,7 +23,7 @@ After years of developing Ignorance and all the blood, stress and tears, it's ti
 
 No, Ignorance will continue to get updates. You will get support when you need it and I will try to keep it up to date with any breaking changes the Mirror transport interface.
 
-This somewhat painful decision comes after a grave misunderstanding and over dramatization of an issue between myself and the Mirror project leader over petty things. I'll refrain from explaining it in full here but I have decided given the said persons' actions, I'm unwanted. And due to this, I've been slowly migrating away from Mirror for my own personal projects.
+This somewhat painful decision comes after a grave misunderstanding and over dramatization of an issue between myself and the Mirror project leader over petty things. I'll refrain from explaining it in full here but I have decided given the said persons' actions, it's time for me to move on. There may be a time in the _near?_ future that I return to using Mirror for my projects, but for now I am focusing on what needs to be done: _actually making a game_.
 
 If the said leader reads this, it's never too late to apologize. My door is open.
 
