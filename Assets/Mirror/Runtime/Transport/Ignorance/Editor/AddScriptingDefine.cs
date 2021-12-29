@@ -18,7 +18,7 @@ namespace IgnoranceTransport
     [InitializeOnLoad]
     public class AddIgnoranceDefine : Editor
     {
-        private static bool debugThisShit = false;
+        private static bool debugMode = false;
         private static string existingDefines = string.Empty;
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace IgnoranceTransport
         {
             foreach(string s in DoNotRemoveTheseSymbols)
             {
-                if(debugThisShit)
+                if(debugMode)
                     UnityEngine.Debug.Log($"{s.Trim()} matches blacklist");
 
                 if (s == symbol.Trim()) return true;
@@ -89,7 +89,7 @@ namespace IgnoranceTransport
         {
             if (input.StartsWith("IGNORANCE") && !DoesSymbolExistInBlacklist(input))
             {
-                if (debugThisShit)
+                if (debugMode)
                     UnityEngine.Debug.Log($"{input.Trim()} is safe to remove");
 
                 return true;

@@ -121,7 +121,7 @@ namespace IgnoranceCore
                 Debug.Log("Ignorance Client: ENet Native successfully initialized.");
             else
             {
-                Debug.LogError("Ignorance Client: Failed to initialize ENet Native. This threads' fucked.");
+                Debug.LogError("Ignorance Client: Failed to initialize ENet Native. Aborting.");
                 return;
             }
 

@@ -137,7 +137,7 @@ namespace IgnoranceCore
             }
             else
             {
-                Debug.LogError("Ignorance Server: Failed to initialize ENet Native. This threads' fucked.");
+                Debug.LogError("Ignorance Server: Failed to initialize ENet Native. Aborting.");
                 return;
             }
 
