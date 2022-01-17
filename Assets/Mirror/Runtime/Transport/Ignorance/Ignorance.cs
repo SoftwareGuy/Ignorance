@@ -4,11 +4,11 @@
 // Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
 // Ignorance is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
-using System;
-using System.Collections.Generic;
 using ENet;
 using IgnoranceCore;
 using Mirror;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace IgnoranceTransport
@@ -76,7 +76,7 @@ namespace IgnoranceTransport
         {
             // Ignorance is not available for Unity WebGL, the PS4 (no dev kit to confirm) or Switch (port exists but I have no access to said code).
             // Ignorance is available for most other operating systems.
-#if (UNITY_WEBGL || UNITY_PS4 || UNITY_SWITCH)
+#if UNITY_WEBGL || UNITY_PS4 || UNITY_SWITCH
             return false;
 #else
             return true;
@@ -96,6 +96,8 @@ namespace IgnoranceTransport
 
         public override void ClientConnect(string address)
         {
+            Debug.LogWarning("ClientConnect has been fired");
+
             ClientState = ConnectionState.Connecting;
             cachedConnectionAddress = address;
 
@@ -126,10 +128,15 @@ namespace IgnoranceTransport
 
         public override void ClientDisconnect()
         {
-            ClientState = ConnectionState.Disconnecting;
-
+            // 2022-01-17 Fix issue ticket #83
             if (Client != null)
             {
+                // Ugh this feels like a ugly hack
+                // If we're host client for example, we don't need to run these routines.
+                if (!Client.IsAlive) return;
+
+                ClientState = ConnectionState.Disconnecting;
+
                 // Fix for the Client commands RingBuffer not being initialized if we're in host mode.
                 if (Client.Commands != null)
                     Client.Commands.Enqueue(new IgnoranceCommandPacket { Type = IgnoranceCommandType.ClientWantsToStop });
