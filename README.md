@@ -19,13 +19,9 @@ The benefit of Ignorance is that you can utilize channels which allow you to spl
 
 Long Term Support
 ------------
-After years of developing Ignorance and all the blood, stress and tears, it's time for me to put this transport into LTS status. **Does that mean I'm no longer working on this?** 
+Ignorance 1.4 is currently in Long Term Support, meaning that no new features are planned. Bug fixes are prioritized and will be addressed when I have free time.
 
-No, Ignorance will continue to get updates. You will get support when you need it and I will try to keep it up to date with any breaking changes the Mirror transport interface.
-
-This somewhat painful decision comes after a grave misunderstanding and over dramatization of an issue between myself and the Mirror project leader over petty things. I'll refrain from explaining it in full here but I have decided given the said persons' actions, it's time for me to move on. There may be a time in the _near?_ future that I return to using Mirror for my projects, but for now I am focusing on what needs to be done: _actually making a game_.
-
-If the said leader reads this, it's never too late to apologize. My door is open.
+If you have an urgent bug report, then you are encouraged to consider a sponsorship. This will allow me to take time away from my business activities and prioritize the bug report.
 
 Licensing
 ------------
