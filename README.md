@@ -60,12 +60,10 @@ For the FAQ (aka Please Read This First), see [FAQ.md](https://github.com/Softwa
 
 Ignorance with Mirage/et al.
 ------------
-- Mirage users: You're better off using the new NanoSockets-powered Mirage Reliable UDP transport
-
-- FishNet users: Fluidity (the one you probably used) was a hacked and mashed up version of Ignorance. For reasons that won't be disclosed here, do not report any Fludity bugs here.
-
-- Other usages: Ignorance itself was **not** designed to be used outside of Mirror. However, you can utilize *Ignorance Standalone* to get the same performance but without the Mirror Transport bindings. 
-
+- Mirage users: Please use the built-in UDP transport that ships with it.
+- FishNet users: Fludity was a hacked up version of Ignorance with its license stripped. It's been replaced with Tugboat.
+- Other network stacks: Ignorance was **not** designed to be used outside of Mirror. 
+ 
 If you are using your own network stack or you are trying to plumb Ignorance to another networking solution that already exists, you are **much** better off using the [ENet-CSharp wrapper](https://github.com/SoftwareGuy/ENet-CSharp) to talk to ENet directly. You could also try Ignorance Standalone which is mentioned above.
 
 Ignorance in Action
@@ -76,18 +74,15 @@ Ignorance in Action
 
 What devices are supported?
 ------------
-**IMPORTANT: 32Bit Desktop Targets are NOT supported. Target 64Bit for Desktop or bust.**
-
-The native library, ENet, does not support 32bit targets on desktop. To work around this, build your Unity project and target **x86_64** platform in the Unity Build Settings window. 
-There are a lot of other benefits to be using a 64bit runtime as well. If you cannot build for 64bit, open a support ticket.
+**IMPORTANT: 32bit Desktop targets are NOT supported. Macintoshes with the M1 (ARM64/AArch64) chip are also not supported. Rosetta *may* work though.**
 
 **Supported platforms, out of the box:**
 
-- 64Bit Desktop Platforms (Windows, Mac, Linux), Android (ARMv7/ARM64) including VR devices and iOS (ARMv7/ARM64).
+- 64Bit Desktop Platforms (Windows/Mac/Linux), Android (ARMv7/ARM64) including VR devices and iOS (ARMv7/ARM64).
 
 - If ENet native can run on it and it's supported by Unity, you're good to go with Ignorance.
 
-- **Apple M1 Device Users** must recompile ENet Native for their M1 processors. Using Ignorance straight out of the box will result not be able to load the x86_64 library on Apple Silicon.
+- **Apple M1 Device Users** must recompile ENet Native for their M1 processors. Using Ignorance straight out of the box will result not be able to load the x86_64 library on Apple Silicon. Rosetta may work, but no promises.
 
 **Other platforms that require some extra work:**
 
@@ -99,10 +94,9 @@ I found a bug, where do I report it?
 --------------------------------
 [Check the current open bug reports and/or report a new one here](https://github.com/SoftwareGuy/Ignorance/issues).
 
-Failing that you can always ping me in the Mirror Discord and I'll reply as soon as I can. Don't **excessively** ping me or you'll suffer my wrath. 
+Failing that you can always catch me on the Oiran Studio discord or Mirror discord. 
 
-Bugs that do not have enough details will be either closed or put as low priority. Details like your OS, Unity Editor version, any Ignorance errors, etc is essential for a good
-bug report.
+Bugs that do not have enough details will be either closed or put as low priority. Details like your OS, Unity Editor version, any Ignorance errors, etc is essential for a good bug report.
 
 ### I have other questions, I want answers.
 
