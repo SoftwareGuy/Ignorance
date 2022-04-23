@@ -31,8 +31,8 @@ This falls in violation of the MIT license as it clearly states that copyright n
 
 Requirements
 -----------
-- Mirror LTS 46.x, Mirror from Asset Store or Mirror Master
-- Unity 2019 LTS minimum, Unity 2020 LTS recommended. Whatever the minimum is for Mirror will do, really
+- Mirror, version 66 upwards
+- The minimum version of Unity required is what Mirror requires. I recommend Unity 2020 LTS.
 - Basic knowledge of Unity Engine and Mirror Networking
 
 **Ignorance 1.4 LTS will not work with older Mirror versions.** You can backport 1.4 LTS to your older Mirror project, but that support is on you.
