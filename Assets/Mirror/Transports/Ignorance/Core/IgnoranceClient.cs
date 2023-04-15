@@ -1,7 +1,7 @@
 // Ignorance 1.4.x LTS (Long Term Support)
 // https://github.com/SoftwareGuy/Ignorance
 // -----------------
-// Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
+// Copyright (c) 2019 - 2023 Matt Coburn (SoftwareGuy/Coburn64)
 // Ignorance is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 
