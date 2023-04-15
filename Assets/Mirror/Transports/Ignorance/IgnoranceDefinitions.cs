@@ -25,7 +25,7 @@ namespace IgnoranceCore
 
     public class IgnoranceInternals
     {
-        public const string Version = "1.4.0r2 (LTS)";
+        public const string Version = "1.4.1r0 (LTS)";
         public const string Scheme = "enet";
         public const string BindAnyAddress = "::0";
     }
