@@ -353,14 +353,19 @@ Assets/NotFucked.meta
 Assets/StreamingAssets.meta
 *.shadervariants
 *.shadervariants.meta
+Builds
+Logs
+*.bak
+*.bak.meta
 
-# Mirror shit
+# Mirror
 Assets/*.meta
 Assets/ScriptTemplates/
 Assets/ScriptTemplates.meta
 Assets/Mirror/Authenticators*
 Assets/Mirror/CompilerSymbols*
 Assets/Mirror/Components*
+Assets/Mirror/Core*
 Assets/Mirror/Editor*
 Assets/Mirror/Examples*
 Assets/Mirror/Icon*
@@ -373,15 +378,12 @@ Assets/Mirror/Runtime/*.cs
 Assets/Mirror/Runtime/*.meta
 Assets/Mirror/Runtime/Empty/*
 Assets/Mirror/Runtime/Logging*
-Assets/Mirror/Runtime/Transports/Telepathy*
-Assets/Mirror/Runtime/Transports/*
-
+# Do not exclude Ignorance folders.
 !Assets/Mirror/Runtime/Transports/Ignorance
 !Assets/Mirror/Runtime/Transports/Ignorance.*
-Builds
+# Exclude other transports.
+Assets/Mirror/Runtime/Transports/Telepathy*
+Assets/Mirror/Runtime/Transports/*
 Assets/Mirror/Runtime/Batching
 Assets/Mirror/Runtime/SnapshotInterpolation
-Assets/Mirror/Tests
-Logs
-*.bak
-*.bak.meta
+Assets/Mirror/Test
