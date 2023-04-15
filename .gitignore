@@ -378,12 +378,12 @@ Assets/Mirror/Runtime/*.cs
 Assets/Mirror/Runtime/*.meta
 Assets/Mirror/Runtime/Empty/*
 Assets/Mirror/Runtime/Logging*
+Assets/Mirror/Transports/*
 # Do not exclude Ignorance folders.
-!Assets/Mirror/Runtime/Transports/Ignorance
-!Assets/Mirror/Runtime/Transports/Ignorance.*
+!Assets/Mirror/Transports/Ignorance
+!Assets/Mirror/Transports/Ignorance.*
 # Exclude other transports.
-Assets/Mirror/Runtime/Transports/Telepathy*
-Assets/Mirror/Runtime/Transports/*
+
 Assets/Mirror/Runtime/Batching
 Assets/Mirror/Runtime/SnapshotInterpolation
 Assets/Mirror/Test
