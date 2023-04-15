@@ -19,20 +19,24 @@ namespace IgnoranceCore
 {
     public class IgnoranceClient
     {
-        // Client connection address and port
-        public string ConnectAddress = "127.0.0.1";
+        // Connection port
         public int ConnectPort = 7777;
         // How many channels are expected
         public int ExpectedChannels = 2;
-        // Native poll waiting time
-        public int PollTime = 1;
+        // Native Maximum Timeout (> 0 changes it)
+        public int MaxClientNativeTimeout = -1;
         // Maximum Packet Size
         public int MaximumPacketSize = 33554432;
+        // Native poll waiting time
+        public int PollTime = 1;
         // General Verbosity by default.
         public int Verbosity = 1;
         // Maximum ring buffer capacity.
         public int IncomingOutgoingBufferSize = 5000;
         public int ConnectionEventBufferSize = 100;
+        // Client connection address
+        public string ConnectAddress = "127.0.0.1";
+
         // Queues
         public RingBuffer<IgnoranceIncomingPacket> Incoming;
         public RingBuffer<IgnoranceOutgoingPacket> Outgoing;
@@ -63,6 +67,7 @@ namespace IgnoranceCore
                 Address = ConnectAddress,
                 Port = ConnectPort,
                 Channels = ExpectedChannels,
+                MaxNativeTimeout = MaxClientNativeTimeout > 0 ? MaxClientNativeTimeout : 0,
                 PollTime = PollTime,
                 PacketSizeLimit = MaximumPacketSize,
                 Verbosity = Verbosity
@@ -138,6 +143,13 @@ namespace IgnoranceCore
 
                     Debug.Log($"Ignorance: Client worker thread attempting connection to '{setupInfo.Address}:{setupInfo.Port}'.");
                     clientPeer = clientHost.Connect(clientAddress, setupInfo.Channels);
+
+                    // Apply the custom native timeout if needed.
+                    if(setupInfo.MaxNativeTimeout > 0)
+                    {
+                        clientPeer.Timeout(Library.timeoutLimit, Library.timeoutMinimum, (uint)MaxClientNativeTimeout * 1000);
+                    }
+
                 }
                 catch (Exception ex)
                 {
@@ -346,6 +358,7 @@ namespace IgnoranceCore
         {
             public int Channels;
             public int PollTime;
+            public int MaxNativeTimeout;
             public int Port;
             public int PacketSizeLimit;
             public int Verbosity;
