@@ -1,7 +1,7 @@
 // Ignorance 1.4.x LTS (Long Term Support)
 // https://github.com/SoftwareGuy/Ignorance
 // -----------------
-// Copyright (c) 2019 - 2021 Matt Coburn (SoftwareGuy/Coburn64)
+// Copyright (c) 2019 - 2023 Matt Coburn (SoftwareGuy/Coburn64)
 // Ignorance is licensed under the MIT license. Refer
 // to the LICENSE file for more information.
 using ENet;
@@ -33,14 +33,18 @@ namespace IgnoranceTransport
         public string serverBindAddress = string.Empty;
         [Tooltip("How many peers native ENet will support. Low sane numbers help performance, avoids looping over huge native arrays. Recommended: maximum Mirror players, rounded to nearest 10. (Example: 16 -> 20).")]
         public int serverMaxPeerCapacity = 64;
-        [Tooltip("Server network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
+        [Tooltip("Server network performance/CPU utilization trade off. Lower numbers may yield better performance at the cost of more CPU. This value is in milliseconds.")]
         public int serverMaxNativeWaitTime = 1;
         [Tooltip("Interval between asking ENet for server status updates. Set to <= 0 to disable.")]
         public int serverStatusUpdateInterval = 0;
 
         [Header("Client Configuration")]
-        [Tooltip("Client network performance/CPU utilization trade off. Lower numbers = Better performance, more CPU. Higher numbers = Potentially lower performance, less CPU. (Value is in milliseconds)")]
-        public int clientMaxNativeWaitTime = 3;
+        [Tooltip("Client network performance/CPU utilization trade off. Lower numbers may yield better performance at the cost of more CPU. This value is in milliseconds.")]
+        public int clientMaxNativeWaitTime = 1;
+        [Tooltip("Will the client instance use a custom timeout value?")]
+        public bool clientUseCustomNativeTimeout = false;
+        [Tooltip("Controls how long will Ignorance wait in a potential timeout scenario. Value in seconds.")]
+        public int clientMaxNativeTimeout = 15;
         [Tooltip("Interval between asking ENet for client status updates. Set to <= 0 to disable.")]
         public int clientStatusUpdateInterval = 0;
 
@@ -48,22 +52,28 @@ namespace IgnoranceTransport
         [Tooltip("You must define your channels in the array shown here, otherwise ENet will not know what channel delivery type to use.")]
         public IgnoranceChannelTypes[] Channels;
 
-        [Header("Ring Buffer Tweaking")]
-        [Tooltip("[Client Only] Capacity of the incoming and outgoing ring buffers. If the ring buffer is full, it will spin waiting for a free slot in the buffer. Test and increase as required. This value translates to packets per second under a worse-case scenario.")]
-        public int ClientDataBufferSize = 1000;
-        [Tooltip("[Client Only] Capacity of the connection event buffer. This is probably best to keep small as connection events are literally minimal in Mirror.")]
-        public int ClientConnEventBufferSize = 10;
-
-        [Tooltip("[Server Only] Capacity of Server Incoming/Outgoing ring buffers. If the ring buffer is full, it will spin waiting for a free slot in the RingBuffer. Test and increase as required. This value translates to packets per second under a worse-case scenario.\n\n" +
+        [Header("Server RingBuffer Finetuning")]
+        [Tooltip("[Server Only] Capacity of Server Incoming/Outgoing ring buffers. If the ring buffer is full, it will spin waiting for a free slot in the RingBuffer. " +
+            "Test and increase as required. This value translates to packets per second under a worse-case scenario.\n\n" +
             "Unlike the client value, it is recommended that you keep this resonably high as servers process more network IO than clients.")]
         public int ServerDataBufferSize = 5000;
         [Tooltip("[Server Only] Defines the capacity of server connection event buffer. This is probably best to keep moderately small unless you expect to have a large influx of users connecting/disconnecting at once.")]
         public int ServerConnEventBufferSize = 100;
 
-        [Header("Danger: I hope you know what you're doing!")]
-        [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused. If you have large packets, change this to something larger. Default is 4096 bytes (4KB).")]
+
+        [Header("Client RingBuffer Finetuning")]
+        [Tooltip("[Client Only] Capacity of the incoming and outgoing ring buffers. If the ring buffer is full, it will spin waiting for a free slot in the buffer. Test and increase as required. This value translates to packets per second under a worse-case scenario.")]
+        public int ClientDataBufferSize = 1000;
+        [Tooltip("[Client Only] Capacity of the connection event buffer. This is probably best to keep small as connection events are literally minimal in Mirror.")]
+        public int ClientConnEventBufferSize = 10;
+
+        // Warranty Void Beyond This Point
+        [Header("Danger: You may void your new Ignorance warranty!")]        
+        [Tooltip("Used internally to keep allocations to a minimum. This is how much memory will be consumed by the packet buffer on startup, and then reused. " +
+            "If you have large packets, change this to something larger. Default is 4096 bytes (4KB).")]
         public int PacketBufferCapacity = 4096;
-        [Tooltip("For UDP based protocols, it's best to keep your data under the safe MTU of 1200 bytes. This is the maximum allowed packet size, however note that internally ENet can only go to 32MB.")]
+        [Tooltip("For UDP, it's best to keep your data under the safe MTU of 1200 bytes. This is the maximum allowed packet size, however note that internally ENet can only go to 32MB. " +
+            "You may need to reconsider your networking logic if you're sending huge amounts of data to your clients via the transport.")]
         public int MaxAllowedPacketSize = 33554432;
         #endregion
 
@@ -74,8 +84,8 @@ namespace IgnoranceTransport
 
         public override bool Available()
         {
-            // Ignorance is not available for Unity WebGL, the PS4 (no dev kit to confirm) or Switch (port exists but I have no access to said code).
-            // Ignorance is available for most other operating systems.
+            // Ignorance is not available for Unity WebGL or other consoles as I have no real
+            // interest in porting it to them. Ignorance is available for desktop and mobile though.
 #if UNITY_WEBGL || UNITY_PS4 || UNITY_PS5 || UNITY_SWITCH
             return false;
 #else
@@ -177,7 +187,8 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Quiet && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Ignorance: Client tried to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Ignorance: Client tried to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). " +
+                    $"ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             clientOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, desiredFlags);
@@ -259,7 +270,8 @@ namespace IgnoranceTransport
             bool flagsSet = (desiredFlags & ReliableOrUnreliableFragmented) > 0;
 
             if (LogType != IgnoranceLogType.Quiet && byteCount > 1200 && !flagsSet)
-                Debug.LogWarning($"Ignorance Server: Trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). ENet will force Reliable Fragmented delivery.");
+                Debug.LogWarning($"Ignorance Server: Trying to send a Unreliable packet bigger than the recommended ENet 1200 byte MTU ({byteCount} > 1200). " +
+                    $"ENet will force Reliable Fragmented delivery.");
 
             // Create the packet.
             serverOutgoingPacket.Create(segment.Array, byteOffset, byteCount + byteOffset, (PacketFlags)Channels[channelId]);
@@ -323,19 +335,23 @@ namespace IgnoranceTransport
                 // Check to make sure that Channel 0 and 1 are correct.             
                 if (Channels[0] != IgnoranceChannelTypes.Reliable)
                 {
-                    Debug.LogWarning("Please do not modify Ignorance Channel 0. The channel will be reset to Reliable delivery. If you need a channel with a different delivery, define and use it instead.");
+                    Debug.LogWarning("Please do not modify Ignorance Channel 0. The channel will be reset to Reliable delivery. " +
+                        "If you need a channel with a different delivery, define and use it instead.");
                     Channels[0] = IgnoranceChannelTypes.Reliable;
                 }
 
                 if (Channels[1] != IgnoranceChannelTypes.Unreliable)
                 {
-                    Debug.LogWarning("Please do not modify Ignorance Channel 1. The channel will be reset to Unreliable delivery. If you need a channel with a different delivery, define and use it instead.");
+                    Debug.LogWarning("Please do not modify Ignorance Channel 1. The channel will be reset to Unreliable delivery. " +
+                        "If you need a channel with a different delivery, define and use it instead.");
                     Channels[1] = IgnoranceChannelTypes.Unreliable;
                 }
             }
             else
             {
-                Debug.LogWarning("Invalid Channels setting, fixing. If you've just added Ignorance to your NetworkManager GameObject, seeing this message is normal.");
+                Debug.LogWarning("Invalid Channels setting, fixing. If you've just added Ignorance to your NetworkManager GameObject, " +
+                    "seeing this message is normal.");
+
                 Channels = new IgnoranceChannelTypes[2]
                 {
                     IgnoranceChannelTypes.Reliable,
@@ -352,7 +368,8 @@ namespace IgnoranceTransport
         {
             if (Server == null)
             {
-                Debug.LogWarning("Ignorance Server: Reference for Server mode was null. This shouldn't happen, but to be safe we'll attempt to reinitialize it.");
+                Debug.LogWarning("Ignorance Server: Reference for Server mode was null. This shouldn't happen, but to be safe we'll " +
+                    "attempt to reinitialize it.");
                 Server = new IgnoranceServer();
             }
 
@@ -661,6 +678,7 @@ namespace IgnoranceTransport
         #endregion
 
         #region Main Thread Processing and Polling - Mirror Flavour
+        // TODO: Review this as may not be needed in newer Mirror versions??
 #if IGNORANCE_MIRROR_POLLING
         public override void ClientEarlyUpdate()
         {
