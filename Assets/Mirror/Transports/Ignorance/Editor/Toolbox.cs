@@ -16,7 +16,7 @@ namespace IgnoranceTransport
         public static void RevealEnetLibraryName()
         {
             EditorUtility.DisplayDialog("ENet Library Name", $"Your platform expects the native library to be called: {ENet.Native.nativeLibraryName}.\n\n" +
-                $"This info is very useful when trying to diagnose issues with DLL loading.", "Got it");
+                $"This info is very useful when trying to diagnose issues with native library loading.", "Got it");
         }
 
         [MenuItem("Ignorance/RTFM/Github Repo")]
