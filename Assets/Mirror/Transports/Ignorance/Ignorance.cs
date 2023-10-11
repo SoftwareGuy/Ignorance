@@ -9,6 +9,7 @@ using IgnoranceCore;
 using Mirror;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using UnityEngine;
 
 namespace IgnoranceTransport
@@ -320,6 +321,18 @@ namespace IgnoranceTransport
             };
 
             return builder.Uri;
+        }
+
+        public IPEndPoint GetLocalEndPoint()
+        {
+            if (Server != null)
+            {
+                return new IPEndPoint(IPAddress.Parse(Server.BindAddress), Server.BindPort);
+            }
+            else
+            {
+                return new IPEndPoint(IPAddress.Parse(Client.BindAddress), Client.BindPort);
+            }
         }
 
         public override void Shutdown()
