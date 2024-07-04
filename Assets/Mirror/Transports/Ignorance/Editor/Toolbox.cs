@@ -12,13 +12,14 @@ namespace IgnoranceTransport
     public class Toolbox
     {
 #pragma warning disable IDE0051
+    /* - 2024-07-04: Commented this out since some C# ENet glue update broke it.
         [MenuItem("Ignorance/Debug/Native Library Name")]
         public static void RevealEnetLibraryName()
         {
             EditorUtility.DisplayDialog("ENet Library Name", $"Your platform expects the native library to be called: {ENet.Native.nativeLibraryName}.\n\n" +
                 $"This info is very useful when trying to diagnose issues with native library loading.", "Got it");
         }
-
+    */    
         [MenuItem("Ignorance/RTFM/Github Repo")]
         private static void LaunchGithubRepo()
         {
