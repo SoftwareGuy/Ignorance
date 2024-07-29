@@ -36,6 +36,29 @@ namespace IgnoranceCore
         public int ConnectionEventBufferSize = 100;
         // Client connection address
         public string ConnectAddress = "127.0.0.1";
+        // The local end-point that the client connects from
+        public bool BindToRandomLocalEndPoint = true;
+        private string UnsafeBindAddress = "127.0.0.1";
+        public string BindAddress {
+            get {
+                lock (BindAddressLock) return UnsafeBindAddress;
+            }
+            set {
+                lock (BindAddressLock) UnsafeBindAddress = value;
+            }
+        }
+        private ushort UnsafeBindPort = 0;
+        public ushort BindPort
+        {
+            get
+            {
+                lock (BindPortLock) return UnsafeBindPort;
+            }
+            set
+            {
+                lock (BindPortLock) UnsafeBindPort = value;
+            }
+        }
 
         // Queues
         public RingBuffer<IgnoranceIncomingPacket> Incoming;
@@ -48,6 +71,9 @@ namespace IgnoranceCore
 
         private volatile bool CeaseOperation = false;
         private Thread WorkerThread;
+
+        private object BindAddressLock = new object();
+        private object BindPortLock = new object();
 
         public void Start()
         {
@@ -70,7 +96,10 @@ namespace IgnoranceCore
                 MaxNativeTimeout = MaxClientNativeTimeout > 0 ? MaxClientNativeTimeout : 0,
                 PollTime = PollTime,
                 PacketSizeLimit = MaximumPacketSize,
-                Verbosity = Verbosity
+                Verbosity = Verbosity,
+                BindToRandomLocalEndPoint = BindToRandomLocalEndPoint,
+                BindAddress = UnsafeBindAddress,
+                BindPort = UnsafeBindPort
             };
 
             // Drain queues.
@@ -139,13 +168,31 @@ namespace IgnoranceCore
             {
                 try
                 {
-                    clientHost.Create();
+                    if (BindToRandomLocalEndPoint)
+                    {
+                        clientHost.Create();
+                    }
+                    else
+                    {
+                        Address explicitBindAddress = new Address();
+                        explicitBindAddress.SetHost(setupInfo.BindAddress);
+                        explicitBindAddress.Port = (ushort)setupInfo.BindPort;
+                        clientHost.Create(explicitBindAddress, 1);
+                    }
 
                     Debug.Log($"Ignorance: Client worker thread attempting connection to '{setupInfo.Address}:{setupInfo.Port}'.");
                     clientPeer = clientHost.Connect(clientAddress, setupInfo.Channels);
 
+                    if (setupInfo.BindToRandomLocalEndPoint)
+                    {
+                        // Store the local endpoint, useful for implementing port-forwarding, nat traversal, ice, turn, stun, etc.
+                        // This is thread safe since the properties lock
+                        BindAddress = clientPeer.IP;
+                        BindPort = clientPeer.Port;
+                    }
+
                     // Apply the custom native timeout if needed.
-                    if(setupInfo.MaxNativeTimeout > 0)
+                    if (setupInfo.MaxNativeTimeout > 0)
                     {
                         clientPeer.Timeout(Library.timeoutLimit, Library.timeoutMinimum, (uint)MaxClientNativeTimeout * 1000);
                     }
@@ -356,6 +403,9 @@ namespace IgnoranceCore
 
         private struct ThreadParamInfo
         {
+            public bool BindToRandomLocalEndPoint;
+            public string BindAddress;
+            public int BindPort;
             public int Channels;
             public int PollTime;
             public int MaxNativeTimeout;
