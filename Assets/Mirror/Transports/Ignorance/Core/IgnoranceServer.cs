@@ -57,6 +57,11 @@ namespace IgnoranceCore
 
         public void Start()
         {
+            // If a previous worker was told to stop but hasn't finished winding down yet, give it a moment to exit
+            // rather than refusing to start (Stop() is asynchronous).
+            if (WorkerThread != null && WorkerThread.IsAlive && CeaseOperation)
+                WorkerThread.Join(5000);
+
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
                 // Cannot do that.
@@ -82,8 +87,9 @@ namespace IgnoranceCore
             };
 
             // Drain queues.
-            if (Incoming != null) while (Incoming.TryDequeue(out _)) ;
-            if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
+            // Packets wrap native memory, so they must be disposed rather than just discarded.
+            if (Incoming != null) while (Incoming.TryDequeue(out IgnoranceIncomingPacket stale)) stale.Payload.Dispose();
+            if (Outgoing != null) while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket stale)) stale.Payload.Dispose();
             if (Commands != null) while (Commands.TryDequeue(out _)) ;
             if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _)) ;
             if (DisconnectionEvents != null) while (DisconnectionEvents.TryDequeue(out _)) ;
@@ -203,7 +209,7 @@ namespace IgnoranceCore
                             case IgnoranceCommandType.ServerKickPeer:
                                 uint targetPeer = commandPacket.PeerId;
 
-                                if (!serverPeerArray[targetPeer].IsSet) continue;
+                                if (targetPeer >= serverPeerArray.Length || !serverPeerArray[targetPeer].IsSet) continue;
 
                                 if (setupInfo.Verbosity > 0)
                                     Debug.Log($"Ignorance: Server instance is disconnecting peer {targetPeer}.");
@@ -261,15 +267,24 @@ namespace IgnoranceCore
                     while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket outgoingPacket))
                     {
                         // Only create a packet if the server knows the peer.
-                        if (serverPeerArray[outgoingPacket.NativePeerId].IsSet)
+                        if (outgoingPacket.NativePeerId < serverPeerArray.Length && serverPeerArray[outgoingPacket.NativePeerId].IsSet)
                         {
                             int ret = serverPeerArray[outgoingPacket.NativePeerId].Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
 
-                            if (ret < 0 && setupInfo.Verbosity > 0)
-                                Debug.LogWarning($"Ignorance: Server instance ENet error {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
+                            if (ret < 0)
+                            {
+                                // ENet only takes ownership of the packet on success, so we must free it ourselves.
+                                outgoingPacket.Payload.Dispose();
+
+                                if (setupInfo.Verbosity > 0)
+                                    Debug.LogWarning($"Ignorance: Server instance ENet error {ret} while sending packet to Peer {outgoingPacket.NativePeerId}.");
+                            }
                         }
                         else
                         {
+                            // Nobody to send it to, so free the native packet.
+                            outgoingPacket.Payload.Dispose();
+
                             // A peer might have disconnected, this is OK - just log the packet if set to paranoid.
                             if (setupInfo.Verbosity > 1)
                                 Debug.LogWarning("Ignorance: Server instance can't send packet, a native peer object is not set. This may be normal if the Peer has disconnected before this send cycle.");
@@ -383,6 +398,10 @@ namespace IgnoranceCore
 
                 if (Verbosity > 0)
                     Debug.Log("Ignorance: Server instance thread shutdown commencing. Flushing connections.");
+
+                // Free any packets that were queued for sending but never made it to ENet.
+                while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket unsent))
+                    unsent.Payload.Dispose();
 
                 // Cleanup and flush everything.
                 serverENetHost.Flush();

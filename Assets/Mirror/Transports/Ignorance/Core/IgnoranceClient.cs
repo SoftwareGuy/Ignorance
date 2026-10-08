@@ -51,6 +51,11 @@ namespace IgnoranceCore
 
         public void Start()
         {
+            // If a previous worker was told to stop but hasn't finished winding down yet, give it a moment to exit
+            // rather than refusing to start (Stop() is asynchronous).
+            if (WorkerThread != null && WorkerThread.IsAlive && CeaseOperation)
+                WorkerThread.Join(5000);
+
             if (WorkerThread != null && WorkerThread.IsAlive)
             {
                 // Cannot do that.
@@ -74,8 +79,9 @@ namespace IgnoranceCore
             };
 
             // Drain queues.
-            if (Incoming != null) while (Incoming.TryDequeue(out _)) ;
-            if (Outgoing != null) while (Outgoing.TryDequeue(out _)) ;
+            // Packets wrap native memory, so they must be disposed rather than just discarded.
+            if (Incoming != null) while (Incoming.TryDequeue(out IgnoranceIncomingPacket stale)) stale.Payload.Dispose();
+            if (Outgoing != null) while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket stale)) stale.Payload.Dispose();
             if (Commands != null) while (Commands.TryDequeue(out _)) ;
             if (ConnectionEvents != null) while (ConnectionEvents.TryDequeue(out _)) ;
             if (StatusUpdates != null) while (StatusUpdates.TryDequeue(out _)) ;
@@ -147,7 +153,7 @@ namespace IgnoranceCore
                     // Apply the custom native timeout if needed.
                     if(setupInfo.MaxNativeTimeout > 0)
                     {
-                        clientPeer.Timeout(Library.timeoutLimit, Library.timeoutMinimum, (uint)MaxClientNativeTimeout * 1000);
+                        clientPeer.Timeout(Library.timeoutLimit, Library.timeoutMinimum, (uint)setupInfo.MaxNativeTimeout * 1000);
                     }
 
                 }
@@ -207,8 +213,14 @@ namespace IgnoranceCore
 
                         int ret = clientPeer.Send(outgoingPacket.Channel, ref outgoingPacket.Payload);
 
-                        if (ret < 0 && setupInfo.Verbosity > 0)
-                            Debug.LogWarning($"Ignorance: ENet error {ret} while sending packet to Server via Peer {outgoingPacket.NativePeerId}.");
+                        if (ret < 0)
+                        {
+                            // ENet only takes ownership of the packet on success, so we must free it ourselves.
+                            outgoingPacket.Payload.Dispose();
+
+                            if (setupInfo.Verbosity > 0)
+                                Debug.LogWarning($"Ignorance: ENet error {ret} while sending packet to Server via Peer {outgoingPacket.NativePeerId}.");
+                        }
                     }
 
                     // If something outside the thread has told us to stop execution, then we need to break out of this while loop.
@@ -311,6 +323,10 @@ namespace IgnoranceCore
 
                 if (Verbosity > 0)
                     Debug.Log("Ignorance: Client worker thread shutdown commencing. Disconnecting and flushing connection.");
+
+                // Free any packets that were queued for sending but never made it to ENet.
+                while (Outgoing.TryDequeue(out IgnoranceOutgoingPacket unsent))
+                    unsent.Payload.Dispose();
 
                 // Flush the client and disconnect.
                 clientPeer.Disconnect(0);
