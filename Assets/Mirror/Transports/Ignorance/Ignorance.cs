@@ -169,7 +169,7 @@ namespace IgnoranceTransport
                 return;
             }
 
-            if (channelId < 0 || channelId > Channels.Length)
+            if (channelId < 0 || channelId >= Channels.Length)
             {
                 Debug.LogError("Channel ID is out of bounds.");
                 return;
@@ -220,6 +220,12 @@ namespace IgnoranceTransport
                 return;
             }
 
+            if (connectionId < 1)
+            {
+                Debug.LogError($"Ignorance Server: Invalid connection ID {connectionId}, cannot disconnect.");
+                return;
+            }
+
             // Enqueue the kick packet.
             IgnoranceCommandPacket kickPacket = new IgnoranceCommandPacket
             {
@@ -233,7 +239,7 @@ namespace IgnoranceTransport
 
         public override string ServerGetClientAddress(int connectionId)
         {
-            if (peerConnectionData == null)
+            if (peerConnectionData == null || connectionId < 1 || connectionId > peerConnectionData.Length)
                 return "(unavailable)";
 
             // Need to adjust the string...
@@ -254,9 +260,16 @@ namespace IgnoranceTransport
                 return;
             }
 
-            if (channelId < 0 || channelId > Channels.Length)
+            if (channelId < 0 || channelId >= Channels.Length)
             {
                 Debug.LogError("Ignorance Server: Channel ID is out of bounds.");
+                return;
+            }
+
+            // Mirror connection IDs start at 1 (ENet native peer ID + 1). Anything lower would wrap the uint below.
+            if (connectionId < 1)
+            {
+                Debug.LogError($"Ignorance Server: Invalid connection ID {connectionId}, cannot send.");
                 return;
             }
 
@@ -307,7 +320,10 @@ namespace IgnoranceTransport
                 Server.Stop();
             }
 
-            peerConnectionData = null;
+            // Don't null this: the worker may still be flushing and queue events can still be pending for ServerPump.
+            // It is reallocated in InitializeServerBackend on the next start.
+            if (peerConnectionData != null)
+                Array.Clear(peerConnectionData, 0, peerConnectionData.Length);
         }
 
         public override Uri ServerUri()
@@ -422,6 +438,7 @@ namespace IgnoranceTransport
             Client.ConnectPort = port;
             Client.ExpectedChannels = Channels.Length;
             Client.PollTime = clientMaxNativeWaitTime;
+            Client.MaxClientNativeTimeout = clientUseCustomNativeTimeout ? clientMaxNativeTimeout : -1;
             Client.MaximumPacketSize = MaxAllowedPacketSize;
             Client.Verbosity = (int)LogType;
 
@@ -492,12 +509,15 @@ namespace IgnoranceTransport
 
                 // Cache that peer.
                 // NOTE: We cache the peers native id and do some magic later.
-                peerConnectionData[(int)connectionEvent.NativePeerId] = new PeerConnectionData
+                if (peerConnectionData != null && connectionEvent.NativePeerId < peerConnectionData.Length)
                 {
-                    IP = connectionEvent.IP,
-                    NativePeerId = connectionEvent.NativePeerId,
-                    Port = connectionEvent.Port
-                };
+                    peerConnectionData[(int)connectionEvent.NativePeerId] = new PeerConnectionData
+                    {
+                        IP = connectionEvent.IP,
+                        NativePeerId = connectionEvent.NativePeerId,
+                        Port = connectionEvent.Port
+                    };
+                }
 
                 OnServerConnected?.Invoke(adjustedConnectionId);
             }
@@ -537,7 +557,8 @@ namespace IgnoranceTransport
                 adjustedConnectionId = (int)disconnectionEvent.NativePeerId + 1;
 
                 // The array is no longer occupied.
-                peerConnectionData[(int)connectionEvent.NativePeerId] = default;
+                if (peerConnectionData != null && disconnectionEvent.NativePeerId < peerConnectionData.Length)
+                    peerConnectionData[(int)disconnectionEvent.NativePeerId] = default;
 
                 if (LogType == IgnoranceLogType.Verbose)
                     Debug.Log($"Ignorance Server: Handling disconnection event from native peer {disconnectionEvent.NativePeerId}.");
@@ -608,7 +629,10 @@ namespace IgnoranceTransport
                 {
                     if (LogType == IgnoranceLogType.Verbose)
                         Debug.Log("Ignorance: Client ProcessClientPackets cycle skipped; ignoring data packet");
-                    break;
+
+                    // Free the native packet, and keep draining so nothing is left stranded in the queue.
+                    incomingPacket.Payload.Dispose();
+                    continue;
                 }
 
 
